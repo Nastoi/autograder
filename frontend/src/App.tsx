@@ -1,32 +1,74 @@
-// frontend/src/App.tsx
+import {
+  BrowserRouter,
+  Navigate,
+  Route,
+  Routes,
+} from "react-router";
 
-import { BrowserRouter, Route, Routes } from "react-router";
+import { ProtectedRoute } from "./auth/ProtectedRoute";
+import { LoginPage } from "./pages/LoginPage";
+import { ResultPage } from "./pages/ResultPage";
+import { SubmissionPage } from "./pages/SubmissionPage";
+import { DashboardPage } from "./pages/DashboardPage";
+import { AssessmentMappingsPage } from "./pages/AssessmentMappingsPage";
+import { CreateAssessmentMappingPage } from "./pages/CreateAssessmentMappingPage";
+import { QualificationsPage } from "./pages/QualificationsPage";
 
-function HomePage() {
-  return <h1>AutoGrader</h1>;
-}
-
-function SubmissionPage() {
-  return <h1>Submit Assignment</h1>;
-}
-
-function ResultPage() {
-  return <h1>Grading Result</h1>;
-}
+const TEST_CONTEXT_ID =
+  "72b85e24-ecda-4cda-965a-e771e91c3592";
 
 export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<HomePage />} />
+        <Route path="/login" element={<LoginPage />} />
+
+        <Route element={<ProtectedRoute />}>
+          <Route
+            path="/dashboard"
+            element={<DashboardPage />}
+          />
+          <Route
+            path="/submit/:contextId"
+            element={<SubmissionPage />}
+          />
+
+          <Route
+            path="/results/:submissionId"
+            element={<ResultPage />}
+          />
+
+          <Route
+            path="/admin/mappings"
+            element={<AssessmentMappingsPage />}
+          />
+
+          <Route
+            path="/admin/mappings/new"
+            element={<CreateAssessmentMappingPage />}
+          />
+          <Route
+            path="/admin/qualifications"
+            element={<QualificationsPage />}
+          />
+        </Route>
+
         <Route
-          path="/learner/submit/:assignmentId"
-          element={<SubmissionPage />}
+          path="/"
+          element={
+            <Navigate
+              to={`/submit/${TEST_CONTEXT_ID}`}
+              replace
+            />
+          }
         />
+
         <Route
-          path="/learner/results/:submissionId"
-          element={<ResultPage />}
+          path="*"
+          element={<Navigate to="/login" replace />}
         />
+
+
       </Routes>
     </BrowserRouter>
   );
