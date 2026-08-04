@@ -1,26 +1,67 @@
 from django.urls import path
 
 from .views import (
-    AssignmentLevelListView,
-    CohortListView,
+    AssignmentLevelDetailView,
+    AssignmentLevelListCreateView,
+    CohortDetailView,
+    CohortListCreateView,
+    ModuleAssignmentDetailView,
+    ModuleAssignmentListCreateView,
+    ModuleDetailView,
+    ModuleListCreateView,
+    QualificationDetailView,
     QualificationListCreateView,
 )
 
-
 urlpatterns = [
     path(
+        "qualifications/",
+        QualificationListCreateView.as_view(),
+        name="qualification-list-create",
+    ),
+    path(
+        "qualifications/<uuid:id>/",
+        QualificationDetailView.as_view(),
+        name="qualification-detail",
+    ),
+    path(
+        "modules/",
+        ModuleListCreateView.as_view(),
+        name="module-list-create",
+    ),
+    path(
+        "modules/<uuid:id>/",
+        ModuleDetailView.as_view(),
+        name="module-detail",
+    ),
+    path(
         "cohorts/",
-        CohortListView.as_view(),
-        name="cohort-list",
+        CohortListCreateView.as_view(),
+        name="cohort-list-create",
+    ),
+    path(
+        "cohorts/<int:id>/",
+        CohortDetailView.as_view(),
+        name="cohort-detail",
+    ),
+    path(
+        "assignments/",
+        ModuleAssignmentListCreateView.as_view(),
+        name="assignment-list-create",
+    ),
+    path(
+        "assignments/<uuid:id>/",
+        ModuleAssignmentDetailView.as_view(),
+        name="assignment-detail",
     ),
     path(
         "assignment-levels/",
-        AssignmentLevelListView.as_view(),
-        name="assignment-level-list",
+        AssignmentLevelListCreateView.as_view(),
+        name="assignment-level-list-create",
     ),
     path(
-    "qualifications/",
-    QualificationListCreateView.as_view(),
-    name="qualification-list-create",
-),
+        "assignment-levels/<uuid:id>/",
+        AssignmentLevelDetailView.as_view(),
+        name="assignment-level-detail",
+    ),
 ]
