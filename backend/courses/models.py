@@ -51,8 +51,8 @@ class Module(models.Model):
     description = models.TextField(blank=True)
     is_active = models.BooleanField(default=True)
 
-    created_at = models.DateTimeField()
-    updated_at = models.DateTimeField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         db_table = "module"
@@ -147,8 +147,8 @@ class ModuleAssignment(models.Model):
 
     is_active = models.BooleanField(default=True)
 
-    created_at = models.DateTimeField()
-    updated_at = models.DateTimeField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         db_table = "module_assignment"
@@ -219,8 +219,8 @@ class AssignmentLevel(models.Model):
 
     is_active = models.BooleanField(default=True)
 
-    created_at = models.DateTimeField()
-    updated_at = models.DateTimeField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         db_table = "assignment_level"

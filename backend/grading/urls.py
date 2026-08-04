@@ -1,0 +1,54 @@
+from django.urls import include, path
+
+from .views import (
+    AIGradingProfileDetailView,
+    AIGradingProfileListCreateView,
+    GradingConfigurationDetailView,
+    GradingConfigurationListCreateView,
+    RubricBandDetailView,
+    RubricBandListCreateView,
+    RubricCriterionDetailView,
+    RubricCriterionListCreateView,
+)
+urlpatterns = [
+    path(
+        "configurations/",
+        GradingConfigurationListCreateView.as_view(),
+        name="grading-configuration-list-create",
+    ),
+    path(
+        "configurations/<uuid:id>/",
+        GradingConfigurationDetailView.as_view(),
+        name="grading-configuration-detail",
+    ),
+    path(
+    "rubric-criteria/",
+    RubricCriterionListCreateView.as_view(),
+    name="rubric-criterion-list-create",
+),
+path(
+    "rubric-criteria/<uuid:id>/",
+    RubricCriterionDetailView.as_view(),
+    name="rubric-criterion-detail",
+),
+path(
+    "rubric-bands/",
+    RubricBandListCreateView.as_view(),
+    name="rubric-band-list-create",
+),
+path(
+    "rubric-bands/<uuid:id>/",
+    RubricBandDetailView.as_view(),
+    name="rubric-band-detail",
+),
+path(
+    "ai-grading-profiles/",
+    AIGradingProfileListCreateView.as_view(),
+    name="ai-grading-profile-list-create",
+),
+path(
+    "ai-grading-profiles/<uuid:id>/",
+    AIGradingProfileDetailView.as_view(),
+    name="ai-grading-profile-detail",
+),
+]
