@@ -1,3 +1,4 @@
+import "../css/AssessmentMappings.css";
 import {
   useEffect,
   useState,
@@ -190,34 +191,51 @@ const activeGradingConfigurations =
 
 
   if (isLoading) {
-    return <main>Loading assignment levels...</main>;
+    return <main className="admin-container">Loading assignment levels...</main>;
   }
 
   return (
-    <main>
-      <h1>Assignment levels</h1>
+    <main className="admin-container">
+      <div className="admin-header">
+                <h1>Assignment levels</h1>
+            </div>
 
-      {error && <p role="alert">{error}</p>}
+      {error && <p role="alert" className="error-message">{error}</p>}
 
       <section>
         <h2>Setup status</h2>
 
-        <p>Qualifications: {qualifications.length}</p>
-        <p>Modules: {modules.length}</p>
-        <p>Assignments: {assignments.length}</p>
-        <p>
-          Grading configurations:{" "}
-          {gradingConfigurations.length}
-        </p>
-        <p>Assignment levels: {levels.length}</p>
+        <div className="status-grid">
+          <div className="status-card">
+              <span className="status-label">Qualifications</span>
+              <span className="status-value">{qualifications.length}</span>
+            </div>
+          <div className="status-card">
+              <span className="status-label">Modules</span>
+              <span className="status-value">{modules.length}</span>
+            </div>
+          <div className="status-card">
+              <span className="status-label">Assignments</span>
+              <span className="status-value">{assignments.length}</span>
+            </div>
+          <div className="status-card">
+              <span className="status-label">Grading configurations</span>
+              <span className="status-value">{" "}
+          {gradingConfigurations.length}</span>
+            </div>
+          <div className="status-card">
+              <span className="status-label">Assignment levels</span>
+              <span className="status-value">{levels.length}</span>
+            </div>
+        </div>
       </section>
 
 
         <section>
-  <h2>Add assignment level</h2>
+  <h2 style={{ marginBottom: "16px", color: "white" }}>Add assignment level</h2>
 
-  <form onSubmit={handleSubmit}>
-    <div>
+  <form onSubmit={handleSubmit} className="modern-form">
+    <div className="form-group">
       <label htmlFor="level-qualification">
         Qualification
       </label>
@@ -247,7 +265,7 @@ const activeGradingConfigurations =
       </select>
     </div>
 
-    <div>
+    <div className="form-group">
       <label htmlFor="level-module">Module</label>
 
       <select
@@ -270,7 +288,7 @@ const activeGradingConfigurations =
       </select>
     </div>
 
-    <div>
+    <div className="form-group">
       <label htmlFor="level-assignment">
         Assignment
       </label>
@@ -299,7 +317,7 @@ const activeGradingConfigurations =
       </select>
     </div>
 
-    <div>
+    <div className="form-group">
       <label htmlFor="level-grading-configuration">
         Grading configuration
       </label>
@@ -332,7 +350,7 @@ const activeGradingConfigurations =
       </select>
     </div>
 
-    <div>
+    <div className="form-group">
       <label htmlFor="level-code">Level</label>
 
       <select
@@ -361,7 +379,7 @@ const activeGradingConfigurations =
       </select>
     </div>
 
-    <div>
+    <div className="form-group">
       <label htmlFor="level-display-name">
         Display name
       </label>
@@ -376,7 +394,7 @@ const activeGradingConfigurations =
       />
     </div>
 
-    <div>
+    <div className="form-group">
       <label htmlFor="level-title">Title</label>
 
       <input
@@ -389,7 +407,7 @@ const activeGradingConfigurations =
       />
     </div>
 
-    <div>
+    <div className="form-group">
       <label htmlFor="level-instructions">
         Instructions
       </label>
@@ -403,7 +421,7 @@ const activeGradingConfigurations =
       />
     </div>
 
-    <div>
+    <div className="form-group">
       <label htmlFor="level-tasks">
         Tasks
       </label>
@@ -418,7 +436,7 @@ const activeGradingConfigurations =
       />
     </div>
 
-    <div>
+    <div className="form-group">
       <label htmlFor="level-deliverables">
         Deliverables
       </label>
@@ -433,7 +451,7 @@ const activeGradingConfigurations =
       />
     </div>
 
-    <div>
+    <div className="form-group">
       <label htmlFor="level-expected-outcome">
         Expected outcome
       </label>
@@ -447,7 +465,7 @@ const activeGradingConfigurations =
       />
     </div>
 
-    <div>
+    <div className="form-group">
       <label htmlFor="level-version">
         Version
       </label>
@@ -464,7 +482,7 @@ const activeGradingConfigurations =
       />
     </div>
 
-    <div>
+    <div className="form-group">
       <label htmlFor="level-status">
         Configuration status
       </label>
@@ -485,7 +503,7 @@ const activeGradingConfigurations =
       </select>
     </div>
 
-    <label>
+    <label className="checkbox-group">
       <input
         type="checkbox"
         checked={isActive}
@@ -496,28 +514,30 @@ const activeGradingConfigurations =
       Active
     </label>
 
-    {error && <p role="alert">{error}</p>}
+    {error && <p role="alert" className="error-message">{error}</p>}
 
-    <button
-      type="submit"
-      disabled={
-        isSubmitting ||
-        !qualificationId ||
-        !moduleId ||
-        !assignmentId ||
-        !gradingConfigurationId
-      }
-    >
-      {isSubmitting
-        ? "Creating..."
-        : "Add assignment level"}
-    </button>
+    <div className="form-actions">
+                        <button
+                              type="submit"
+                              disabled={
+                                isSubmitting ||
+                                !qualificationId ||
+                                !moduleId ||
+                                !assignmentId ||
+                                !gradingConfigurationId
+                              }
+                             className="btn-primary">
+                              {isSubmitting
+                                ? "Creating..."
+                                : "Add assignment level"}
+                            </button>
+                    </div>
   </form>
 </section>
 
 
       <section>
-        <h2>Existing assignment levels</h2>
+        <h2 style={{ marginBottom: "16px", color: "white" }}>Existing assignment levels</h2>
 
         {levels.length === 0 ? (
           <p>
@@ -525,47 +545,49 @@ const activeGradingConfigurations =
             assignment after a grading configuration exists.
           </p>
         ) : (
-          <table>
-            <thead>
-              <tr>
-                <th>Qualification</th>
-                <th>Module</th>
-                <th>Assignment</th>
-                <th>Level</th>
-                <th>Display name</th>
-                <th>Grading configuration</th>
-                <th>Version</th>
-                <th>Configuration status</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {levels.map((level) => (
-                <tr key={level.id}>
-                  <td>{level.qualification_code}</td>
-                  <td>{level.module_code}</td>
-                  <td>
-                    {level.assignment_code} —{" "}
-                    {level.assignment_title}
-                  </td>
-                  <td>{level.level_code}</td>
-                  <td>{level.display_name}</td>
-                  <td>
-                    {level.grading_configuration_code} —{" "}
-                    {level.grading_configuration_name}
-                  </td>
-                  <td>{level.version}</td>
-                  <td>{level.configuration_status}</td>
-                  <td>
-                    {level.is_active
-                      ? "Active"
-                      : "Inactive"}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="table-container">
+                        <table className="modern-table">
+                                    <thead>
+                                      <tr>
+                                        <th>Qualification</th>
+                                        <th>Module</th>
+                                        <th>Assignment</th>
+                                        <th>Level</th>
+                                        <th>Display name</th>
+                                        <th>Grading configuration</th>
+                                        <th>Version</th>
+                                        <th>Configuration status</th>
+                                        <th>Status</th>
+                                      </tr>
+                                    </thead>
+                        
+                                    <tbody>
+                                      {levels.map((level) => (
+                                        <tr key={level.id}>
+                                          <td>{level.qualification_code}</td>
+                                          <td>{level.module_code}</td>
+                                          <td>
+                                            {level.assignment_code} —{" "}
+                                            {level.assignment_title}
+                                          </td>
+                                          <td>{level.level_code}</td>
+                                          <td>{level.display_name}</td>
+                                          <td>
+                                            {level.grading_configuration_code} —{" "}
+                                            {level.grading_configuration_name}
+                                          </td>
+                                          <td>{level.version}</td>
+                                          <td>{level.configuration_status}</td>
+                                          <td>
+                                            {level.is_active
+                                              ? "Active"
+                                              : "Inactive"}
+                                          </td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                    </div>
         )}
       </section>
     </main>

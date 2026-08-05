@@ -1,3 +1,4 @@
+import "../css/AssessmentMappings.css";
 import {
   useEffect,
   useState,
@@ -137,31 +138,38 @@ const [isSubmitting, setIsSubmitting] =
 
 
   if (isLoading) {
-    return <main>Loading AI grading profiles...</main>;
+    return <main className="admin-container">Loading AI grading profiles...</main>;
   }
 
   return (
-    <main>
-      <h1>AI grading profiles</h1>
+    <main className="admin-container">
+      <div className="admin-header">
+                <h1>AI grading profiles</h1>
+            </div>
 
-      {error && <p role="alert">{error}</p>}
+      {error && <p role="alert" className="error-message">{error}</p>}
 
       <section>
         <h2>Setup status</h2>
 
-        <p>
-          Assignment levels: {assignmentLevels.length}
-        </p>
-
-        <p>AI grading profiles: {profiles.length}</p>
+        <div className="status-grid">
+          <div className="status-card">
+              <span className="status-label">Assignment levels</span>
+              <span className="status-value">{assignmentLevels.length}</span>
+            </div>
+          <div className="status-card">
+              <span className="status-label">AI grading profiles</span>
+              <span className="status-value">{profiles.length}</span>
+            </div>
+        </div>
       </section>
 
 
     <section>
-  <h2>Add AI grading profile</h2>
+  <h2 style={{ marginBottom: "16px", color: "white" }}>Add AI grading profile</h2>
 
-  <form onSubmit={handleSubmit}>
-    <div>
+  <form onSubmit={handleSubmit} className="modern-form">
+    <div className="form-group">
       <label htmlFor="ai-profile-assignment-level">
         Assignment level
       </label>
@@ -188,7 +196,7 @@ const [isSubmitting, setIsSubmitting] =
       </select>
     </div>
 
-    <div>
+    <div className="form-group">
       <label htmlFor="ai-profile-name">
         Profile name
       </label>
@@ -203,7 +211,7 @@ const [isSubmitting, setIsSubmitting] =
       />
     </div>
 
-    <div>
+    <div className="form-group">
       <label htmlFor="ai-system-prompt">
         System prompt
       </label>
@@ -219,7 +227,7 @@ const [isSubmitting, setIsSubmitting] =
       />
     </div>
 
-    <div>
+    <div className="form-group">
       <label htmlFor="ai-output-schema">
         Output schema
       </label>
@@ -235,7 +243,7 @@ const [isSubmitting, setIsSubmitting] =
       />
     </div>
 
-    <div>
+    <div className="form-group">
       <label htmlFor="ai-temperature">
         Temperature
       </label>
@@ -254,7 +262,7 @@ const [isSubmitting, setIsSubmitting] =
       />
     </div>
 
-    <div>
+    <div className="form-group">
       <label htmlFor="ai-model-provider">
         Model provider
       </label>
@@ -269,7 +277,7 @@ const [isSubmitting, setIsSubmitting] =
       />
     </div>
 
-    <div>
+    <div className="form-group">
       <label htmlFor="ai-model-name">
         Model name
       </label>
@@ -284,7 +292,7 @@ const [isSubmitting, setIsSubmitting] =
       />
     </div>
 
-    <label>
+    <label className="checkbox-group">
       <input
         type="checkbox"
         checked={isActive}
@@ -295,25 +303,27 @@ const [isSubmitting, setIsSubmitting] =
       Active
     </label>
 
-    {error && <p role="alert">{error}</p>}
+    {error && <p role="alert" className="error-message">{error}</p>}
 
-    <button
-      type="submit"
-      disabled={
-        isSubmitting ||
-        !assignmentLevelId
-      }
-    >
-      {isSubmitting
-        ? "Creating..."
-        : "Add AI grading profile"}
-    </button>
+    <div className="form-actions">
+                        <button
+                              type="submit"
+                              disabled={
+                                isSubmitting ||
+                                !assignmentLevelId
+                              }
+                             className="btn-primary">
+                              {isSubmitting
+                                ? "Creating..."
+                                : "Add AI grading profile"}
+                            </button>
+                    </div>
   </form>
 </section>
 
 
       <section>
-        <h2>Existing AI grading profiles</h2>
+        <h2 style={{ marginBottom: "16px", color: "white" }}>Existing AI grading profiles</h2>
 
         {profiles.length === 0 ? (
           <p>
@@ -321,46 +331,48 @@ const [isSubmitting, setIsSubmitting] =
             assignment level first.
           </p>
         ) : (
-          <table>
-            <thead>
-              <tr>
-                <th>Assignment</th>
-                <th>Level</th>
-                <th>Profile</th>
-                <th>Provider</th>
-                <th>Model</th>
-                <th>Temperature</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {profiles.map((profile) => (
-                <tr key={profile.id}>
-                  <td>
-                    {profile.assignment_code} —{" "}
-                    {profile.assignment_title}
-                  </td>
-
-                  <td>{profile.level_display_name}</td>
-
-                  <td>{profile.profile_name}</td>
-
-                  <td>{profile.model_provider}</td>
-
-                  <td>{profile.model_name}</td>
-
-                  <td>{profile.temperature}</td>
-
-                  <td>
-                    {profile.is_active
-                      ? "Active"
-                      : "Inactive"}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="table-container">
+                        <table className="modern-table">
+                                    <thead>
+                                      <tr>
+                                        <th>Assignment</th>
+                                        <th>Level</th>
+                                        <th>Profile</th>
+                                        <th>Provider</th>
+                                        <th>Model</th>
+                                        <th>Temperature</th>
+                                        <th>Status</th>
+                                      </tr>
+                                    </thead>
+                        
+                                    <tbody>
+                                      {profiles.map((profile) => (
+                                        <tr key={profile.id}>
+                                          <td>
+                                            {profile.assignment_code} —{" "}
+                                            {profile.assignment_title}
+                                          </td>
+                        
+                                          <td>{profile.level_display_name}</td>
+                        
+                                          <td>{profile.profile_name}</td>
+                        
+                                          <td>{profile.model_provider}</td>
+                        
+                                          <td>{profile.model_name}</td>
+                        
+                                          <td>{profile.temperature}</td>
+                        
+                                          <td>
+                                            {profile.is_active
+                                              ? "Active"
+                                              : "Inactive"}
+                                          </td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                    </div>
         )}
       </section>
     </main>

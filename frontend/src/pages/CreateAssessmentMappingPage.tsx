@@ -5,6 +5,8 @@ import {
 } from "react";
 import { useNavigate } from "react-router";
 
+import "../css/AssessmentMappings.css";
+
 import {
     createAssessmentMapping,
     getAssignmentLevels,
@@ -123,17 +125,19 @@ export function CreateAssessmentMappingPage() {
     }
 
     if (isLoading) {
-        return <main>Loading mapping form...</main>;
+        return <main className="admin-container">Loading mapping form...</main>;
     }
 
     return (
-        <main>
-            <h1>Create assessment mapping</h1>
+        <main className="admin-container">
+            <div className="admin-header">
+                <h1>Create assessment mapping</h1>
+            </div>
 
-            <form onSubmit={handleSubmit}>
+            <form onSubmit={handleSubmit} className="modern-form">
 
 
-                <div>
+                <div className="form-group">
                     <label htmlFor="cohort">
                         Cohort
                     </label>
@@ -167,7 +171,7 @@ export function CreateAssessmentMappingPage() {
                     </select>
                 </div>
 
-                <div>
+                <div className="form-group">
                     <label htmlFor="assignment-level">
                         Assignment level
                     </label>
@@ -205,8 +209,8 @@ export function CreateAssessmentMappingPage() {
                 </div>
 
 
-                <div>
-                    <label>
+                <div className="form-group">
+                    <label className="checkbox-group">
                         <input
                             type="checkbox"
                             checked={isActive}
@@ -218,26 +222,30 @@ export function CreateAssessmentMappingPage() {
                     </label>
                 </div>
 
-                {error && <p role="alert">{error}</p>}
+                {error && <p role="alert" style={{ color: "#f87171" }}>{error}</p>}
 
-                <button
-                    type="submit"
-                    disabled={isSubmitting}
-                >
-                    {isSubmitting
-                        ? "Creating..."
-                        : "Create mapping"}
-                </button>
+                <div className="form-actions">
+                    <button
+                        type="submit"
+                        className="btn-primary"
+                        disabled={isSubmitting}
+                    >
+                        {isSubmitting
+                            ? "Creating..."
+                            : "Create mapping"}
+                    </button>
 
-                <button
-                    type="button"
-                    onClick={() =>
-                        navigate("/admin/mappings")
-                    }
-                    disabled={isSubmitting}
-                >
-                    Cancel
-                </button>
+                    <button
+                        type="button"
+                        className="btn-secondary"
+                        onClick={() =>
+                            navigate("/admin/mappings")
+                        }
+                        disabled={isSubmitting}
+                    >
+                        Cancel
+                    </button>
+                </div>
             </form>
         </main>
     );

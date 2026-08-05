@@ -1,3 +1,4 @@
+import "../css/AssessmentMappings.css";
 import {
   useEffect,
   useState,
@@ -190,18 +191,20 @@ export function ModulesPage() {
   }
 
   if (isLoading) {
-    return <main>Loading modules...</main>;
+    return <main className="admin-container">Loading modules...</main>;
   }
 
   return (
-    <main>
-      <h1>Modules</h1>
+    <main className="admin-container">
+      <div className="admin-header">
+                <h1>Modules</h1>
+            </div>
 
       <section>
-        <h2>Add module</h2>
+        <h2 style={{ marginBottom: "16px", color: "white" }}>Add module</h2>
 
-        <form onSubmit={handleSubmit}>
-          <div>
+        <form onSubmit={handleSubmit} className="modern-form">
+          <div className="form-group">
             <label htmlFor="module-qualification">
               Qualification
             </label>
@@ -229,7 +232,7 @@ export function ModulesPage() {
             </select>
           </div>
 
-          <div>
+          <div className="form-group">
             <label htmlFor="module-code">Code</label>
 
             <input
@@ -242,7 +245,7 @@ export function ModulesPage() {
             />
           </div>
 
-          <div>
+          <div className="form-group">
             <label htmlFor="module-name">Name</label>
 
             <input
@@ -255,7 +258,7 @@ export function ModulesPage() {
             />
           </div>
 
-          <div>
+          <div className="form-group">
             <label htmlFor="module-description">
               Description
             </label>
@@ -269,7 +272,7 @@ export function ModulesPage() {
             />
           </div>
 
-          <label>
+          <label className="checkbox-group">
             <input
               type="checkbox"
               checked={isActive}
@@ -280,182 +283,186 @@ export function ModulesPage() {
             Active
           </label>
 
-          {error && <p role="alert">{error}</p>}
+          {error && <p role="alert" className="error-message">{error}</p>}
 
-          <button
-            type="submit"
-            disabled={isSubmitting}
-          >
-            {isSubmitting
-              ? "Creating..."
-              : "Add module"}
-          </button>
+          <div className="form-actions">
+                        <button
+                                    type="submit"
+                                    disabled={isSubmitting}
+                                   className="btn-primary">
+                                    {isSubmitting
+                                      ? "Creating..."
+                                      : "Add module"}
+                                  </button>
+                    </div>
         </form>
       </section>
 
       <section>
-        <h2>Existing modules</h2>
+        <h2 style={{ marginBottom: "16px", color: "white" }}>Existing modules</h2>
 
         {modules.length === 0 ? (
           <p>No modules found.</p>
         ) : (
-          <table>
-            <thead>
-              <tr>
-                <th>Qualification</th>
-                <th>Code</th>
-                <th>Name</th>
-                <th>Description</th>
-                <th>Status</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {modules.map((module) => {
-                const isEditing =
-                  editingId === module.id;
-
-                return (
-                  <tr key={module.id}>
-                    <td>
-                      {isEditing ? (
-                        <select
-                          value={editQualificationId}
-                          onChange={(event) =>
-                            setEditQualificationId(
-                              event.target.value,
-                            )
-                          }
-                        >
-                          {qualifications.map(
-                            (qualification) => (
-                              <option
-                                key={qualification.id}
-                                value={qualification.id}
-                              >
-                                {qualification.code}
-                              </option>
-                            ),
-                          )}
-                        </select>
-                      ) : (
-                        module.qualification_code
-                      )}
-                    </td>
-
-                    <td>
-                      {isEditing ? (
-                        <input
-                          value={editCode}
-                          onChange={(event) =>
-                            setEditCode(event.target.value)
-                          }
-                        />
-                      ) : (
-                        module.code
-                      )}
-                    </td>
-
-                    <td>
-                      {isEditing ? (
-                        <input
-                          value={editName}
-                          onChange={(event) =>
-                            setEditName(event.target.value)
-                          }
-                        />
-                      ) : (
-                        module.name
-                      )}
-                    </td>
-
-                    <td>
-                      {isEditing ? (
-                        <textarea
-                          value={editDescription}
-                          onChange={(event) =>
-                            setEditDescription(
-                              event.target.value,
-                            )
-                          }
-                        />
-                      ) : (
-                        module.description || "—"
-                      )}
-                    </td>
-
-                    <td>
-                      {module.is_active
-                        ? "Active"
-                        : "Inactive"}
-                    </td>
-
-                    <td>
-                      {isEditing ? (
-                        <>
-                          <button
-                            type="button"
-                            disabled={isSaving}
-                            onClick={() =>
-                              void saveModule(module.id)
-                            }
-                          >
-                            {isSaving
-                              ? "Saving..."
-                              : "Save"}
-                          </button>
-
-                          <button
-                            type="button"
-                            disabled={isSaving}
-                            onClick={cancelEditing}
-                          >
-                            Cancel
-                          </button>
-                        </>
-                      ) : (
-                        <>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              beginEditing(module)
-                            }
-                          >
-                            Edit
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() =>
-                              void toggleModuleStatus(
-                                module,
-                              )
-                            }
-                          >
-                            {module.is_active
-                              ? "Deactivate"
-                              : "Activate"}
-                          </button>
-
-                          {module.can_delete && (
-                            <button
-                              type="button"
-                              onClick={() =>
-                                void removeModule(module)
-                              }
-                            >
-                              Delete
-                            </button>
-                          )}
-                        </>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+          <div className="table-container">
+                        <table className="modern-table">
+                                    <thead>
+                                      <tr>
+                                        <th>Qualification</th>
+                                        <th>Code</th>
+                                        <th>Name</th>
+                                        <th>Description</th>
+                                        <th>Status</th>
+                                        <th>Actions</th>
+                                      </tr>
+                                    </thead>
+                        
+                                    <tbody>
+                                      {modules.map((module) => {
+                                        const isEditing =
+                                          editingId === module.id;
+                        
+                                        return (
+                                          <tr key={module.id}>
+                                            <td>
+                                              {isEditing ? (
+                                                <select
+                                                  value={editQualificationId}
+                                                  onChange={(event) =>
+                                                    setEditQualificationId(
+                                                      event.target.value,
+                                                    )
+                                                  }
+                                                >
+                                                  {qualifications.map(
+                                                    (qualification) => (
+                                                      <option
+                                                        key={qualification.id}
+                                                        value={qualification.id}
+                                                      >
+                                                        {qualification.code}
+                                                      </option>
+                                                    ),
+                                                  )}
+                                                </select>
+                                              ) : (
+                                                module.qualification_code
+                                              )}
+                                            </td>
+                        
+                                            <td>
+                                              {isEditing ? (
+                                                <input
+                                                  value={editCode}
+                                                  onChange={(event) =>
+                                                    setEditCode(event.target.value)
+                                                  }
+                                                />
+                                              ) : (
+                                                module.code
+                                              )}
+                                            </td>
+                        
+                                            <td>
+                                              {isEditing ? (
+                                                <input
+                                                  value={editName}
+                                                  onChange={(event) =>
+                                                    setEditName(event.target.value)
+                                                  }
+                                                />
+                                              ) : (
+                                                module.name
+                                              )}
+                                            </td>
+                        
+                                            <td>
+                                              {isEditing ? (
+                                                <textarea
+                                                  value={editDescription}
+                                                  onChange={(event) =>
+                                                    setEditDescription(
+                                                      event.target.value,
+                                                    )
+                                                  }
+                                                />
+                                              ) : (
+                                                module.description || "—"
+                                              )}
+                                            </td>
+                        
+                                            <td>
+                                              {module.is_active
+                                                ? "Active"
+                                                : "Inactive"}
+                                            </td>
+                        
+                                            <td>
+                                              {isEditing ? (
+                                                <>
+                                                  <button
+                                                    type="button"
+                                                    disabled={isSaving}
+                                                    onClick={() =>
+                                                      void saveModule(module.id)
+                                                    }
+                                                  >
+                                                    {isSaving
+                                                      ? "Saving..."
+                                                      : "Save"}
+                                                  </button>
+                        
+                                                  <button
+                                                    type="button"
+                                                    disabled={isSaving}
+                                                    onClick={cancelEditing}
+                                                  >
+                                                    Cancel
+                                                  </button>
+                                                </>
+                                              ) : (
+                                                <>
+                                                  <button
+                                                    type="button"
+                                                    onClick={() =>
+                                                      beginEditing(module)
+                                                    }
+                                                  >
+                                                    Edit
+                                                  </button>
+                        
+                                                  <button
+                                                    type="button"
+                                                    onClick={() =>
+                                                      void toggleModuleStatus(
+                                                        module,
+                                                      )
+                                                    }
+                                                  >
+                                                    {module.is_active
+                                                      ? "Deactivate"
+                                                      : "Activate"}
+                                                  </button>
+                        
+                                                  {module.can_delete && (
+                                                    <button
+                                                      type="button"
+                                                      onClick={() =>
+                                                        void removeModule(module)
+                                                      }
+                                                    >
+                                                      Delete
+                                                    </button>
+                                                  )}
+                                                </>
+                                              )}
+                                            </td>
+                                          </tr>
+                                        );
+                                      })}
+                                    </tbody>
+                                  </table>
+                    </div>
         )}
       </section>
     </main>

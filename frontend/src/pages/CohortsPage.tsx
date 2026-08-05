@@ -13,6 +13,7 @@ import {
   type Module,
   type Qualification,
 } from "../api/lms";
+import "../css/AssessmentMappings.css";
 
 export function CohortsPage() {
   const [cohorts, setCohorts] = useState<Cohort[]>([]);
@@ -56,12 +57,16 @@ export function CohortsPage() {
       setCohorts(cohortData);
       setModules(moduleData);
       setQualifications(qualificationData);
-    } catch (caughtError) {
-      setError(
-        caughtError instanceof Error
-          ? caughtError.message
-          : "Unable to load cohorts.",
-      );
+    } catch (caughtError: any) {
+      if (caughtError instanceof SyntaxError && caughtError.message.includes('Unexpected token')) {
+          setError(`Parse Error: The server returned HTML instead of JSON. Check your backend terminal for a 500 error or check your API_BASE_URL. (Error: ${caughtError.message})`);
+      } else {
+          setError(
+            caughtError instanceof Error
+              ? caughtError.message
+              : "Unable to load cohorts.",
+          );
+      }
     } finally {
       setIsLoading(false);
     }
@@ -115,18 +120,20 @@ export function CohortsPage() {
   }
 
   if (isLoading) {
-    return <main>Loading cohorts...</main>;
+    return <main className="admin-container">Loading cohorts...</main>;
   }
 
   return (
-    <main>
-      <h1>Cohorts</h1>
+    <main className="admin-container">
+      <div className="admin-header">
+                <h1>Cohorts</h1>
+            </div>
 
       <section>
-        <h2>Add cohort</h2>
+        <h2 style={{ marginBottom: "16px", color: "white" }}>Add cohort</h2>
 
-        <form onSubmit={handleSubmit}>
-          <div>
+        <form onSubmit={handleSubmit} className="modern-form">
+          <div className="form-group">
             <label htmlFor="cohort-qualification">
               Qualification
             </label>
@@ -157,7 +164,7 @@ export function CohortsPage() {
             </select>
           </div>
 
-          <div>
+          <div className="form-group">
             <label htmlFor="cohort-module">
               Module
             </label>
@@ -186,7 +193,7 @@ export function CohortsPage() {
             </select>
           </div>
 
-          <div>
+          <div className="form-group">
             <label htmlFor="cohort-code">Code</label>
 
             <input
@@ -199,7 +206,7 @@ export function CohortsPage() {
             />
           </div>
 
-          <div>
+          <div className="form-group">
             <label htmlFor="cohort-name">Name</label>
 
             <input
@@ -212,7 +219,7 @@ export function CohortsPage() {
             />
           </div>
 
-          <div>
+          <div className="form-group">
             <label htmlFor="cohort-start-date">
               Start date
             </label>
@@ -227,7 +234,7 @@ export function CohortsPage() {
             />
           </div>
 
-          <div>
+          <div className="form-group">
             <label htmlFor="cohort-end-date">
               End date
             </label>
@@ -242,22 +249,26 @@ export function CohortsPage() {
             />
           </div>
 
-          <label>
-            <input
-              type="checkbox"
-              checked={isActive}
-              onChange={(event) =>
-                setIsActive(event.target.checked)
-              }
-            />
-            Active
-          </label>
+          <div className="form-group">
+            <label className="checkbox-group">
+              <input
+                type="checkbox"
+                checked={isActive}
+                onChange={(event) =>
+                  setIsActive(event.target.checked)
+                }
+              />
+              Active
+            </label>
+          </div>
 
-          {error && <p role="alert">{error}</p>}
+          {error && <p role="alert" style={{ color: "#f87171" }}>{error}</p>}
 
-          <button
-            type="submit"
-            disabled={
+          <div className="form-actions">
+            <button
+              type="submit"
+              className="btn-primary"
+              disabled={
               isSubmitting ||
               !qualificationId ||
               !moduleId
@@ -267,16 +278,18 @@ export function CohortsPage() {
               ? "Creating..."
               : "Add cohort"}
           </button>
+          </div>
         </form>
       </section>
 
-      <section>
-        <h2>Existing cohorts</h2>
+      <section style={{ marginTop: "40px" }}>
+        <h2 style={{ marginBottom: "16px", color: "white" }}>Existing cohorts</h2>
 
         {cohorts.length === 0 ? (
           <p>No cohorts found.</p>
         ) : (
-          <table>
+          <div className="table-container">
+          <table className="modern-table">
             <thead>
               <tr>
                 <th>Qualification</th>
@@ -315,6 +328,7 @@ export function CohortsPage() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </section>
     </main>

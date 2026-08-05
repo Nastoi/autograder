@@ -1,3 +1,4 @@
+import "../css/AssessmentMappings.css";
 import { useState, type FormEvent } from "react";
 import {
   Navigate,
@@ -87,7 +88,9 @@ export function LoginPage() {
       
       <main className="login-box">
         <div className="login-header">
-          <h1>Welcome Back</h1>
+          <div className="admin-header">
+                <h1>Welcome Back</h1>
+            </div>
           <p>Sign in to continue to Autograder</p>
         </div>
 
@@ -131,13 +134,15 @@ export function LoginPage() {
             </div>
           )}
 
-          <button type="submit" className="login-button" disabled={isSubmitting}>
-            {isSubmitting ? (
-              <span className="loading-spinner"></span>
-            ) : (
-              "Log in"
-            )}
-          </button>
+          <div className="form-actions">
+                        <button type="submit" className="login-button" disabled={isSubmitting}>
+                                    {isSubmitting ? (
+                                      <span className="loading-spinner"></span>
+                                    ) : (
+                                      "Log in"
+                                    )}
+                                  </button>
+                    </div>
         </form>
       </main>
     </div>

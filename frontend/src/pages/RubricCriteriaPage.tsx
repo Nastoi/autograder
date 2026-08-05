@@ -1,3 +1,4 @@
+import "../css/AssessmentMappings.css";
 import {
   useEffect,
   useState,
@@ -117,31 +118,38 @@ const [isSubmitting, setIsSubmitting] =
 
 
   if (isLoading) {
-    return <main>Loading rubric criteria...</main>;
+    return <main className="admin-container">Loading rubric criteria...</main>;
   }
 
   return (
-    <main>
-      <h1>Rubric criteria</h1>
+    <main className="admin-container">
+      <div className="admin-header">
+                <h1>Rubric criteria</h1>
+            </div>
 
-      {error && <p role="alert">{error}</p>}
+      {error && <p role="alert" className="error-message">{error}</p>}
 
       <section>
         <h2>Setup status</h2>
 
-        <p>
-          Assignment levels: {assignmentLevels.length}
-        </p>
-
-        <p>Rubric criteria: {criteria.length}</p>
+        <div className="status-grid">
+          <div className="status-card">
+              <span className="status-label">Assignment levels</span>
+              <span className="status-value">{assignmentLevels.length}</span>
+            </div>
+          <div className="status-card">
+              <span className="status-label">Rubric criteria</span>
+              <span className="status-value">{criteria.length}</span>
+            </div>
+        </div>
       </section>
 
 
         <section>
-  <h2>Add rubric criterion</h2>
+  <h2 style={{ marginBottom: "16px", color: "white" }}>Add rubric criterion</h2>
 
-  <form onSubmit={handleSubmit}>
-    <div>
+  <form onSubmit={handleSubmit} className="modern-form">
+    <div className="form-group">
       <label htmlFor="criterion-assignment-level">
         Assignment level
       </label>
@@ -168,7 +176,7 @@ const [isSubmitting, setIsSubmitting] =
       </select>
     </div>
 
-    <div>
+    <div className="form-group">
       <label htmlFor="criterion-code">
         Criterion code
       </label>
@@ -183,7 +191,7 @@ const [isSubmitting, setIsSubmitting] =
       />
     </div>
 
-    <div>
+    <div className="form-group">
       <label htmlFor="criterion-title">
         Title
       </label>
@@ -198,7 +206,7 @@ const [isSubmitting, setIsSubmitting] =
       />
     </div>
 
-    <div>
+    <div className="form-group">
       <label htmlFor="criterion-description">
         Description
       </label>
@@ -212,7 +220,7 @@ const [isSubmitting, setIsSubmitting] =
       />
     </div>
 
-    <div>
+    <div className="form-group">
       <label htmlFor="criterion-maximum-score">
         Maximum score
       </label>
@@ -230,7 +238,7 @@ const [isSubmitting, setIsSubmitting] =
       />
     </div>
 
-    <div>
+    <div className="form-group">
       <label htmlFor="criterion-sequence">
         Sequence
       </label>
@@ -247,7 +255,7 @@ const [isSubmitting, setIsSubmitting] =
       />
     </div>
 
-    <label>
+    <label className="checkbox-group">
       <input
         type="checkbox"
         checked={aiGradable}
@@ -258,7 +266,7 @@ const [isSubmitting, setIsSubmitting] =
       AI gradable
     </label>
 
-    <label>
+    <label className="checkbox-group">
       <input
         type="checkbox"
         checked={deterministic}
@@ -269,25 +277,27 @@ const [isSubmitting, setIsSubmitting] =
       Deterministic
     </label>
 
-    {error && <p role="alert">{error}</p>}
+    {error && <p role="alert" className="error-message">{error}</p>}
 
-    <button
-      type="submit"
-      disabled={
-        isSubmitting ||
-        !assignmentLevelId
-      }
-    >
-      {isSubmitting
-        ? "Creating..."
-        : "Add rubric criterion"}
-    </button>
+    <div className="form-actions">
+                        <button
+                              type="submit"
+                              disabled={
+                                isSubmitting ||
+                                !assignmentLevelId
+                              }
+                             className="btn-primary">
+                              {isSubmitting
+                                ? "Creating..."
+                                : "Add rubric criterion"}
+                            </button>
+                    </div>
   </form>
 </section>
 
 
       <section>
-        <h2>Existing rubric criteria</h2>
+        <h2 style={{ marginBottom: "16px", color: "white" }}>Existing rubric criteria</h2>
 
         {criteria.length === 0 ? (
           <p>
@@ -295,55 +305,57 @@ const [isSubmitting, setIsSubmitting] =
             assignment level first.
           </p>
         ) : (
-          <table>
-            <thead>
-              <tr>
-                <th>Assignment</th>
-                <th>Level</th>
-                <th>Sequence</th>
-                <th>Code</th>
-                <th>Title</th>
-                <th>Maximum score</th>
-                <th>AI gradable</th>
-                <th>Deterministic</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {criteria.map((criterion) => (
-                <tr key={criterion.id}>
-                  <td>
-                    {criterion.assignment_code} —{" "}
-                    {criterion.assignment_title}
-                  </td>
-
-                  <td>
-                    {criterion.level_display_name}
-                  </td>
-
-                  <td>{criterion.sequence}</td>
-
-                  <td>{criterion.criterion_code}</td>
-
-                  <td>{criterion.title}</td>
-
-                  <td>{criterion.maximum_score}</td>
-
-                  <td>
-                    {criterion.ai_gradable
-                      ? "Yes"
-                      : "No"}
-                  </td>
-
-                  <td>
-                    {criterion.deterministic
-                      ? "Yes"
-                      : "No"}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="table-container">
+                        <table className="modern-table">
+                                    <thead>
+                                      <tr>
+                                        <th>Assignment</th>
+                                        <th>Level</th>
+                                        <th>Sequence</th>
+                                        <th>Code</th>
+                                        <th>Title</th>
+                                        <th>Maximum score</th>
+                                        <th>AI gradable</th>
+                                        <th>Deterministic</th>
+                                      </tr>
+                                    </thead>
+                        
+                                    <tbody>
+                                      {criteria.map((criterion) => (
+                                        <tr key={criterion.id}>
+                                          <td>
+                                            {criterion.assignment_code} —{" "}
+                                            {criterion.assignment_title}
+                                          </td>
+                        
+                                          <td>
+                                            {criterion.level_display_name}
+                                          </td>
+                        
+                                          <td>{criterion.sequence}</td>
+                        
+                                          <td>{criterion.criterion_code}</td>
+                        
+                                          <td>{criterion.title}</td>
+                        
+                                          <td>{criterion.maximum_score}</td>
+                        
+                                          <td>
+                                            {criterion.ai_gradable
+                                              ? "Yes"
+                                              : "No"}
+                                          </td>
+                        
+                                          <td>
+                                            {criterion.deterministic
+                                              ? "Yes"
+                                              : "No"}
+                                          </td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                    </div>
         )}
       </section>
     </main>

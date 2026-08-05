@@ -44,7 +44,9 @@ export function AssessmentMappingsPage() {
     return (
       <main className="admin-container">
         <header className="admin-header">
-          <h1>Assessment mappings</h1>
+          <div className="admin-header">
+                <h1>Assessment mappings</h1>
+            </div>
         </header>
         <div className="error-message" role="alert" style={{ marginTop: '20px' }}>
           {error}
@@ -56,7 +58,9 @@ export function AssessmentMappingsPage() {
   return (
     <main className="admin-container">
       <header className="admin-header">
-        <h1>Assessment mappings</h1>
+        <div className="admin-header">
+                <h1>Assessment mappings</h1>
+            </div>
       </header>
 
       {mappings.length === 0 ? (

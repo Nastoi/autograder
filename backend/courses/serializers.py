@@ -170,7 +170,7 @@ class CohortSerializer(serializers.ModelSerializer):
         )
 
     def get_can_delete(self, obj):
-        return not obj.enrolments.exists()
+        return not obj.assessment_mappings.exists()
 
     def validate_code(self, value):
         code = value.strip().upper()

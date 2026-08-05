@@ -88,3 +88,71 @@
   background: rgba(239, 68, 68, 0.2);
   color: #f87171;
 }
+
+/* Dropdown Navigation */
+.dropdown {
+  position: relative;
+  display: inline-block;
+  /* Add padding to bottom to bridge the gap */
+  padding-bottom: 12px;
+  margin-bottom: -12px;
+}
+
+.dropdown-btn {
+  background: none;
+  border: none;
+  color: #cbd5e1;
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 8px 0;
+  transition: color 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.dropdown-btn:hover {
+  color: #f8fafc;
+}
+
+.dropdown-btn::after {
+  content: '▼';
+  font-size: 10px;
+  margin-left: 2px;
+}
+
+.dropdown-content {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  background-color: rgba(30, 41, 59, 0.95);
+  min-width: 180px;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  z-index: 1000;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  padding: 8px 0;
+}
+
+.dropdown:hover .dropdown-content {
+  display: block;
+}
+
+.dropdown-content .nav-link {
+  color: #cbd5e1;
+  padding: 10px 16px;
+  text-decoration: none;
+  display: block;
+  font-size: 13px;
+  border-radius: 0;
+}
+
+.dropdown-content .nav-link:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+  color: #f8fafc;
+}
