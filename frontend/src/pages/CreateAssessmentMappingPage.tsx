@@ -222,7 +222,7 @@ export function CreateAssessmentMappingPage() {
                     </label>
                 </div>
 
-                {error && <p role="alert" style={{ color: "#f87171" }}>{error}</p>}
+                {error && <p role="alert" style={{ color: "#ef4444" }}>{error}</p>}
 
                 <div className="form-actions">
                     <button

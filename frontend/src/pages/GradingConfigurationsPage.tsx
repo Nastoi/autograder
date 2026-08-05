@@ -131,8 +131,10 @@ const [isSubmitting, setIsSubmitting] = useState(false);
             </div>
 
       {error && <p role="alert" className="error-message">{error}</p>}
+        
+      <div className="admin-split-layout">
         <section>
-  <h2 style={{ marginBottom: "16px", color: "white" }}>Add grading configuration</h2>
+  <h2 style={{ marginBottom: "16px", color: "#112642" }}>Add grading configuration</h2>
 
   <form onSubmit={handleSubmit} className="modern-form">
     <div className="form-group">
@@ -294,6 +296,8 @@ const [isSubmitting, setIsSubmitting] = useState(false);
   </form>
 </section>
 
+      <section>
+        <h2 style={{ marginBottom: "16px", color: "#112642" }}>Existing grading configurations</h2>
       {configurations.length === 0 ? (
         <p>
           No grading configurations found. Create one before
@@ -348,6 +352,8 @@ const [isSubmitting, setIsSubmitting] = useState(false);
                                 </table>
                     </div>
       )}
+      </section>
+      </div>
     </main>
   );
 }

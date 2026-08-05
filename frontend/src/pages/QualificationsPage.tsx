@@ -182,8 +182,9 @@ export function QualificationsPage() {
                 <h1>Qualifications</h1>
             </div>
 
-            <section>
-                <h2 style={{ marginBottom: "16px", color: "white" }}>Add qualification</h2>
+            <div className="admin-split-layout">
+<section>
+                <h2 style={{ marginBottom: "16px", color: "#112642" }}>Add qualification</h2>
 
                 <form onSubmit={handleSubmit} className="modern-form">
                     <div className="form-group">
@@ -262,7 +263,7 @@ export function QualificationsPage() {
             </section>
 
             <section>
-                <h2 style={{ marginBottom: "16px", color: "white" }}>Existing qualifications</h2>
+                <h2 style={{ marginBottom: "16px", color: "#112642" }}>Existing qualifications</h2>
 
                 {qualifications.length === 0 ? (
                     <p>No qualifications found.</p>
@@ -405,6 +406,7 @@ export function QualificationsPage() {
                     </div>
                 )}
             </section>
+</div>
         </main>
     );
 }

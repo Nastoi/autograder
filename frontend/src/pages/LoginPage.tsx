@@ -1,4 +1,3 @@
-import "../css/AssessmentMappings.css";
 import { useState, type FormEvent } from "react";
 import {
   Navigate,
@@ -8,6 +7,8 @@ import {
 
 import { useAuth } from "../auth/AuthContext";
 import "../css/LoginPage.css";
+
+import { Bot } from "lucide-react";
 
 type LocationState = {
   from?: {
@@ -80,70 +81,75 @@ export function LoginPage() {
 
   return (
     <div className="login-container">
-      <div className="background-shapes">
-        <div className="shape shape-1"></div>
-        <div className="shape shape-2"></div>
-        <div className="shape shape-3"></div>
-      </div>
-      
       <main className="login-box">
-        <div className="login-header">
-          <div className="admin-header">
-                <h1>Welcome Back</h1>
-            </div>
-          <p>Sign in to continue to Autograder</p>
+        
+        {/* Left Branding Panel */}
+        <div className="login-panel-left">
+          <div className="brand-logo-container">
+            <Bot size={36} color="#ffffff" strokeWidth={2.5} />
+          </div>
+          <h1 className="brand-title">AutoGrader</h1>
+          <p className="brand-subtitle">
+            AI-assisted assessment, grading, and learner feedback platform.
+          </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="login-form">
-          <div className="input-group">
-            <label htmlFor="username">Username</label>
-            <div className="input-wrapper">
-              <input
-                id="username"
-                type="text"
-                autoComplete="username"
-                placeholder="Enter your username"
-                value={username}
-                onChange={(event) => setUsername(event.target.value)}
-                required
-              />
-            </div>
+        {/* Right Form Panel */}
+        <div className="login-panel-right">
+          <div className="form-header">
+            <span className="eyebrow-text">Welcome Back</span>
+            <h2 className="form-title">Sign in to your account</h2>
+            <p className="form-subtitle">Enter your AutoGrader username and password to continue.</p>
           </div>
 
-          <div className="input-group">
-            <label htmlFor="password">Password</label>
-            <div className="input-wrapper">
-              <input
-                id="password"
-                type="password"
-                autoComplete="current-password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                required
-              />
+          <form onSubmit={handleSubmit} className="login-form">
+            <div className="input-group">
+              <label htmlFor="username">Username</label>
+              <div className="input-wrapper">
+                <input
+                  id="username"
+                  type="text"
+                  autoComplete="username"
+                  placeholder="Enter your username"
+                  value={username}
+                  onChange={(event) => setUsername(event.target.value)}
+                  required
+                />
+              </div>
             </div>
-          </div>
 
-          {error && (
-            <div className="error-message" role="alert">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clipRule="evenodd" />
-              </svg>
-              {error}
+            <div className="input-group">
+              <label htmlFor="password">Password</label>
+              <div className="input-wrapper">
+                <input
+                  id="password"
+                  type="password"
+                  autoComplete="current-password"
+                  placeholder="Enter your password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  required
+                />
+              </div>
             </div>
-          )}
 
-          <div className="form-actions">
-                        <button type="submit" className="login-button" disabled={isSubmitting}>
-                                    {isSubmitting ? (
-                                      <span className="loading-spinner"></span>
-                                    ) : (
-                                      "Log in"
-                                    )}
-                                  </button>
-                    </div>
-        </form>
+            {error && (
+              <div className="error-message" role="alert">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clipRule="evenodd" />
+                </svg>
+                {error}
+              </div>
+            )}
+
+            <div className="form-actions">
+              <button type="submit" className="login-button" disabled={isSubmitting}>
+                {isSubmitting ? "Logging in..." : "Log in"}
+              </button>
+            </div>
+          </form>
+        </div>
+
       </main>
     </div>
   );

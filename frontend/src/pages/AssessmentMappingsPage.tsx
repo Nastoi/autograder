@@ -65,7 +65,7 @@ export function AssessmentMappingsPage() {
 
       {mappings.length === 0 ? (
         <section className="table-container" style={{ padding: "32px", textAlign: "center" }}>
-          <p style={{ color: "#94a3b8" }}>No assessment mappings have been created yet.</p>
+          <p style={{ color: "#64748b" }}>No assessment mappings have been created yet.</p>
         </section>
       ) : (
         <div className="table-container">
@@ -88,12 +88,12 @@ export function AssessmentMappingsPage() {
 
                   <td>
                     {mapping.cohort_code} —{" "}
-                    <span style={{ color: "#94a3b8" }}>{mapping.cohort_name}</span>
+                    <span style={{ color: "#64748b" }}>{mapping.cohort_name}</span>
                   </td>
 
                   <td>
                     {mapping.assignment_code} —{" "}
-                    <span style={{ color: "#94a3b8" }}>{mapping.assignment_title}</span>
+                    <span style={{ color: "#64748b" }}>{mapping.assignment_title}</span>
                   </td>
 
                   <td>{mapping.level_code}</td>
@@ -106,9 +106,9 @@ export function AssessmentMappingsPage() {
 
                   <td>
                     {mapping.has_submissions ? (
-                      <span style={{ color: "#60a5fa" }}>Used by submissions</span>
+                      <span style={{ color: "#2563eb" }}>Used by submissions</span>
                     ) : (
-                      <span style={{ color: "#94a3b8" }}>Not used</span>
+                      <span style={{ color: "#64748b" }}>Not used</span>
                     )}
                   </td>
                 </tr>

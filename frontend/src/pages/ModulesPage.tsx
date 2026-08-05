@@ -200,8 +200,9 @@ export function ModulesPage() {
                 <h1>Modules</h1>
             </div>
 
-      <section>
-        <h2 style={{ marginBottom: "16px", color: "white" }}>Add module</h2>
+      <div className="admin-split-layout">
+<section>
+        <h2 style={{ marginBottom: "16px", color: "#112642" }}>Add module</h2>
 
         <form onSubmit={handleSubmit} className="modern-form">
           <div className="form-group">
@@ -299,7 +300,7 @@ export function ModulesPage() {
       </section>
 
       <section>
-        <h2 style={{ marginBottom: "16px", color: "white" }}>Existing modules</h2>
+        <h2 style={{ marginBottom: "16px", color: "#112642" }}>Existing modules</h2>
 
         {modules.length === 0 ? (
           <p>No modules found.</p>
@@ -465,6 +466,7 @@ export function ModulesPage() {
                     </div>
         )}
       </section>
+</div>
     </main>
   );
 }

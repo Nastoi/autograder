@@ -183,8 +183,9 @@ export function AssignmentsPage() {
 
 
 
-            <section>
-  <h2 style={{ marginBottom: "16px", color: "white" }}>Add assignment</h2>
+            <div className="admin-split-layout">
+<section>
+  <h2 style={{ marginBottom: "16px", color: "#112642" }}>Add assignment</h2>
 
   <form onSubmit={handleSubmit} className="modern-form">
     <div className="form-group">
@@ -448,7 +449,7 @@ export function AssignmentsPage() {
 
 
             <section>
-                <h2 style={{ marginBottom: "16px", color: "white" }}>Existing assignments</h2>
+                <h2 style={{ marginBottom: "16px", color: "#112642" }}>Existing assignments</h2>
 
                 {assignments.length === 0 ? (
                     <p>
@@ -504,6 +505,7 @@ export function AssignmentsPage() {
                     </div>
                 )}
             </section>
+</div>
         </main>
     );
 }

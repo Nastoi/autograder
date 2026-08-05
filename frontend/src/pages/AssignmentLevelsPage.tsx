@@ -231,8 +231,9 @@ const activeGradingConfigurations =
       </section>
 
 
-        <section>
-  <h2 style={{ marginBottom: "16px", color: "white" }}>Add assignment level</h2>
+        <div className="admin-split-layout">
+<section>
+  <h2 style={{ marginBottom: "16px", color: "#112642" }}>Add assignment level</h2>
 
   <form onSubmit={handleSubmit} className="modern-form">
     <div className="form-group">
@@ -537,7 +538,7 @@ const activeGradingConfigurations =
 
 
       <section>
-        <h2 style={{ marginBottom: "16px", color: "white" }}>Existing assignment levels</h2>
+        <h2 style={{ marginBottom: "16px", color: "#112642" }}>Existing assignment levels</h2>
 
         {levels.length === 0 ? (
           <p>
@@ -590,6 +591,7 @@ const activeGradingConfigurations =
                     </div>
         )}
       </section>
+</div>
     </main>
   );
 }

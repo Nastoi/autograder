@@ -165,8 +165,9 @@ const [isSubmitting, setIsSubmitting] =
       </section>
 
 
-    <section>
-  <h2 style={{ marginBottom: "16px", color: "white" }}>Add AI grading profile</h2>
+    <div className="admin-split-layout">
+<section>
+  <h2 style={{ marginBottom: "16px", color: "#112642" }}>Add AI grading profile</h2>
 
   <form onSubmit={handleSubmit} className="modern-form">
     <div className="form-group">
@@ -323,7 +324,7 @@ const [isSubmitting, setIsSubmitting] =
 
 
       <section>
-        <h2 style={{ marginBottom: "16px", color: "white" }}>Existing AI grading profiles</h2>
+        <h2 style={{ marginBottom: "16px", color: "#112642" }}>Existing AI grading profiles</h2>
 
         {profiles.length === 0 ? (
           <p>
@@ -375,6 +376,7 @@ const [isSubmitting, setIsSubmitting] =
                     </div>
         )}
       </section>
+</div>
     </main>
   );
 }

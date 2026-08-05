@@ -129,8 +129,9 @@ export function CohortsPage() {
                 <h1>Cohorts</h1>
             </div>
 
-      <section>
-        <h2 style={{ marginBottom: "16px", color: "white" }}>Add cohort</h2>
+      <div className="admin-split-layout">
+<section>
+        <h2 style={{ marginBottom: "16px", color: "#112642" }}>Add cohort</h2>
 
         <form onSubmit={handleSubmit} className="modern-form">
           <div className="form-group">
@@ -262,7 +263,7 @@ export function CohortsPage() {
             </label>
           </div>
 
-          {error && <p role="alert" style={{ color: "#f87171" }}>{error}</p>}
+          {error && <p role="alert" style={{ color: "#ef4444" }}>{error}</p>}
 
           <div className="form-actions">
             <button
@@ -283,7 +284,7 @@ export function CohortsPage() {
       </section>
 
       <section style={{ marginTop: "40px" }}>
-        <h2 style={{ marginBottom: "16px", color: "white" }}>Existing cohorts</h2>
+        <h2 style={{ marginBottom: "16px", color: "#112642" }}>Existing cohorts</h2>
 
         {cohorts.length === 0 ? (
           <p>No cohorts found.</p>
@@ -331,6 +332,7 @@ export function CohortsPage() {
           </div>
         )}
       </section>
+</div>
     </main>
   );
 }

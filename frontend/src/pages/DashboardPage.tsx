@@ -2,6 +2,14 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { useAuth } from "../auth/AuthContext";
 import "../css/AssessmentMappings.css";
+import {
+  GraduationCap,
+  BookOpen,
+  Users,
+  ClipboardList,
+  Network,
+  Bot
+} from "lucide-react";
 
 import {
   getQualifications,
@@ -77,84 +85,98 @@ export function DashboardPage() {
     <main className="admin-container">
       <div className="admin-header">
         <h1>Dashboard</h1>
-        <div>
-          <span style={{ marginRight: "1rem" }}>
-            Logged in as <strong>{user?.username}</strong> ({user?.role})
-          </span>
-          <button type="button" onClick={handleLogout} className="btn-primary" style={{ padding: "0.5rem 1rem" }}>
-            Log out
-          </button>
-        </div>
       </div>
 
       <section>
-        <h2 style={{ marginBottom: "16px", color: "white" }}>System Overview</h2>
+        <h2 style={{ marginBottom: "16px", color: "#112642" }}>System Overview</h2>
         
         {isLoading ? (
           <p>Loading metrics...</p>
         ) : (
           <div className="status-grid">
-            <div className="status-card">
-              <span className="status-label">Qualifications</span>
-              <span className="status-value">{metrics.qualifications}</span>
-            </div>
-            <div className="status-card">
-              <span className="status-label">Modules</span>
-              <span className="status-value">{metrics.modules}</span>
-            </div>
-            <div className="status-card">
-              <span className="status-label">Cohorts</span>
-              <span className="status-value">{metrics.cohorts}</span>
-            </div>
-            <div className="status-card">
-              <span className="status-label">Assignments</span>
-              <span className="status-value">{metrics.assignments}</span>
-            </div>
+            <Link to="/admin/qualifications" style={{ textDecoration: 'none' }}>
+              <div className="status-card qualifications">
+                <GraduationCap color="#10b981" size={32} style={{ marginBottom: "0.5rem" }} />
+                <span className="status-label">Qualifications</span>
+                <span className="status-value">{metrics.qualifications}</span>
+              </div>
+            </Link>
+            
+            <Link to="/admin/modules" style={{ textDecoration: 'none' }}>
+              <div className="status-card modules">
+                <BookOpen color="#f59e0b" size={32} style={{ marginBottom: "0.5rem" }} />
+                <span className="status-label">Modules</span>
+                <span className="status-value">{metrics.modules}</span>
+              </div>
+            </Link>
+
+            <Link to="/admin/cohorts" style={{ textDecoration: 'none' }}>
+              <div className="status-card cohorts">
+                <Users color="#8b5cf6" size={32} style={{ marginBottom: "0.5rem" }} />
+                <span className="status-label">Cohorts</span>
+                <span className="status-value">{metrics.cohorts}</span>
+              </div>
+            </Link>
+
+            <Link to="/admin/assignments" style={{ textDecoration: 'none' }}>
+              <div className="status-card assignments">
+                <ClipboardList color="#ef4444" size={32} style={{ marginBottom: "0.5rem" }} />
+                <span className="status-label">Assignments</span>
+                <span className="status-value">{metrics.assignments}</span>
+              </div>
+            </Link>
           </div>
         )}
       </section>
 
       <section style={{ marginTop: "2rem" }}>
-        <h2 style={{ marginBottom: "16px", color: "white" }}>Grading Configuration</h2>
+        <h2 style={{ marginBottom: "16px", color: "#112642" }}>Grading Configuration</h2>
         
         {isLoading ? (
           <p>Loading metrics...</p>
         ) : (
-          <div className="status-grid">
-            <div className="status-card">
-              <span className="status-label">Assessment Mappings</span>
-              <span className="status-value">{metrics.mappings}</span>
-            </div>
-            <div className="status-card">
-              <span className="status-label">AI Profiles</span>
-              <span className="status-value">{metrics.profiles}</span>
-            </div>
+          <div className="status-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))" }}>
+            <Link to="/admin/mappings" style={{ textDecoration: 'none' }}>
+              <div className="status-card mappings">
+                <Network color="#3b82f6" size={32} style={{ marginBottom: "0.5rem" }} />
+                <span className="status-label">Assessment Mappings</span>
+                <span className="status-value">{metrics.mappings}</span>
+              </div>
+            </Link>
+
+            <Link to="/admin/ai-grading-profiles" style={{ textDecoration: 'none' }}>
+              <div className="status-card profiles">
+                <Bot color="#ec4899" size={32} style={{ marginBottom: "0.5rem" }} />
+                <span className="status-label">AI Profiles</span>
+                <span className="status-value">{metrics.profiles}</span>
+              </div>
+            </Link>
           </div>
         )}
       </section>
 
       <section style={{ marginTop: "2rem" }}>
-        <h2 style={{ marginBottom: "16px", color: "white" }}>Quick Actions</h2>
+        <h2 style={{ marginBottom: "16px", color: "#112642" }}>Quick Actions</h2>
         
         <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
           <Link to="/admin/qualifications" style={{ textDecoration: "none" }}>
-            <button className="btn-primary" style={{ background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)" }}>
-              Manage Qualifications
+            <button className="btn-secondary" style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              <GraduationCap color="#10b981" size={18} /> Manage Qualifications
             </button>
           </Link>
           <Link to="/admin/assignments" style={{ textDecoration: "none" }}>
-            <button className="btn-primary" style={{ background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)" }}>
-              Manage Assignments
+            <button className="btn-secondary" style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              <ClipboardList color="#ef4444" size={18} /> Manage Assignments
             </button>
           </Link>
           <Link to="/admin/mappings" style={{ textDecoration: "none" }}>
-            <button className="btn-primary" style={{ background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)" }}>
-              Assessment Mappings
+            <button className="btn-secondary" style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              <Network color="#3b82f6" size={18} /> Assessment Mappings
             </button>
           </Link>
           <Link to="/admin/ai-grading-profiles" style={{ textDecoration: "none" }}>
-            <button className="btn-primary" style={{ background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)" }}>
-              AI Grading Profiles
+            <button className="btn-secondary" style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              <Bot color="#ec4899" size={18} /> AI Grading Profiles
             </button>
           </Link>
         </div>

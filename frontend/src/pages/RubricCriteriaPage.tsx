@@ -145,8 +145,9 @@ const [isSubmitting, setIsSubmitting] =
       </section>
 
 
-        <section>
-  <h2 style={{ marginBottom: "16px", color: "white" }}>Add rubric criterion</h2>
+        <div className="admin-split-layout">
+<section>
+  <h2 style={{ marginBottom: "16px", color: "#112642" }}>Add rubric criterion</h2>
 
   <form onSubmit={handleSubmit} className="modern-form">
     <div className="form-group">
@@ -297,7 +298,7 @@ const [isSubmitting, setIsSubmitting] =
 
 
       <section>
-        <h2 style={{ marginBottom: "16px", color: "white" }}>Existing rubric criteria</h2>
+        <h2 style={{ marginBottom: "16px", color: "#112642" }}>Existing rubric criteria</h2>
 
         {criteria.length === 0 ? (
           <p>
@@ -358,6 +359,7 @@ const [isSubmitting, setIsSubmitting] =
                     </div>
         )}
       </section>
+</div>
     </main>
   );
 }
