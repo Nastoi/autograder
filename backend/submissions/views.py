@@ -9,7 +9,7 @@ from rest_framework.views import APIView
 
 from .models import LearnerSubmission, SubmissionContext
 from .serializers import LearnerSubmissionSerializer
-from .services import run_mock_grading
+from .services import run_ai_grading
 
 
 ALLOWED_EXTENSIONS = {
@@ -157,18 +157,7 @@ class SubmissionCreateView(APIView):
             maximum_score=assignment.maximum_score,
         )
 
-        submission = LearnerSubmission.objects.create(
-            context=context,
-            learner=request.user,
-            assignment_level=context.assignment_level,
-            submitted_file=uploaded_file,
-            original_filename=uploaded_file.name,
-            attempt_number=previous_attempts + 1,
-            status=LearnerSubmission.Status.UPLOADED,
-            maximum_score=assignment.maximum_score,
-        )
-
-        submission = run_mock_grading(submission)
+        submission = run_ai_grading(submission)
 
         return Response(
             LearnerSubmissionSerializer(submission).data,
