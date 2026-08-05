@@ -36,7 +36,7 @@ class Migration(migrations.Migration):
             options={
                 'db_table': 'assignment_level',
                 'ordering': ('assignment__assignment_number', 'level_code'),
-                'managed': False,
+                'managed': True,
             },
         ),
         migrations.CreateModel(
@@ -53,7 +53,7 @@ class Migration(migrations.Migration):
             options={
                 'db_table': 'module',
                 'ordering': ('code',),
-                'managed': False,
+                'managed': True,
             },
         ),
         migrations.CreateModel(
@@ -78,7 +78,7 @@ class Migration(migrations.Migration):
             options={
                 'db_table': 'module_assignment',
                 'ordering': ('module', 'assignment_number'),
-                'managed': False,
+                'managed': True,
             },
         ),
         migrations.CreateModel(
@@ -95,7 +95,7 @@ class Migration(migrations.Migration):
             options={
                 'db_table': 'qualification',
                 'ordering': ('code',),
-                'managed': False,
+                'managed': True,
             },
         ),
         migrations.CreateModel(
