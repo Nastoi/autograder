@@ -47,8 +47,8 @@ class GradingConfiguration(models.Model):
     configuration = models.JSONField(default=dict)
     is_active = models.BooleanField(default=True)
 
-    created_at = models.DateTimeField()
-    updated_at = models.DateTimeField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         db_table = "grading_configuration"
@@ -309,8 +309,8 @@ class AIGradingProfile(models.Model):
 
     is_active = models.BooleanField(default=True)
 
-    created_at = models.DateTimeField()
-    updated_at = models.DateTimeField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         db_table = "ai_grading_profile"

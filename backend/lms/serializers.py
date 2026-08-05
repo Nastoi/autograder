@@ -44,9 +44,6 @@ class AssessmentMappingSerializer(serializers.ModelSerializer):
             "assignment_code",
             "assignment_title",
             "level_code",
-            "external_platform_id",
-            "external_context_id",
-            "external_resource_link_id",
             "is_active",
             "has_submissions",
             "can_delete",
@@ -56,6 +53,7 @@ class AssessmentMappingSerializer(serializers.ModelSerializer):
 
         read_only_fields = (
             "id",
+            "name",
             "created_at",
             "updated_at",
             "has_submissions",
@@ -102,3 +100,37 @@ class AssessmentMappingSerializer(serializers.ModelSerializer):
                 )
 
         return attrs
+
+    def create(self, validated_data):
+        cohort = validated_data["cohort"]
+        assignment_level = validated_data["assignment_level"]
+
+        validated_data["name"] = (
+            f"{cohort.code} - "
+            f"{assignment_level.assignment.code} - "
+            f"{assignment_level.level_code}"
+        )
+
+        return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        cohort = validated_data.get(
+            "cohort",
+            instance.cohort,
+        )
+
+        assignment_level = validated_data.get(
+            "assignment_level",
+            instance.assignment_level,
+        )
+
+        validated_data["name"] = (
+            f"{cohort.code} - "
+            f"{assignment_level.assignment.code} - "
+            f"{assignment_level.level_code}"
+        )
+
+        return super().update(
+            instance,
+            validated_data,
+        )

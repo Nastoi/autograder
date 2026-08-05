@@ -7,8 +7,22 @@ from .models import AssignmentLevel, Cohort
 from rest_framework import generics, status
 from rest_framework.response import Response
 
-from .models import AssignmentLevel, Cohort, Qualification
-from .serializers import QualificationSerializer
+from .models import (
+    AssignmentLevel,
+    Cohort,
+    Module,
+    ModuleAssignment,
+    Qualification,
+)
+
+from .serializers import (
+    CohortSerializer,
+    ModuleAssignmentSerializer,
+    ModuleSerializer,
+    QualificationSerializer,
+    AssignmentLevelSerializer,
+    
+)
 
 
 class CohortListView(generics.ListAPIView):
@@ -131,3 +145,308 @@ class QualificationListCreateView(
 
     def get_queryset(self):
         return Qualification.objects.order_by("code")
+
+
+class QualificationDetailView(
+    generics.RetrieveUpdateDestroyAPIView
+):
+    serializer_class = QualificationSerializer
+    permission_classes = [IsAuthenticated, IsMappingAdmin]
+    lookup_field = "id"
+
+    def get_queryset(self):
+        return Qualification.objects.order_by("code")
+
+    def destroy(self, request, *args, **kwargs):
+        qualification = self.get_object()
+
+        if qualification.modules.exists():
+            return Response(
+                {
+                    "detail": (
+                        "This qualification cannot be deleted "
+                        "because it already contains modules. "
+                        "Deactivate it instead."
+                    )
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        return super().destroy(request, *args, **kwargs)
+
+
+class ModuleListCreateView(
+    generics.ListCreateAPIView
+):
+    serializer_class = ModuleSerializer
+    permission_classes = [IsAuthenticated, IsMappingAdmin]
+
+    def get_queryset(self):
+        queryset = Module.objects.select_related(
+            "qualification",
+        ).order_by(
+            "qualification__code",
+            "code",
+        )
+
+        qualification_id = self.request.query_params.get(
+            "qualification_id",
+        )
+
+        if qualification_id:
+            queryset = queryset.filter(
+                qualification_id=qualification_id,
+            )
+
+        return queryset
+
+
+class ModuleDetailView(
+    generics.RetrieveUpdateDestroyAPIView
+):
+    serializer_class = ModuleSerializer
+    permission_classes = [IsAuthenticated, IsMappingAdmin]
+    lookup_field = "id"
+
+    def get_queryset(self):
+        return Module.objects.select_related(
+            "qualification",
+        ).order_by("code")
+
+    def destroy(self, request, *args, **kwargs):
+        module = self.get_object()
+
+        if (
+            module.cohorts.exists()
+            or module.assignments.exists()
+        ):
+            return Response(
+                {
+                    "detail": (
+                        "This module cannot be deleted because "
+                        "it already contains cohorts or assignments. "
+                        "Deactivate it instead."
+                    )
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        return super().destroy(request, *args, **kwargs)
+
+class CohortListCreateView(
+    generics.ListCreateAPIView
+):
+    serializer_class = CohortSerializer
+    permission_classes = [IsAuthenticated, IsMappingAdmin]
+
+    def get_queryset(self):
+        queryset = Cohort.objects.select_related(
+            "module",
+            "module__qualification",
+        ).order_by("code")
+
+        module_id = self.request.query_params.get(
+            "module_id",
+        )
+
+        qualification_id = self.request.query_params.get(
+            "qualification_id",
+        )
+
+        if module_id:
+            queryset = queryset.filter(
+                module_id=module_id,
+            )
+
+        if qualification_id:
+            queryset = queryset.filter(
+                module__qualification_id=qualification_id,
+            )
+
+        return queryset
+
+
+class CohortDetailView(
+    generics.RetrieveUpdateDestroyAPIView
+):
+    serializer_class = CohortSerializer
+    permission_classes = [IsAuthenticated, IsMappingAdmin]
+    lookup_field = "id"
+
+    def get_queryset(self):
+        return Cohort.objects.select_related(
+            "module",
+            "module__qualification",
+        ).order_by("code")
+
+    def destroy(self, request, *args, **kwargs):
+        cohort = self.get_object()
+
+        if cohort.enrolments.exists():
+            return Response(
+                {
+                    "detail": (
+                        "This cohort cannot be deleted because "
+                        "it already has learner enrolments. "
+                        "Deactivate it instead."
+                    )
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        return super().destroy(request, *args, **kwargs)
+
+
+class ModuleAssignmentListCreateView(
+    generics.ListCreateAPIView
+):
+    serializer_class = ModuleAssignmentSerializer
+    permission_classes = [IsAuthenticated, IsMappingAdmin]
+
+    def get_queryset(self):
+        queryset = ModuleAssignment.objects.select_related(
+            "module",
+            "module__qualification",
+        ).order_by(
+            "module__code",
+            "assignment_number",
+        )
+
+        module_id = self.request.query_params.get(
+            "module_id",
+        )
+
+        qualification_id = self.request.query_params.get(
+            "qualification_id",
+        )
+
+        if module_id:
+            queryset = queryset.filter(
+                module_id=module_id,
+            )
+
+        if qualification_id:
+            queryset = queryset.filter(
+                module__qualification_id=qualification_id,
+            )
+
+        return queryset
+
+
+class ModuleAssignmentDetailView(
+    generics.RetrieveUpdateDestroyAPIView
+):
+    serializer_class = ModuleAssignmentSerializer
+    permission_classes = [IsAuthenticated, IsMappingAdmin]
+    lookup_field = "id"
+
+    def get_queryset(self):
+        return ModuleAssignment.objects.select_related(
+            "module",
+            "module__qualification",
+        ).order_by(
+            "module__code",
+            "assignment_number",
+        )
+
+    def destroy(self, request, *args, **kwargs):
+        assignment = self.get_object()
+
+        if assignment.levels.exists():
+            return Response(
+                {
+                    "detail": (
+                        "This assignment cannot be deleted because "
+                        "it already has assignment levels. "
+                        "Deactivate it instead."
+                    )
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        return super().destroy(request, *args, **kwargs)
+
+
+class AssignmentLevelListCreateView(
+    generics.ListCreateAPIView
+):
+    serializer_class = AssignmentLevelSerializer
+    permission_classes = [IsAuthenticated, IsMappingAdmin]
+
+    def get_queryset(self):
+        queryset = AssignmentLevel.objects.select_related(
+            "assignment",
+            "assignment__module",
+            "assignment__module__qualification",
+            "grading_configuration",
+        ).order_by(
+            "assignment__module__code",
+            "assignment__assignment_number",
+            "level_code",
+            "version",
+        )
+
+        assignment_id = self.request.query_params.get(
+            "assignment_id",
+        )
+
+        module_id = self.request.query_params.get(
+            "module_id",
+        )
+
+        if assignment_id:
+            queryset = queryset.filter(
+                assignment_id=assignment_id,
+            )
+
+        if module_id:
+            queryset = queryset.filter(
+                assignment__module_id=module_id,
+            )
+
+        return queryset
+
+
+class AssignmentLevelDetailView(
+    generics.RetrieveUpdateDestroyAPIView
+):
+    serializer_class = AssignmentLevelSerializer
+    permission_classes = [IsAuthenticated, IsMappingAdmin]
+    lookup_field = "id"
+
+    def get_queryset(self):
+        return AssignmentLevel.objects.select_related(
+            "assignment",
+            "assignment__module",
+            "assignment__module__qualification",
+            "grading_configuration",
+        ).order_by(
+            "assignment__module__code",
+            "assignment__assignment_number",
+            "level_code",
+            "version",
+        )
+
+    def destroy(self, request, *args, **kwargs):
+        assignment_level = self.get_object()
+
+        if (
+            assignment_level.rubric_criteria.exists()
+            or assignment_level.rag_sources.exists()
+            or hasattr(
+                assignment_level,
+                "ai_grading_profile",
+            )
+        ):
+            return Response(
+                {
+                    "detail": (
+                        "This assignment level cannot be deleted "
+                        "because it already has rubric, RAG, or AI "
+                        "grading configuration. Deactivate it instead."
+                    )
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        return super().destroy(request, *args, **kwargs)
