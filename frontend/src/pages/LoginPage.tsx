@@ -6,6 +6,7 @@ import {
 } from "react-router";
 
 import { useAuth } from "../auth/AuthContext";
+import "./LoginPage.css";
 
 type LocationState = {
   from?: {
@@ -74,42 +75,78 @@ export function LoginPage() {
   }
 
   return (
-    <main>
-      <h1>Autograder Login</h1>
+  <main className="login-page">
+    <section className="login-card">
+      <div className="login-brand-panel">
+        <div className="login-logo">AG</div>
 
-      <form onSubmit={handleSubmit}>
-        <div>
-          <label htmlFor="username">Username</label>
+        <h1>AutoGrader</h1>
 
-          <input
-            id="username"
-            type="text"
-            autoComplete="username"
-            value={username}
-            onChange={(event) => setUsername(event.target.value)}
-            required
-          />
+        <p>
+          AI-assisted assessment, grading, and learner feedback
+          platform.
+        </p>
+      </div>
+
+      <div className="login-form-panel">
+        <div className="login-heading">
+          <p className="login-eyebrow">Welcome back</p>
+          <h2>Sign in to your account</h2>
+          <p>
+            Enter your AutoGrader username and password to
+            continue.
+          </p>
         </div>
 
-        <div>
-          <label htmlFor="password">Password</label>
+        <form className="login-form" onSubmit={handleSubmit}>
+          <div className="login-field">
+            <label htmlFor="username">Username</label>
 
-          <input
-            id="password"
-            type="password"
-            autoComplete="current-password"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            required
-          />
-        </div>
+            <input
+              id="username"
+              type="text"
+              autoComplete="username"
+              value={username}
+              onChange={(event) =>
+                setUsername(event.target.value)
+              }
+              placeholder="Enter your username"
+              required
+            />
+          </div>
 
-        {error && <p role="alert">{error}</p>}
+          <div className="login-field">
+            <label htmlFor="password">Password</label>
 
-        <button type="submit" disabled={isSubmitting}>
-          {isSubmitting ? "Logging in..." : "Log in"}
-        </button>
-      </form>
-    </main>
-  );
+            <input
+              id="password"
+              type="password"
+              autoComplete="current-password"
+              value={password}
+              onChange={(event) =>
+                setPassword(event.target.value)
+              }
+              placeholder="Enter your password"
+              required
+            />
+          </div>
+
+          {error && (
+            <div className="login-error" role="alert">
+              {error}
+            </div>
+          )}
+
+          <button
+            className="login-submit-button"
+            type="submit"
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? "Logging in..." : "Log in"}
+          </button>
+        </form>
+      </div>
+    </section>
+  </main>
+);
 }
