@@ -26,13 +26,14 @@ export function LoginPage() {
   function getDefaultDestination(
     role: string | null | undefined,
   ) {
-    if (role === "system_admin" || role === "mapping_admin") {
-      return "/admin/mappings";
-    }
-
-    if (role === "faculty") {
+    if (
+      role === "system_admin" ||
+      role === "mapping_admin" ||
+      role === "faculty"
+    ) {
       return "/dashboard";
     }
+
     return "/";
   }
 
@@ -59,13 +60,16 @@ export function LoginPage() {
     try {
       const loggedInUser = await login(username, password);
 
-      let nextDestination =
-        state?.from?.pathname ??
-        getDefaultDestination(loggedInUser.role);
-        
-      if (nextDestination.includes("YOUR-CONTEXT-UUID")) {
-        nextDestination = getDefaultDestination(loggedInUser.role);
-      }
+      const requestedPath = state?.from?.pathname;
+
+      const isAdminUser =
+        loggedInUser.role === "system_admin" ||
+        loggedInUser.role === "mapping_admin" ||
+        loggedInUser.role === "faculty";
+
+      const nextDestination = isAdminUser
+        ? "/dashboard"
+        : requestedPath ?? "/";
 
       navigate(nextDestination, { replace: true });
     } catch (error) {
@@ -82,7 +86,7 @@ export function LoginPage() {
   return (
     <div className="login-container">
       <main className="login-box">
-        
+
         {/* Left Branding Panel */}
         <div className="login-panel-left">
           <div className="brand-logo-container">

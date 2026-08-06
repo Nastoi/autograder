@@ -1,4 +1,6 @@
+
 @import url("https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap");
+
 .result-page {
   min-height: 100vh;
   display: flex;
@@ -6,7 +8,9 @@
   align-items: center;
   background: linear-gradient(135deg,#102b4c,#1a3e6b);
   padding: 40px;
+
   font-family: "Montserrat", sans-serif;
+
 }
 
 .result-card {
@@ -103,6 +107,7 @@
 
 .submit-again-btn:hover{
   background:#14345b;
+
 }
 
 .submit-again-btn:disabled{
@@ -129,5 +134,6 @@
     gap:8px;
     align-items:flex-start;
   }
+
 
 }

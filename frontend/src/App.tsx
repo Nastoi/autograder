@@ -24,8 +24,6 @@ import { RubricCriteriaPage } from "./pages/RubricCriteriaPage";
 import { RubricBandsPage } from "./pages/RubricBandsPage";
 import { AIGradingProfilesPage } from "./pages/AIGradingProfilesPage";
 
-const TEST_CONTEXT_ID =
-  "72b85e24-ecda-4cda-965a-e771e91c3592";
 
 export default function App() {
   return (
@@ -97,18 +95,13 @@ export default function App() {
         </Route>
 
         <Route
-          path="/"
-          element={
-            <Navigate
-              to={`/submit/${TEST_CONTEXT_ID}`}
-              replace
-            />
-          }
+          path="*"
+          element={<Navigate to="/login" replace />}
         />
 
         <Route
-          path="*"
-          element={<Navigate to="/login" replace />}
+          path="/"
+          element={<Navigate to="/dashboard" replace />}
         />
 
 
