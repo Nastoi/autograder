@@ -1,6 +1,7 @@
 import "../css/AssessmentMappings.css";
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router";
+import "./ResultPage.css";
 
 import {
   getSubmission,
@@ -54,6 +55,67 @@ export function ResultPage() {
   }
 
   return (
+
+  <main className="result-page">
+    <div className="result-card">
+
+      <div className="result-header">
+        <div className="result-icon">✓</div>
+        <h1>Submission Received</h1>
+        <p>Your assignment has been successfully uploaded.</p>
+      </div>
+
+      <div className="result-details">
+
+        <div className="result-row">
+          <span>File</span>
+          <strong>{submission.original_filename}</strong>
+        </div>
+
+        <div className="result-row">
+          <span>Assignment</span>
+          <strong>{submission.assignment_title}</strong>
+        </div>
+
+        <div className="result-row">
+          <span>Status</span>
+          <strong>{submission.status}</strong>
+        </div>
+
+        <div className="result-row">
+          <span>Attempt</span>
+          <strong>{submission.attempt_number}</strong>
+        </div>
+
+        {submission.status === "completed" && (
+          <>
+            <div className="result-row">
+              <span>Score</span>
+              <strong>
+                {submission.final_score} / {submission.maximum_score}
+              </strong>
+            </div>
+
+            <div className="result-row">
+              <span>Band</span>
+              <strong>{submission.achieved_band}</strong>
+            </div>
+
+            <div className="feedback-box">
+              <h3>Feedback</h3>
+              <p>{submission.feedback}</p>
+            </div>
+          </>
+        )}
+
+        {submission.status === "uploaded" && (
+          <div className="pending-box">
+            Your assignment is waiting for grading.
+          </div>
+        )}
+
+      </div>
+      
     <main className="admin-container">
       <div className="admin-header">
                 <h1>Submission received</h1>
@@ -105,14 +167,18 @@ export function ResultPage() {
         </p>
       )}
 
+
       <button
+        className="submit-again-btn"
         type="button"
         onClick={() =>
           navigate(`/submit/${submission.context_id}`)
         }
       >
-        Submit another attempt
+        Submit Another Attempt
       </button>
-    </main>
-  );
+
+    </div>
+  </main>
+);
 }
