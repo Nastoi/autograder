@@ -1,3 +1,4 @@
+import "../css/AssessmentMappings.css";
 import {
     useEffect,
     useState,
@@ -94,7 +95,7 @@ export function AssignmentsPage() {
     }, []);
 
     if (isLoading) {
-        return <main>Loading assignments...</main>;
+        return <main className="admin-container">Loading assignments...</main>;
     }
 
 
@@ -154,30 +155,40 @@ export function AssignmentsPage() {
 
 
     return (
-        <main>
-            <h1>Assignments</h1>
+        <main className="admin-container">
+            <div className="admin-header">
+                <h1>Assignments</h1>
+            </div>
 
-            {error && <p role="alert">{error}</p>}
+            {error && <p role="alert" className="error-message">{error}</p>}
 
             <section>
                 <h2>Setup status</h2>
 
-                <p>
-                    Qualifications available: {qualifications.length}
-                </p>
-
-                <p>Modules available: {modules.length}</p>
-
-                <p>Assignments available: {assignments.length}</p>
+                <div className="status-grid">
+          <div className="status-card">
+              <span className="status-label">Qualifications available</span>
+              <span className="status-value">{qualifications.length}</span>
+            </div>
+          <div className="status-card">
+              <span className="status-label">Modules available</span>
+              <span className="status-value">{modules.length}</span>
+            </div>
+          <div className="status-card">
+              <span className="status-label">Assignments available</span>
+              <span className="status-value">{assignments.length}</span>
+            </div>
+        </div>
             </section>
 
 
 
-            <section>
-  <h2>Add assignment</h2>
+            <div className="admin-split-layout">
+<section>
+  <h2 style={{ marginBottom: "16px", color: "#112642" }}>Add assignment</h2>
 
-  <form onSubmit={handleSubmit}>
-    <div>
+  <form onSubmit={handleSubmit} className="modern-form">
+    <div className="form-group">
       <label htmlFor="assignment-qualification">
         Qualification
       </label>
@@ -206,7 +217,7 @@ export function AssignmentsPage() {
       </select>
     </div>
 
-    <div>
+    <div className="form-group">
       <label htmlFor="assignment-module">
         Module
       </label>
@@ -235,7 +246,7 @@ export function AssignmentsPage() {
       </select>
     </div>
 
-    <div>
+    <div className="form-group">
       <label htmlFor="assignment-number">
         Assignment number
       </label>
@@ -252,7 +263,7 @@ export function AssignmentsPage() {
       />
     </div>
 
-    <div>
+    <div className="form-group">
       <label htmlFor="assignment-code">
         Code
       </label>
@@ -267,7 +278,7 @@ export function AssignmentsPage() {
       />
     </div>
 
-    <div>
+    <div className="form-group">
       <label htmlFor="assignment-title">
         Title
       </label>
@@ -282,7 +293,7 @@ export function AssignmentsPage() {
       />
     </div>
 
-    <div>
+    <div className="form-group">
       <label htmlFor="skill-statement-code">
         Skill statement code
       </label>
@@ -297,7 +308,7 @@ export function AssignmentsPage() {
       />
     </div>
 
-    <div>
+    <div className="form-group">
       <label htmlFor="skill-statement">
         Skill statement
       </label>
@@ -312,7 +323,7 @@ export function AssignmentsPage() {
       />
     </div>
 
-    <div>
+    <div className="form-group">
       <label htmlFor="assignment-objective">
         Objective
       </label>
@@ -326,7 +337,7 @@ export function AssignmentsPage() {
       />
     </div>
 
-    <div>
+    <div className="form-group">
       <label htmlFor="maximum-score">
         Maximum score
       </label>
@@ -344,7 +355,7 @@ export function AssignmentsPage() {
       />
     </div>
 
-    <div>
+    <div className="form-group">
       <label htmlFor="minimum-pass-score">
         Minimum pass score
       </label>
@@ -362,7 +373,7 @@ export function AssignmentsPage() {
       />
     </div>
 
-    <label>
+    <label className="checkbox-group">
       <input
         type="checkbox"
         checked={isSummative}
@@ -373,7 +384,7 @@ export function AssignmentsPage() {
       Summative
     </label>
 
-    <label>
+    <label className="checkbox-group">
       <input
         type="checkbox"
         checked={contributesToFinalMark}
@@ -386,7 +397,7 @@ export function AssignmentsPage() {
       Contributes to final mark
     </label>
 
-    <div>
+    <div className="form-group">
       <label htmlFor="final-mark-weight">
         Final mark weight
       </label>
@@ -406,7 +417,7 @@ export function AssignmentsPage() {
       />
     </div>
 
-    <label>
+    <label className="checkbox-group">
       <input
         type="checkbox"
         checked={isActive}
@@ -417,26 +428,28 @@ export function AssignmentsPage() {
       Active
     </label>
 
-    {error && <p role="alert">{error}</p>}
+    {error && <p role="alert" className="error-message">{error}</p>}
 
-    <button
-      type="submit"
-      disabled={
-        isSubmitting ||
-        !qualificationId ||
-        !moduleId
-      }
-    >
-      {isSubmitting
-        ? "Creating..."
-        : "Add assignment"}
-    </button>
+    <div className="form-actions">
+                        <button
+                              type="submit"
+                              disabled={
+                                isSubmitting ||
+                                !qualificationId ||
+                                !moduleId
+                              }
+                             className="btn-primary">
+                              {isSubmitting
+                                ? "Creating..."
+                                : "Add assignment"}
+                            </button>
+                    </div>
   </form>
 </section>
 
 
             <section>
-                <h2>Existing assignments</h2>
+                <h2 style={{ marginBottom: "16px", color: "#112642" }}>Existing assignments</h2>
 
                 {assignments.length === 0 ? (
                     <p>
@@ -444,52 +457,55 @@ export function AssignmentsPage() {
                         a module first.
                     </p>
                 ) : (
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Qualification</th>
-                                <th>Module</th>
-                                <th>Number</th>
-                                <th>Code</th>
-                                <th>Title</th>
-                                <th>Maximum score</th>
-                                <th>Pass score</th>
-                                <th>Status</th>
-                            </tr>
-                        </thead>
-
-                        <tbody>
-                            {assignments.map((assignment) => (
-                                <tr key={assignment.id}>
-                                    <td>
-                                        {assignment.qualification_code}
-                                    </td>
-
-                                    <td>{assignment.module_code}</td>
-
-                                    <td>{assignment.assignment_number}</td>
-
-                                    <td>{assignment.code}</td>
-
-                                    <td>{assignment.title}</td>
-
-                                    <td>{assignment.maximum_score}</td>
-
-                                    <td>
-                                        {assignment.minimum_pass_score}
-                                    </td>
-
-                                    <td>
-                                        {assignment.is_active
-                                            ? "Active"
-                                            : "Inactive"}
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                    <div className="table-container">
+                        <table className="modern-table">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Qualification</th>
+                                                        <th>Module</th>
+                                                        <th>Number</th>
+                                                        <th>Code</th>
+                                                        <th>Title</th>
+                                                        <th>Maximum score</th>
+                                                        <th>Pass score</th>
+                                                        <th>Status</th>
+                                                    </tr>
+                                                </thead>
+                        
+                                                <tbody>
+                                                    {assignments.map((assignment) => (
+                                                        <tr key={assignment.id}>
+                                                            <td>
+                                                                {assignment.qualification_code}
+                                                            </td>
+                        
+                                                            <td>{assignment.module_code}</td>
+                        
+                                                            <td>{assignment.assignment_number}</td>
+                        
+                                                            <td>{assignment.code}</td>
+                        
+                                                            <td>{assignment.title}</td>
+                        
+                                                            <td>{assignment.maximum_score}</td>
+                        
+                                                            <td>
+                                                                {assignment.minimum_pass_score}
+                                                            </td>
+                        
+                                                            <td>
+                                                                {assignment.is_active
+                                                                    ? "Active"
+                                                                    : "Inactive"}
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                    </div>
                 )}
             </section>
+</div>
         </main>
     );
 }

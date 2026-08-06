@@ -1,3 +1,4 @@
+import "../css/AssessmentMappings.css";
 import {
     useEffect,
     useState,
@@ -172,18 +173,21 @@ export function QualificationsPage() {
     }
 
     if (isLoading) {
-        return <main>Loading qualifications...</main>;
+        return <main className="admin-container">Loading qualifications...</main>;
     }
 
     return (
-        <main>
-            <h1>Qualifications</h1>
+        <main className="admin-container">
+            <div className="admin-header">
+                <h1>Qualifications</h1>
+            </div>
 
-            <section>
-                <h2>Add qualification</h2>
+            <div className="admin-split-layout">
+<section>
+                <h2 style={{ marginBottom: "16px", color: "#112642" }}>Add qualification</h2>
 
-                <form onSubmit={handleSubmit}>
-                    <div>
+                <form onSubmit={handleSubmit} className="modern-form">
+                    <div className="form-group">
                         <label htmlFor="qualification-code">
                             Code
                         </label>
@@ -199,7 +203,7 @@ export function QualificationsPage() {
                         />
                     </div>
 
-                    <div>
+                    <div className="form-group">
                         <label htmlFor="qualification-name">
                             Name
                         </label>
@@ -215,7 +219,7 @@ export function QualificationsPage() {
                         />
                     </div>
 
-                    <div>
+                    <div className="form-group">
                         <label htmlFor="qualification-description">
                             Description
                         </label>
@@ -229,8 +233,8 @@ export function QualificationsPage() {
                         />
                     </div>
 
-                    <div>
-                        <label>
+                    <div className="form-group">
+                        <label className="checkbox-group">
                             <input
                                 type="checkbox"
                                 checked={isActive}
@@ -242,27 +246,31 @@ export function QualificationsPage() {
                         </label>
                     </div>
 
-                    {error && <p role="alert">{error}</p>}
+                    {error && <p role="alert" className="error-message">{error}</p>}
 
-                    <button
-                        type="submit"
-                        disabled={isSubmitting}
-                    >
-                        {isSubmitting
-                            ? "Creating..."
-                            : "Add qualification"}
-                    </button>
+                    <div className="form-actions">
+                        <button
+                            type="submit"
+                            disabled={isSubmitting}
+                            className="btn-primary"
+                        >
+                            {isSubmitting
+                                ? "Creating..."
+                                : "Add qualification"}
+                        </button>
+                    </div>
                 </form>
             </section>
 
             <section>
-                <h2>Existing qualifications</h2>
+                <h2 style={{ marginBottom: "16px", color: "#112642" }}>Existing qualifications</h2>
 
                 {qualifications.length === 0 ? (
                     <p>No qualifications found.</p>
                 ) : (
-                    <table>
-                        <thead>
+                    <div className="table-container">
+                        <table className="modern-table">
+                            <thead>
                             <tr>
                                 <th>Code</th>
                                 <th>Name</th>
@@ -394,9 +402,11 @@ export function QualificationsPage() {
                                 );
                             })}
                         </tbody>
-                    </table>
+                        </table>
+                    </div>
                 )}
             </section>
+</div>
         </main>
     );
 }
