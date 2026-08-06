@@ -3,7 +3,7 @@ import { getCsrfToken } from "./auth";
 
 
 const API_BASE_URL =
-    import.meta.env.VITE_API_BASE_URL ??
+    import.meta.env.VITE_API_BASE_URL ||
     "http://localhost:8000/api";
 
 export type AssessmentMapping = {
@@ -152,8 +152,8 @@ export async function createAssessmentMapping(
 
 export type Qualification = {
     id: string;
-    code: string;
-    name: string;
+    qualification_code: string;
+    qualification_name: string;
     description: string;
     is_active: boolean;
     can_delete: boolean;
@@ -162,10 +162,11 @@ export type Qualification = {
 };
 
 export type CreateQualificationInput = {
-    code: string;
-    name: string;
+    qualification_code: string;
+    qualification_name: string;
     description: string;
     is_active: boolean;
+
 };
 
 
@@ -245,12 +246,12 @@ export async function createQualification(
 }
 
 
-export type UpdateQualificationInput = {
-    code?: string;
-    name?: string;
-    description?: string;
-    is_active?: boolean;
-};
+export type UpdateQualificationInput = Partial<{
+    qualification_code: string;
+    qualification_name: string;
+    description: string;
+    is_active: boolean;
+}>;
 
 export async function updateQualification(
     qualificationId: string,
@@ -477,8 +478,8 @@ export async function deleteModule(
 
 export type Cohort = {
     id: number;
-    code: string;
-    name: string;
+    cohort_code: string;
+cohort_name: string;
     module: {
         id: string;
         code: string;
@@ -498,15 +499,16 @@ export type Cohort = {
 };
 
 export type CreateCohortInput = {
-    code: string;
-    name: string;
+  cohort_code: string;
+  cohort_name: string;
     module: string;
     start_date: string | null;
     end_date: string | null;
     is_active: boolean;
 };
 
-export type UpdateCohortInput = Partial<CreateCohortInput>;
+export type UpdateCohortInput =
+  Partial<CreateCohortInput>;
 
 
 export async function getCohorts(
@@ -1215,531 +1217,531 @@ export async function deleteAssignmentLevel(
 
 
 export type RubricCriterion = {
-  id: string;
+    id: string;
 
-  assignment_level: string;
-  assignment_code: string;
-  assignment_title: string;
+    assignment_level: string;
+    assignment_code: string;
+    assignment_title: string;
 
-  level_code: string;
-  level_display_name: string;
+    level_code: string;
+    level_display_name: string;
 
-  criterion_code: string;
-  title: string;
-  description: string;
+    criterion_code: string;
+    title: string;
+    description: string;
 
-  maximum_score: string;
-  sequence: number;
+    maximum_score: string;
+    sequence: number;
 
-  ai_gradable: boolean;
-  deterministic: boolean;
+    ai_gradable: boolean;
+    deterministic: boolean;
 
-  can_delete: boolean;
-  created_at: string;
+    can_delete: boolean;
+    created_at: string;
 };
 
 export type CreateRubricCriterionInput = {
-  assignment_level: string;
-  criterion_code: string;
-  title: string;
-  description: string;
-  maximum_score: string;
-  sequence: number;
-  ai_gradable: boolean;
-  deterministic: boolean;
+    assignment_level: string;
+    criterion_code: string;
+    title: string;
+    description: string;
+    maximum_score: string;
+    sequence: number;
+    ai_gradable: boolean;
+    deterministic: boolean;
 };
 
 export type UpdateRubricCriterionInput =
-  Partial<CreateRubricCriterionInput>;
+    Partial<CreateRubricCriterionInput>;
 
 
 
 export async function getRubricCriteria(
-  assignmentLevelId?: string,
+    assignmentLevelId?: string,
 ): Promise<RubricCriterion[]> {
-  const query = assignmentLevelId
-    ? `?assignment_level_id=${encodeURIComponent(
-        assignmentLevelId,
-      )}`
-    : "";
+    const query = assignmentLevelId
+        ? `?assignment_level_id=${encodeURIComponent(
+            assignmentLevelId,
+        )}`
+        : "";
 
-  const response = await fetch(
-    `${API_BASE_URL}/grading/rubric-criteria/${query}`,
-    {
-      method: "GET",
-      credentials: "include",
-    },
-  );
-
-  const data = await response.json();
-
-  if (!response.ok || !Array.isArray(data)) {
-    throw new Error(
-      typeof data?.detail === "string"
-        ? data.detail
-        : "Unable to load rubric criteria.",
+    const response = await fetch(
+        `${API_BASE_URL}/grading/rubric-criteria/${query}`,
+        {
+            method: "GET",
+            credentials: "include",
+        },
     );
-  }
 
-  return data as RubricCriterion[];
+    const data = await response.json();
+
+    if (!response.ok || !Array.isArray(data)) {
+        throw new Error(
+            typeof data?.detail === "string"
+                ? data.detail
+                : "Unable to load rubric criteria.",
+        );
+    }
+
+    return data as RubricCriterion[];
 }
 
 export async function createRubricCriterion(
-  input: CreateRubricCriterionInput,
+    input: CreateRubricCriterionInput,
 ): Promise<RubricCriterion> {
-  const csrfToken = await getCsrfToken();
+    const csrfToken = await getCsrfToken();
 
-  const response = await fetch(
-    `${API_BASE_URL}/grading/rubric-criteria/`,
-    {
-      method: "POST",
-      credentials: "include",
-      headers: {
-        "Content-Type": "application/json",
-        "X-CSRFToken": csrfToken,
-      },
-      body: JSON.stringify(input),
-    },
-  );
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(
-      typeof data?.detail === "string"
-        ? data.detail
-        : "Unable to create rubric criterion.",
+    const response = await fetch(
+        `${API_BASE_URL}/grading/rubric-criteria/`,
+        {
+            method: "POST",
+            credentials: "include",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRFToken": csrfToken,
+            },
+            body: JSON.stringify(input),
+        },
     );
-  }
 
-  return data as RubricCriterion;
+    const data = await response.json();
+
+    if (!response.ok) {
+        throw new Error(
+            typeof data?.detail === "string"
+                ? data.detail
+                : "Unable to create rubric criterion.",
+        );
+    }
+
+    return data as RubricCriterion;
 }
 
 export async function updateRubricCriterion(
-  criterionId: string,
-  input: UpdateRubricCriterionInput,
+    criterionId: string,
+    input: UpdateRubricCriterionInput,
 ): Promise<RubricCriterion> {
-  const csrfToken = await getCsrfToken();
+    const csrfToken = await getCsrfToken();
 
-  const response = await fetch(
-    `${API_BASE_URL}/grading/rubric-criteria/${criterionId}/`,
-    {
-      method: "PATCH",
-      credentials: "include",
-      headers: {
-        "Content-Type": "application/json",
-        "X-CSRFToken": csrfToken,
-      },
-      body: JSON.stringify(input),
-    },
-  );
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(
-      typeof data?.detail === "string"
-        ? data.detail
-        : "Unable to update rubric criterion.",
+    const response = await fetch(
+        `${API_BASE_URL}/grading/rubric-criteria/${criterionId}/`,
+        {
+            method: "PATCH",
+            credentials: "include",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRFToken": csrfToken,
+            },
+            body: JSON.stringify(input),
+        },
     );
-  }
 
-  return data as RubricCriterion;
+    const data = await response.json();
+
+    if (!response.ok) {
+        throw new Error(
+            typeof data?.detail === "string"
+                ? data.detail
+                : "Unable to update rubric criterion.",
+        );
+    }
+
+    return data as RubricCriterion;
 }
 
 export async function deleteRubricCriterion(
-  criterionId: string,
+    criterionId: string,
 ): Promise<void> {
-  const csrfToken = await getCsrfToken();
+    const csrfToken = await getCsrfToken();
 
-  const response = await fetch(
-    `${API_BASE_URL}/grading/rubric-criteria/${criterionId}/`,
-    {
-      method: "DELETE",
-      credentials: "include",
-      headers: {
-        "X-CSRFToken": csrfToken,
-      },
-    },
-  );
+    const response = await fetch(
+        `${API_BASE_URL}/grading/rubric-criteria/${criterionId}/`,
+        {
+            method: "DELETE",
+            credentials: "include",
+            headers: {
+                "X-CSRFToken": csrfToken,
+            },
+        },
+    );
 
-  if (response.status === 204) {
-    return;
-  }
-
-  let message = "Unable to delete rubric criterion.";
-
-  try {
-    const data = (await response.json()) as {
-      detail?: string;
-    };
-
-    if (data.detail) {
-      message = data.detail;
+    if (response.status === 204) {
+        return;
     }
-  } catch {
-    // Keep the default message.
-  }
 
-  throw new Error(message);
+    let message = "Unable to delete rubric criterion.";
+
+    try {
+        const data = (await response.json()) as {
+            detail?: string;
+        };
+
+        if (data.detail) {
+            message = data.detail;
+        }
+    } catch {
+        // Keep the default message.
+    }
+
+    throw new Error(message);
 }
 
 export type RubricBand = {
-  id: string;
+    id: string;
 
-  rubric_criterion: string;
-  criterion_code: string;
-  criterion_title: string;
+    rubric_criterion: string;
+    criterion_code: string;
+    criterion_title: string;
 
-  assignment_level_id: string;
-  assignment_code: string;
-  level_code: string;
+    assignment_level_id: string;
+    assignment_code: string;
+    level_code: string;
 
-  band_code:
+    band_code:
     | "failed"
     | "foundation"
     | "proficient"
     | "expert";
 
-  display_name: string;
+    display_name: string;
 
-  minimum_percentage: string;
-  maximum_percentage: string;
+    minimum_percentage: string;
+    maximum_percentage: string;
 
-  descriptor: string;
-  sequence: number;
+    descriptor: string;
+    sequence: number;
 };
 
 export type CreateRubricBandInput = {
-  rubric_criterion: string;
+    rubric_criterion: string;
 
-  band_code: RubricBand["band_code"];
-  display_name: string;
+    band_code: RubricBand["band_code"];
+    display_name: string;
 
-  minimum_percentage: string;
-  maximum_percentage: string;
+    minimum_percentage: string;
+    maximum_percentage: string;
 
-  descriptor: string;
-  sequence: number;
+    descriptor: string;
+    sequence: number;
 };
 
 export type UpdateRubricBandInput =
-  Partial<CreateRubricBandInput>;
-  
+    Partial<CreateRubricBandInput>;
+
 
 
 export async function getRubricBands(
-  rubricCriterionId?: string,
-  assignmentLevelId?: string,
+    rubricCriterionId?: string,
+    assignmentLevelId?: string,
 ): Promise<RubricBand[]> {
-  const params = new URLSearchParams();
+    const params = new URLSearchParams();
 
-  if (rubricCriterionId) {
-    params.set(
-      "rubric_criterion_id",
-      rubricCriterionId,
+    if (rubricCriterionId) {
+        params.set(
+            "rubric_criterion_id",
+            rubricCriterionId,
+        );
+    }
+
+    if (assignmentLevelId) {
+        params.set(
+            "assignment_level_id",
+            assignmentLevelId,
+        );
+    }
+
+    const query = params.toString()
+        ? `?${params.toString()}`
+        : "";
+
+    const response = await fetch(
+        `${API_BASE_URL}/grading/rubric-bands/${query}`,
+        {
+            method: "GET",
+            credentials: "include",
+        },
     );
-  }
 
-  if (assignmentLevelId) {
-    params.set(
-      "assignment_level_id",
-      assignmentLevelId,
-    );
-  }
+    const data = await response.json();
 
-  const query = params.toString()
-    ? `?${params.toString()}`
-    : "";
+    if (!response.ok || !Array.isArray(data)) {
+        throw new Error(
+            typeof data?.detail === "string"
+                ? data.detail
+                : "Unable to load rubric bands.",
+        );
+    }
 
-  const response = await fetch(
-    `${API_BASE_URL}/grading/rubric-bands/${query}`,
-    {
-      method: "GET",
-      credentials: "include",
-    },
-  );
-
-  const data = await response.json();
-
-  if (!response.ok || !Array.isArray(data)) {
-    throw new Error(
-      typeof data?.detail === "string"
-        ? data.detail
-        : "Unable to load rubric bands.",
-    );
-  }
-
-  return data as RubricBand[];
+    return data as RubricBand[];
 }
 
 export async function createRubricBand(
-  input: CreateRubricBandInput,
+    input: CreateRubricBandInput,
 ): Promise<RubricBand> {
-  const csrfToken = await getCsrfToken();
+    const csrfToken = await getCsrfToken();
 
-  const response = await fetch(
-    `${API_BASE_URL}/grading/rubric-bands/`,
-    {
-      method: "POST",
-      credentials: "include",
-      headers: {
-        "Content-Type": "application/json",
-        "X-CSRFToken": csrfToken,
-      },
-      body: JSON.stringify(input),
-    },
-  );
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(
-      typeof data?.detail === "string"
-        ? data.detail
-        : "Unable to create rubric band.",
+    const response = await fetch(
+        `${API_BASE_URL}/grading/rubric-bands/`,
+        {
+            method: "POST",
+            credentials: "include",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRFToken": csrfToken,
+            },
+            body: JSON.stringify(input),
+        },
     );
-  }
 
-  return data as RubricBand;
+    const data = await response.json();
+
+    if (!response.ok) {
+        throw new Error(
+            typeof data?.detail === "string"
+                ? data.detail
+                : "Unable to create rubric band.",
+        );
+    }
+
+    return data as RubricBand;
 }
 
 export async function updateRubricBand(
-  bandId: string,
-  input: UpdateRubricBandInput,
+    bandId: string,
+    input: UpdateRubricBandInput,
 ): Promise<RubricBand> {
-  const csrfToken = await getCsrfToken();
+    const csrfToken = await getCsrfToken();
 
-  const response = await fetch(
-    `${API_BASE_URL}/grading/rubric-bands/${bandId}/`,
-    {
-      method: "PATCH",
-      credentials: "include",
-      headers: {
-        "Content-Type": "application/json",
-        "X-CSRFToken": csrfToken,
-      },
-      body: JSON.stringify(input),
-    },
-  );
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(
-      typeof data?.detail === "string"
-        ? data.detail
-        : "Unable to update rubric band.",
+    const response = await fetch(
+        `${API_BASE_URL}/grading/rubric-bands/${bandId}/`,
+        {
+            method: "PATCH",
+            credentials: "include",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRFToken": csrfToken,
+            },
+            body: JSON.stringify(input),
+        },
     );
-  }
 
-  return data as RubricBand;
+    const data = await response.json();
+
+    if (!response.ok) {
+        throw new Error(
+            typeof data?.detail === "string"
+                ? data.detail
+                : "Unable to update rubric band.",
+        );
+    }
+
+    return data as RubricBand;
 }
 
 export async function deleteRubricBand(
-  bandId: string,
+    bandId: string,
 ): Promise<void> {
-  const csrfToken = await getCsrfToken();
+    const csrfToken = await getCsrfToken();
 
-  const response = await fetch(
-    `${API_BASE_URL}/grading/rubric-bands/${bandId}/`,
-    {
-      method: "DELETE",
-      credentials: "include",
-      headers: {
-        "X-CSRFToken": csrfToken,
-      },
-    },
-  );
+    const response = await fetch(
+        `${API_BASE_URL}/grading/rubric-bands/${bandId}/`,
+        {
+            method: "DELETE",
+            credentials: "include",
+            headers: {
+                "X-CSRFToken": csrfToken,
+            },
+        },
+    );
 
-  if (response.status === 204) {
-    return;
-  }
-
-  let message = "Unable to delete rubric band.";
-
-  try {
-    const data = (await response.json()) as {
-      detail?: string;
-    };
-
-    if (data.detail) {
-      message = data.detail;
+    if (response.status === 204) {
+        return;
     }
-  } catch {
-    // Keep the default message.
-  }
 
-  throw new Error(message);
+    let message = "Unable to delete rubric band.";
+
+    try {
+        const data = (await response.json()) as {
+            detail?: string;
+        };
+
+        if (data.detail) {
+            message = data.detail;
+        }
+    } catch {
+        // Keep the default message.
+    }
+
+    throw new Error(message);
 }
 
 
 export type AIGradingProfile = {
-  id: string;
+    id: string;
 
-  assignment_level: string;
-  assignment_code: string;
-  assignment_title: string;
+    assignment_level: string;
+    assignment_code: string;
+    assignment_title: string;
 
-  level_code: string;
-  level_display_name: string;
+    level_code: string;
+    level_display_name: string;
 
-  profile_name: string;
-  system_prompt: string;
-  output_schema: Record<string, unknown>;
+    profile_name: string;
+    system_prompt: string;
+    output_schema: Record<string, unknown>;
 
-  temperature: string;
-  model_provider: string;
-  model_name: string;
+    temperature: string;
+    model_provider: string;
+    model_name: string;
 
-  is_active: boolean;
+    is_active: boolean;
 
-  created_at: string;
-  updated_at: string;
+    created_at: string;
+    updated_at: string;
 };
 
 export type CreateAIGradingProfileInput = {
-  assignment_level: string;
-  profile_name: string;
-  system_prompt: string;
-  output_schema: Record<string, unknown>;
-  temperature: string;
-  model_provider: string;
-  model_name: string;
-  is_active: boolean;
+    assignment_level: string;
+    profile_name: string;
+    system_prompt: string;
+    output_schema: Record<string, unknown>;
+    temperature: string;
+    model_provider: string;
+    model_name: string;
+    is_active: boolean;
 };
 
 export type UpdateAIGradingProfileInput =
-  Partial<CreateAIGradingProfileInput>;
+    Partial<CreateAIGradingProfileInput>;
 
 
 
 export async function getAIGradingProfiles(
-  assignmentLevelId?: string,
+    assignmentLevelId?: string,
 ): Promise<AIGradingProfile[]> {
-  const query = assignmentLevelId
-    ? `?assignment_level_id=${encodeURIComponent(
-        assignmentLevelId,
-      )}`
-    : "";
+    const query = assignmentLevelId
+        ? `?assignment_level_id=${encodeURIComponent(
+            assignmentLevelId,
+        )}`
+        : "";
 
-  const response = await fetch(
-    `${API_BASE_URL}/grading/ai-grading-profiles/${query}`,
-    {
-      method: "GET",
-      credentials: "include",
-    },
-  );
-
-  const data = await response.json();
-
-  if (!response.ok || !Array.isArray(data)) {
-    throw new Error(
-      typeof data?.detail === "string"
-        ? data.detail
-        : "Unable to load AI grading profiles.",
+    const response = await fetch(
+        `${API_BASE_URL}/grading/ai-grading-profiles/${query}`,
+        {
+            method: "GET",
+            credentials: "include",
+        },
     );
-  }
 
-  return data as AIGradingProfile[];
+    const data = await response.json();
+
+    if (!response.ok || !Array.isArray(data)) {
+        throw new Error(
+            typeof data?.detail === "string"
+                ? data.detail
+                : "Unable to load AI grading profiles.",
+        );
+    }
+
+    return data as AIGradingProfile[];
 }
 
 export async function createAIGradingProfile(
-  input: CreateAIGradingProfileInput,
+    input: CreateAIGradingProfileInput,
 ): Promise<AIGradingProfile> {
-  const csrfToken = await getCsrfToken();
+    const csrfToken = await getCsrfToken();
 
-  const response = await fetch(
-    `${API_BASE_URL}/grading/ai-grading-profiles/`,
-    {
-      method: "POST",
-      credentials: "include",
-      headers: {
-        "Content-Type": "application/json",
-        "X-CSRFToken": csrfToken,
-      },
-      body: JSON.stringify(input),
-    },
-  );
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(
-      typeof data?.detail === "string"
-        ? data.detail
-        : "Unable to create AI grading profile.",
+    const response = await fetch(
+        `${API_BASE_URL}/grading/ai-grading-profiles/`,
+        {
+            method: "POST",
+            credentials: "include",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRFToken": csrfToken,
+            },
+            body: JSON.stringify(input),
+        },
     );
-  }
 
-  return data as AIGradingProfile;
+    const data = await response.json();
+
+    if (!response.ok) {
+        throw new Error(
+            typeof data?.detail === "string"
+                ? data.detail
+                : "Unable to create AI grading profile.",
+        );
+    }
+
+    return data as AIGradingProfile;
 }
 
 export async function updateAIGradingProfile(
-  profileId: string,
-  input: UpdateAIGradingProfileInput,
+    profileId: string,
+    input: UpdateAIGradingProfileInput,
 ): Promise<AIGradingProfile> {
-  const csrfToken = await getCsrfToken();
+    const csrfToken = await getCsrfToken();
 
-  const response = await fetch(
-    `${API_BASE_URL}/grading/ai-grading-profiles/${profileId}/`,
-    {
-      method: "PATCH",
-      credentials: "include",
-      headers: {
-        "Content-Type": "application/json",
-        "X-CSRFToken": csrfToken,
-      },
-      body: JSON.stringify(input),
-    },
-  );
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(
-      typeof data?.detail === "string"
-        ? data.detail
-        : "Unable to update AI grading profile.",
+    const response = await fetch(
+        `${API_BASE_URL}/grading/ai-grading-profiles/${profileId}/`,
+        {
+            method: "PATCH",
+            credentials: "include",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRFToken": csrfToken,
+            },
+            body: JSON.stringify(input),
+        },
     );
-  }
 
-  return data as AIGradingProfile;
+    const data = await response.json();
+
+    if (!response.ok) {
+        throw new Error(
+            typeof data?.detail === "string"
+                ? data.detail
+                : "Unable to update AI grading profile.",
+        );
+    }
+
+    return data as AIGradingProfile;
 }
 
 export async function deleteAIGradingProfile(
-  profileId: string,
+    profileId: string,
 ): Promise<void> {
-  const csrfToken = await getCsrfToken();
+    const csrfToken = await getCsrfToken();
 
-  const response = await fetch(
-    `${API_BASE_URL}/grading/ai-grading-profiles/${profileId}/`,
-    {
-      method: "DELETE",
-      credentials: "include",
-      headers: {
-        "X-CSRFToken": csrfToken,
-      },
-    },
-  );
+    const response = await fetch(
+        `${API_BASE_URL}/grading/ai-grading-profiles/${profileId}/`,
+        {
+            method: "DELETE",
+            credentials: "include",
+            headers: {
+                "X-CSRFToken": csrfToken,
+            },
+        },
+    );
 
-  if (response.status === 204) {
-    return;
-  }
-
-  let message = "Unable to delete AI grading profile.";
-
-  try {
-    const data = (await response.json()) as {
-      detail?: string;
-    };
-
-    if (data.detail) {
-      message = data.detail;
+    if (response.status === 204) {
+        return;
     }
-  } catch {
-    // Keep the default message.
-  }
 
-  throw new Error(message);
+    let message = "Unable to delete AI grading profile.";
+
+    try {
+        const data = (await response.json()) as {
+            detail?: string;
+        };
+
+        if (data.detail) {
+            message = data.detail;
+        }
+    } catch {
+        // Keep the default message.
+    }
+
+    throw new Error(message);
 }

@@ -1,3 +1,4 @@
+import "../css/AssessmentMappings.css";
 import {
     useEffect,
     useState,
@@ -17,8 +18,8 @@ export function QualificationsPage() {
         Qualification[]
     >([]);
 
-    const [code, setCode] = useState("");
-    const [name, setName] = useState("");
+    const [qualificationCode, setQualificationCode] = useState("");
+    const [qualificationName, setQualificationName] = useState("");
     const [description, setDescription] = useState("");
     const [isActive, setIsActive] = useState(true);
 
@@ -27,8 +28,9 @@ export function QualificationsPage() {
     const [error, setError] = useState("");
 
     const [editingId, setEditingId] = useState<string | null>(null);
-    const [editCode, setEditCode] = useState("");
-    const [editName, setEditName] = useState("");
+
+    const [editQualificationCode, setEditQualificationCode] = useState("");
+    const [editQualificationName, setEditQualificationName] = useState("");
     const [editDescription, setEditDescription] = useState("");
     const [isSaving, setIsSaving] = useState(false);
 
@@ -61,14 +63,14 @@ export function QualificationsPage() {
 
         try {
             await createQualification({
-                code,
-                name,
+                qualification_code: qualificationCode,
+                qualification_name: qualificationName,
                 description,
                 is_active: isActive,
             });
 
-            setCode("");
-            setName("");
+            setQualificationCode("");
+            setQualificationName("");
             setDescription("");
             setIsActive(true);
 
@@ -87,16 +89,16 @@ export function QualificationsPage() {
 
     function beginEditing(qualification: Qualification) {
         setEditingId(qualification.id);
-        setEditCode(qualification.code);
-        setEditName(qualification.name);
+        setEditQualificationCode(qualification.qualification_code);
+        setEditQualificationName(qualification.qualification_name);
         setEditDescription(qualification.description);
         setError("");
     }
 
     function cancelEditing() {
         setEditingId(null);
-        setEditCode("");
-        setEditName("");
+        setEditQualificationCode("");
+        setEditQualificationName("");
         setEditDescription("");
     }
 
@@ -108,8 +110,8 @@ export function QualificationsPage() {
 
         try {
             await updateQualification(qualificationId, {
-                code: editCode,
-                name: editName,
+                qualification_code: editQualificationCode,
+                qualification_name: editQualificationName,
                 description: editDescription,
             });
 
@@ -150,7 +152,7 @@ export function QualificationsPage() {
         qualification: Qualification,
     ) {
         const confirmed = window.confirm(
-            `Delete qualification ${qualification.code}?`,
+            `Delete qualification ${qualification.qualification_code}?`,
         );
 
         if (!confirmed) {
@@ -172,231 +174,240 @@ export function QualificationsPage() {
     }
 
     if (isLoading) {
-        return <main>Loading qualifications...</main>;
+        return <main className="admin-container">Loading qualifications...</main>;
     }
 
     return (
-        <main>
-            <h1>Qualifications</h1>
+        <main className="admin-container">
+            <div className="admin-header">
+                <h1>Qualifications</h1>
+            </div>
 
-            <section>
-                <h2>Add qualification</h2>
+            <div className="admin-split-layout">
+                <section>
+                    <h2 style={{ marginBottom: "16px", color: "#112642" }}>Add qualification</h2>
 
-                <form onSubmit={handleSubmit}>
-                    <div>
-                        <label htmlFor="qualification-code">
-                            Code
-                        </label>
+                    <form onSubmit={handleSubmit} className="modern-form">
+                        <div className="form-group">
+                            <label htmlFor="qualification-code">
+                                Qualification code
+                            </label>
 
-                        <input
-                            id="qualification-code"
-                            type="text"
-                            value={code}
-                            onChange={(event) =>
-                                setCode(event.target.value)
-                            }
-                            required
-                        />
-                    </div>
-
-                    <div>
-                        <label htmlFor="qualification-name">
-                            Name
-                        </label>
-
-                        <input
-                            id="qualification-name"
-                            type="text"
-                            value={name}
-                            onChange={(event) =>
-                                setName(event.target.value)
-                            }
-                            required
-                        />
-                    </div>
-
-                    <div>
-                        <label htmlFor="qualification-description">
-                            Description
-                        </label>
-
-                        <textarea
-                            id="qualification-description"
-                            value={description}
-                            onChange={(event) =>
-                                setDescription(event.target.value)
-                            }
-                        />
-                    </div>
-
-                    <div>
-                        <label>
                             <input
-                                type="checkbox"
-                                checked={isActive}
+                                id="qualification-code"
+                                type="text"
+                                value={qualificationCode}
                                 onChange={(event) =>
-                                    setIsActive(event.target.checked)
+                                    setQualificationCode(event.target.value)
+                                }
+                                required
+                            />
+                        </div>
+
+                        <div className="form-group">
+                            <label htmlFor="qualification-name">
+                                Qualification name
+                            </label>
+
+                            <input
+                                id="qualification-name"
+                                type="text"
+                                value={qualificationName}
+                                onChange={(event) =>
+                                    setQualificationName(event.target.value)
+                                }
+                                required
+                            />
+                        </div>
+
+                        <div className="form-group">
+                            <label htmlFor="qualification-description">
+                                Description
+                            </label>
+
+                            <textarea
+                                id="qualification-description"
+                                value={description}
+                                onChange={(event) =>
+                                    setDescription(event.target.value)
                                 }
                             />
-                            Active
-                        </label>
-                    </div>
+                        </div>
 
-                    {error && <p role="alert">{error}</p>}
+                        <div className="form-group">
+                            <label className="checkbox-group">
+                                <input
+                                    type="checkbox"
+                                    checked={isActive}
+                                    onChange={(event) =>
+                                        setIsActive(event.target.checked)
+                                    }
+                                />
+                                Active
+                            </label>
+                        </div>
 
-                    <button
-                        type="submit"
-                        disabled={isSubmitting}
-                    >
-                        {isSubmitting
-                            ? "Creating..."
-                            : "Add qualification"}
-                    </button>
-                </form>
-            </section>
+                        {error && <p role="alert" className="error-message">{error}</p>}
 
-            <section>
-                <h2>Existing qualifications</h2>
+                        <div className="form-actions">
+                            <button
+                                type="submit"
+                                disabled={isSubmitting}
+                                className="btn-primary"
+                            >
+                                {isSubmitting
+                                    ? "Creating..."
+                                    : "Add qualification"}
+                            </button>
+                        </div>
+                    </form>
+                </section>
 
-                {qualifications.length === 0 ? (
-                    <p>No qualifications found.</p>
-                ) : (
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Code</th>
-                                <th>Name</th>
-                                <th>Description</th>
-                                <th>Status</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
+                <section>
+                    <h2 style={{ marginBottom: "16px", color: "#112642" }}>Existing qualifications</h2>
 
-                        <tbody>
-                            {qualifications.map((qualification) => {
-                                const isEditing =
-                                    editingId === qualification.id;
+                    {qualifications.length === 0 ? (
+                        <p>No qualifications found.</p>
+                    ) : (
+                        <div className="table-container">
+                            <table className="modern-table">
+                                <thead>
+                                    <tr>
+                                        <th>Qualification code</th>
+                                        <th>Qualification name</th>
+                                        <th>Description</th>
+                                        <th>Status</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
 
-                                return (
-                                    <tr key={qualification.id}>
-                                        <td>
-                                            {isEditing ? (
-                                                <input
-                                                    value={editCode}
-                                                    onChange={(event) =>
-                                                        setEditCode(event.target.value)
-                                                    }
-                                                    required
-                                                />
-                                            ) : (
-                                                qualification.code
-                                            )}
-                                        </td>
+                                <tbody>
+                                    {qualifications.map((qualification) => {
+                                        const isEditing =
+                                            editingId === qualification.id;
 
-                                        <td>
-                                            {isEditing ? (
-                                                <input
-                                                    value={editName}
-                                                    onChange={(event) =>
-                                                        setEditName(event.target.value)
-                                                    }
-                                                    required
-                                                />
-                                            ) : (
-                                                qualification.name
-                                            )}
-                                        </td>
+                                        return (
+                                            <tr key={qualification.id}>
+                                                <td>
+                                                    {isEditing ? (
+                                                        <input
+                                                            value={editQualificationCode}
+                                                            onChange={(event) =>
+                                                                setEditQualificationCode(event.target.value)
+                                                            }
+                                                            required
+                                                        />
+                                                    ) : (
+                                                        qualification.qualification_code
+                                                    )}
+                                                </td>
 
-                                        <td>
-                                            {isEditing ? (
-                                                <textarea
-                                                    value={editDescription}
-                                                    onChange={(event) =>
-                                                        setEditDescription(
-                                                            event.target.value,
-                                                        )
-                                                    }
-                                                />
-                                            ) : (
-                                                qualification.description || "—"
-                                            )}
-                                        </td>
+                                                <td>
+                                                    {isEditing ? (
+                                                        <input
+                                                            value={editQualificationName}
+                                                            onChange={(event) =>
+                                                                setEditQualificationName(event.target.value)
+                                                            }
+                                                            required
+                                                        />
+                                                    ) : (
+                                                        qualification.qualification_name
+                                                    )}
+                                                </td>
 
-                                        <td>
-                                            {qualification.is_active
-                                                ? "Active"
-                                                : "Inactive"}
-                                        </td>
-
-                                        <td>
-                                            {isEditing ? (
-                                                <>
-                                                    <button
-                                                        type="button"
-                                                        disabled={isSaving}
-                                                        onClick={() =>
-                                                            void saveQualification(
-                                                                qualification.id,
-                                                            )
-                                                        }
-                                                    >
-                                                        {isSaving ? "Saving..." : "Save"}
-                                                    </button>
-
-                                                    <button
-                                                        type="button"
-                                                        disabled={isSaving}
-                                                        onClick={cancelEditing}
-                                                    >
-                                                        Cancel
-                                                    </button>
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() =>
-                                                            beginEditing(qualification)
-                                                        }
-                                                    >
-                                                        Edit
-                                                    </button>
-
-                                                    <button
-                                                        type="button"
-                                                        onClick={() =>
-                                                            void toggleQualificationStatus(
-                                                                qualification,
-                                                            )
-                                                        }
-                                                    >
-                                                        {qualification.is_active
-                                                            ? "Deactivate"
-                                                            : "Activate"}
-                                                    </button>
-
-                                                    {qualification.can_delete && (
-                                                        <button
-                                                            type="button"
-                                                            onClick={() =>
-                                                                void removeQualification(
-                                                                    qualification,
+                                                <td>
+                                                    {isEditing ? (
+                                                        <textarea
+                                                            value={editDescription}
+                                                            onChange={(event) =>
+                                                                setEditDescription(
+                                                                    event.target.value,
                                                                 )
                                                             }
-                                                        >
-                                                            Delete
-                                                        </button>
+                                                        />
+                                                    ) : (
+                                                        qualification.description || "—"
                                                     )}
-                                                </>
-                                            )}
-                                        </td>
-                                    </tr>
-                                );
-                            })}
-                        </tbody>
-                    </table>
-                )}
-            </section>
+                                                </td>
+
+                                                <td>
+                                                    {qualification.is_active
+                                                        ? "Active"
+                                                        : "Inactive"}
+                                                </td>
+
+                                                <td>
+                                                    {isEditing ? (
+                                                        <>
+                                                            <button
+                                                                type="button"
+                                                                disabled={isSaving}
+                                                                onClick={() =>
+                                                                    void saveQualification(
+                                                                        qualification.id,
+                                                                    )
+                                                                }
+                                                            >
+                                                                {isSaving ? "Saving..." : "Save"}
+                                                            </button>
+
+                                                            <button
+                                                                type="button"
+                                                                disabled={isSaving}
+                                                                onClick={cancelEditing}
+                                                            >
+                                                                Cancel
+                                                            </button>
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() =>
+                                                                    beginEditing(qualification)
+                                                                }
+                                                            >
+                                                                Edit
+                                                            </button>
+
+                                                            <button
+                                                                type="button"
+                                                                onClick={() =>
+                                                                    void toggleQualificationStatus(
+                                                                        qualification,
+                                                                    )
+                                                                }
+                                                            >
+                                                                {qualification.is_active
+                                                                    ? "Deactivate"
+                                                                    : "Activate"}
+                                                            </button>
+
+                                                            {qualification.can_delete && (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() =>
+                                                                        void removeQualification(
+                                                                            qualification,
+                                                                        )
+                                                                    }
+                                                                >
+                                                                    Delete
+                                                                </button>
+                                                            )}
+                                                        </>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </section>
+            </div>
         </main>
     );
 }

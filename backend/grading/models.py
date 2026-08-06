@@ -52,7 +52,6 @@ class GradingConfiguration(models.Model):
 
     class Meta:
         db_table = "grading_configuration"
-        managed = False
         ordering = ("code",)
 
     def __str__(self) -> str:
@@ -90,7 +89,6 @@ class RubricCriterion(models.Model):
 
     class Meta:
         db_table = "rubric_criterion"
-        managed = False
         ordering = (
             "assignment_level",
             "sequence",
@@ -145,7 +143,6 @@ class RubricBand(models.Model):
 
     class Meta:
         db_table = "rubric_band"
-        managed = False
         ordering = (
             "rubric_criterion",
             "sequence",
@@ -224,7 +221,6 @@ class RagSource(models.Model):
 
     class Meta:
         db_table = "rag_source"
-        managed = False
         ordering = ("assignment_level", "title")
 
     def __str__(self) -> str:
@@ -265,7 +261,6 @@ class RagChunk(models.Model):
 
     class Meta:
         db_table = "rag_chunk"
-        managed = False
         ordering = (
             "rag_source",
             "chunk_index",
@@ -319,7 +314,6 @@ class AIGradingProfile(models.Model):
 
     class Meta:
         db_table = "ai_grading_profile"
-        managed = False
 
     def __str__(self) -> str:
         return self.profile_name

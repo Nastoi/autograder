@@ -15,8 +15,8 @@ class QualificationSerializer(serializers.ModelSerializer):
         model = Qualification
         fields = (
             "id",
-            "code",
-            "name",
+            "qualification_code",
+            "qualification_name",
             "description",
             "is_active",
             "can_delete",
@@ -129,11 +129,12 @@ class CohortSerializer(serializers.ModelSerializer):
         read_only=True,
     )
     qualification_code = serializers.CharField(
-        source="module.qualification.code",
+        source="module.qualification.qualification_code",
         read_only=True,
     )
+
     qualification_name = serializers.CharField(
-        source="module.qualification.name",
+        source="module.qualification.qualification_name",
         read_only=True,
     )
     can_delete = serializers.SerializerMethodField()
@@ -142,8 +143,8 @@ class CohortSerializer(serializers.ModelSerializer):
         model = Cohort
         fields = (
             "id",
-            "code",
-            "name",
+            "cohort_code",
+            "cohort_name",
             "module",
             "module_code",
             "module_name",
@@ -170,13 +171,13 @@ class CohortSerializer(serializers.ModelSerializer):
         )
 
     def get_can_delete(self, obj):
-        return not obj.enrolments.exists()
+        return not obj.assessment_mappings.exists()
 
-    def validate_code(self, value):
-        code = value.strip().upper()
+    def validate_cohort_code(self, value):
+        cohort_code = value.strip().upper()
 
         queryset = Cohort.objects.filter(
-            code__iexact=code,
+            cohort_code__iexact=cohort_code,
         )
 
         if self.instance:
@@ -189,7 +190,7 @@ class CohortSerializer(serializers.ModelSerializer):
                 "A cohort with this code already exists."
             )
 
-        return code
+        return cohort_code
 
     def validate(self, attrs):
         start_date = attrs.get(

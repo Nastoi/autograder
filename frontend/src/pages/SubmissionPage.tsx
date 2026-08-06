@@ -1,3 +1,4 @@
+import "../css/AssessmentMappings.css";
 import {
   useEffect,
   useState,
@@ -100,25 +101,29 @@ export function SubmissionPage() {
   }
 
   if (isLoading) {
-    return <main>Loading submission page...</main>;
+    return <main className="admin-container">Loading submission page...</main>;
   }
 
   if (error && !context) {
     return (
-      <main>
-        <h1>Unable to load submission</h1>
-        <p role="alert">{error}</p>
+      <main className="admin-container">
+        <div className="admin-header">
+                <h1>Unable to load submission</h1>
+            </div>
+        <p role="alert" className="error-message">{error}</p>
       </main>
     );
   }
 
   if (!context) {
-    return <main>Submission context was not found.</main>;
+    return <main className="admin-container">Submission context was not found.</main>;
   }
 
   return (
-    <main>
-      <h1>Submit Assignment</h1>
+    <main className="admin-container">
+      <div className="admin-header">
+                <h1>Submit Assignment</h1>
+            </div>
 
       <section>
         <p>
@@ -147,7 +152,7 @@ export function SubmissionPage() {
         </p>
       </section>
 
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={handleSubmit} className="modern-form">
         <label htmlFor="submitted-file">
           Select your document
         </label>
@@ -166,16 +171,18 @@ export function SubmissionPage() {
           <p>Selected: {selectedFile.name}</p>
         )}
 
-        {error && <p role="alert">{error}</p>}
+        {error && <p role="alert" className="error-message">{error}</p>}
 
-        <button
-          type="submit"
-          disabled={!selectedFile || isSubmitting}
-        >
-          {isSubmitting
-            ? "Submitting..."
-            : "Submit document"}
-        </button>
+        <div className="form-actions">
+                        <button
+                                  type="submit"
+                                  disabled={!selectedFile || isSubmitting}
+                                 className="btn-primary">
+                                  {isSubmitting
+                                    ? "Submitting..."
+                                    : "Submit document"}
+                                </button>
+                    </div>
       </form>
     </main>
   );

@@ -6,6 +6,7 @@ import {
 } from "react-router";
 
 
+import { Header } from "./components/Header";
 import { ProtectedRoute } from "./auth/ProtectedRoute";
 import { LoginPage } from "./pages/LoginPage";
 import { ResultPage } from "./pages/ResultPage";
@@ -29,6 +30,7 @@ const TEST_CONTEXT_ID =
 export default function App() {
   return (
     <BrowserRouter>
+      <Header />
       <Routes>
         <Route path="/login" element={<LoginPage />} />
 

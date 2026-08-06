@@ -11,12 +11,15 @@ class Qualification(models.Model):
         editable=False,
     )
 
-    code = models.CharField(
+    qualification_code = models.CharField(
         max_length=50,
         unique=True,
     )
 
-    name = models.CharField(max_length=255)
+    qualification_name = models.CharField(
+        max_length=255,
+    )
+
     description = models.TextField(blank=True)
     is_active = models.BooleanField(default=True)
 
@@ -25,11 +28,13 @@ class Qualification(models.Model):
 
     class Meta:
         db_table = "qualification"
-        managed = False
-        ordering = ("code",)
+        ordering = ("qualification_code",)
 
     def __str__(self) -> str:
-        return f"{self.code} — {self.name}"
+        return (
+            f"{self.qualification_code} — "
+            f"{self.qualification_name}"
+        )
 
 
 class Module(models.Model):
@@ -56,7 +61,6 @@ class Module(models.Model):
 
     class Meta:
         db_table = "module"
-        managed = False
         ordering = ("code",)
 
     def __str__(self) -> str:
@@ -152,7 +156,6 @@ class ModuleAssignment(models.Model):
 
     class Meta:
         db_table = "module_assignment"
-        managed = False
         ordering = ("module", "assignment_number")
 
     def __str__(self) -> str:
@@ -224,7 +227,6 @@ class AssignmentLevel(models.Model):
 
     class Meta:
         db_table = "assignment_level"
-        managed = False
         ordering = (
             "assignment__assignment_number",
             "level_code",
@@ -238,8 +240,12 @@ class AssignmentLevel(models.Model):
 
 
 class Cohort(models.Model):
-    name = models.CharField(max_length=255)
-    code = models.CharField(max_length=100, unique=True)
+    cohort_name = models.CharField(max_length=255)
+
+    cohort_code = models.CharField(
+        max_length=100,
+        unique=True,
+    )
 
     module = models.ForeignKey(
         Module,
@@ -263,7 +269,10 @@ class Cohort(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ("code",)
+        ordering = ("cohort_code",)
 
     def __str__(self) -> str:
-        return f"{self.code} — {self.name}"   
+        return (
+            f"{self.cohort_code} — "
+            f"{self.cohort_name}"
+        )
