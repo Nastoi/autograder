@@ -2,29 +2,31 @@
 @import url("https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap");
 
 .result-page {
-  min-height: 100vh;
+  min-height: calc(100vh - 70px);
   display: flex;
   justify-content: center;
-  align-items: center;
-  background: linear-gradient(135deg,#102b4c,#1a3e6b);
-  padding: 40px;
-
+  align-items: flex-start;
+  background: linear-gradient(135deg, #102b4c, #1a3e6b);
+  padding: 24px 40px 48px;
   font-family: "Montserrat", sans-serif;
-
+  overflow-y: auto;
+  box-sizing: border-box;
 }
 
 .result-card {
   width: 100%;
   max-width: 720px;
+  margin: 0 auto;
   background: white;
   border-radius: 22px;
-  padding: 40px;
-  box-shadow: 0 30px 80px rgba(0,0,0,.18);
+  padding: 32px 40px;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.18);
+  box-sizing: border-box;
 }
 
 .result-header{
   text-align:center;
-  margin-bottom:40px;
+  margin-bottom:24px;
 }
 
 .result-icon{
@@ -53,15 +55,16 @@
 .result-details{
   display:flex;
   flex-direction:column;
-  gap:18px;
+  gap:12px;
 }
 
-.result-row{
-  display:flex;
-  justify-content:space-between;
-  padding:16px;
-  border-radius:12px;
-  background:#f8f9fb;
+.result-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 13px 16px;
+  border-radius: 12px;
+  background: #f8f9fb;
 }
 
 .result-row span{
