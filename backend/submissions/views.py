@@ -114,6 +114,24 @@ class SubmissionCreateView(APIView):
 
         uploaded_file = request.FILES.get("submitted_file")
 
+        submission_track = request.data.get("submission_track")
+
+        valid_tracks = {
+            LearnerSubmission.SubmissionTrack.BASIC,
+            LearnerSubmission.SubmissionTrack.ADVANCED,
+        }
+
+        if submission_track not in valid_tracks:
+            return Response(
+                {
+                    "detail": (
+                        "Please select a valid submission track: "
+                        "basic or advanced."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         if uploaded_file is None:
             return Response(
                 {"detail": "Please select a file."},
@@ -157,16 +175,6 @@ class SubmissionCreateView(APIView):
             maximum_score=assignment.maximum_score,
         )
 
-        submission = LearnerSubmission.objects.create(
-            context=context,
-            learner=request.user,
-            assignment_level=context.assignment_level,
-            submitted_file=uploaded_file,
-            original_filename=uploaded_file.name,
-            attempt_number=previous_attempts + 1,
-            status=LearnerSubmission.Status.UPLOADED,
-            maximum_score=assignment.maximum_score,
-        )
 
         submission = run_mock_grading(submission)
 

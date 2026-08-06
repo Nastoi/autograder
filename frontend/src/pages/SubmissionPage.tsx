@@ -16,6 +16,7 @@ import {
   type SubmissionContext,
 } from "../api/submissions";
 
+
 export function SubmissionPage() {
   const { contextId } = useParams();
   const navigate = useNavigate();
@@ -29,6 +30,12 @@ export function SubmissionPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [submissionTrack, setSubmissionTrack] =
+    useState<SubmissionTrack | "">("");
+
+  type SubmissionTrack = "basic" | "advanced";
+
+
 
   useEffect(() => {
     async function loadContext() {
@@ -67,6 +74,11 @@ export function SubmissionPage() {
   ) {
     event.preventDefault();
 
+    if (!submissionTrack) {
+      setError("Please select Basic or Advanced.");
+      return;
+    }
+
     if (!contextId) {
       setError("Submission context is missing.");
       return;
@@ -84,6 +96,7 @@ export function SubmissionPage() {
       const submission = await submitAssignment(
         contextId,
         selectedFile,
+        submissionTrack,
       );
 
       navigate(`/results/${submission.id}`, {
@@ -108,8 +121,8 @@ export function SubmissionPage() {
     return (
       <main className="admin-container">
         <div className="admin-header">
-                <h1>Unable to load submission</h1>
-            </div>
+          <h1>Unable to load submission</h1>
+        </div>
         <p role="alert" className="error-message">{error}</p>
       </main>
     );
@@ -122,8 +135,8 @@ export function SubmissionPage() {
   return (
     <main className="admin-container">
       <div className="admin-header">
-                <h1>Submit Assignment</h1>
-            </div>
+        <h1>Submit Assignment</h1>
+      </div>
 
       <section>
         <p>
@@ -146,10 +159,43 @@ export function SubmissionPage() {
           {context.assignment.title}
         </p>
 
-        <p>
-          <strong>Level:</strong>{" "}
-          {context.assignment_level.display_name}
-        </p>
+        <fieldset>
+          <legend>Select submission type</legend>
+
+          <label>
+            <input
+              type="radio"
+              name="submission_track"
+              value="basic"
+              checked={submissionTrack === "basic"}
+              onChange={() => setSubmissionTrack("basic")}
+              disabled={isSubmitting}
+              required
+            />
+            Basic
+          </label>
+
+          <p>
+            Grading outcome can be Failed, Foundation, or Proficient.
+          </p>
+
+          <label>
+            <input
+              type="radio"
+              name="submission_track"
+              value="advanced"
+              checked={submissionTrack === "advanced"}
+              onChange={() => setSubmissionTrack("advanced")}
+              disabled={isSubmitting}
+              required
+            />
+            Advanced
+          </label>
+
+          <p>
+            Grading outcome can be Failed, Proficient, or Expert.
+          </p>
+        </fieldset>
       </section>
 
       <form onSubmit={handleSubmit} className="modern-form">
@@ -174,15 +220,19 @@ export function SubmissionPage() {
         {error && <p role="alert" className="error-message">{error}</p>}
 
         <div className="form-actions">
-                        <button
-                                  type="submit"
-                                  disabled={!selectedFile || isSubmitting}
-                                 className="btn-primary">
-                                  {isSubmitting
-                                    ? "Submitting..."
-                                    : "Submit document"}
-                                </button>
-                    </div>
+          <button
+            type="submit"
+            disabled={
+              !selectedFile ||
+              !submissionTrack ||
+              isSubmitting
+            }
+            className="btn-primary">
+            {isSubmitting
+              ? "Submitting..."
+              : "Submit document"}
+          </button>
+        </div>
       </form>
     </main>
   );

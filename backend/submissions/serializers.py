@@ -42,6 +42,7 @@ class LearnerSubmissionSerializer(serializers.ModelSerializer):
             "assignment_code",
             "assignment_title",
             "level",
+            "submission_track",
             "original_filename",
             "attempt_number",
             "status",

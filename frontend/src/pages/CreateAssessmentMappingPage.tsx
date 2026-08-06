@@ -9,23 +9,23 @@ import "../css/AssessmentMappings.css";
 
 import {
     createAssessmentMapping,
-    getAssignmentLevels,
     getCohorts,
-    type AssignmentLevel,
+    getModuleAssignments,
     type Cohort,
+    type ModuleAssignment,
 } from "../api/lms";
 
 export function CreateAssessmentMappingPage() {
     const navigate = useNavigate();
 
     const [cohorts, setCohorts] = useState<Cohort[]>([]);
-    const [assignmentLevels, setAssignmentLevels] =
-  useState<AssignmentLevel[]>([]);
-    const [cohortId, setCohortId] = useState("");
-    const [assignmentLevelId, setAssignmentLevelId] =
-        useState("");
+    const [assignments, setAssignments] = useState<ModuleAssignment[]>([]);
 
-    
+    const [assignmentId, setAssignmentId] = useState("");
+
+    const [cohortId, setCohortId] = useState("");
+
+
 
     const [isActive, setIsActive] = useState(true);
     const [isLoading, setIsLoading] = useState(true);
@@ -52,11 +52,12 @@ export function CreateAssessmentMappingPage() {
     }, []);
 
     async function handleCohortChange(
+
         selectedCohortId: string,
     ) {
         setCohortId(selectedCohortId);
-        setAssignmentLevelId("");
-        setAssignmentLevels([]);
+        setAssignmentId("");
+        setAssignments([]);
         setError("");
 
         if (!selectedCohortId) {
@@ -74,16 +75,16 @@ export function CreateAssessmentMappingPage() {
         }
 
         try {
-            const levels = await getAssignmentLevels(
+            const data = await getModuleAssignments(
                 selectedCohort.module.id,
             );
 
-            setAssignmentLevels(levels);
+            setAssignments(data);
         } catch (caughtError) {
             setError(
                 caughtError instanceof Error
                     ? caughtError.message
-                    : "Unable to load assignment levels.",
+                    : "Unable to load assignments.",
             );
         }
     }
@@ -93,9 +94,9 @@ export function CreateAssessmentMappingPage() {
     ) {
         event.preventDefault();
 
-        if (!cohortId || !assignmentLevelId) {
+        if (!cohortId || !assignmentId) {
             setError(
-                "Please select a cohort and assignment level.",
+                "Please select a cohort and assignment.",
             );
             return;
         }
@@ -106,7 +107,7 @@ export function CreateAssessmentMappingPage() {
         try {
             await createAssessmentMapping({
                 cohort: Number(cohortId),
-                assignment_level: assignmentLevelId,
+                assignment: assignmentId,
                 is_active: isActive,
             });
 
@@ -172,37 +173,31 @@ export function CreateAssessmentMappingPage() {
                 </div>
 
                 <div className="form-group">
-                    <label htmlFor="assignment-level">
-                        Assignment level
+                    <label htmlFor="assignment">
+                        Assignment
                     </label>
 
                     <select
-                        id="assignment-level"
-                        value={assignmentLevelId}
+                        id="assignment"
+                        value={assignmentId}
                         onChange={(event) =>
-                            setAssignmentLevelId(
-                                event.target.value,
-                            )
+                            setAssignmentId(event.target.value)
                         }
                         disabled={!cohortId}
                         required
                     >
                         <option value="">
-                            Select assignment level
+                            Select assignment
                         </option>
 
-                        {assignmentLevels.map((level) => (
+                        {assignments.map((assignment) => (
                             <option
-                                key={level.id}
-                                value={level.id}
+                                key={assignment.id}
+                                value={assignment.id}
                             >
-                                {level.assignment_code}
+                                {assignment.code}
                                 {" — "}
-                                {level.assignment_title}
-                                {" — "}
-                                {level.display_name}
-                                {" v"}
-                                {level.version}
+                                {assignment.title}
                             </option>
                         ))}
                     </select>

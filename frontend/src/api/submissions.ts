@@ -44,20 +44,23 @@ export type SubmissionContext = {
   };
 };
 
+export type SubmissionTrack = "basic" | "advanced";
+
 export type Submission = {
   id: string;
   context_id: string;
   assignment_code: string;
   assignment_title: string;
   level: string;
+  submission_track: SubmissionTrack;
   original_filename: string;
   attempt_number: number;
   status:
-    | "uploaded"
-    | "processing"
-    | "completed"
-    | "failed"
-    | "manual_review";
+  | "uploaded"
+  | "processing"
+  | "completed"
+  | "failed"
+  | "manual_review";
   final_score: string | null;
   maximum_score: string | null;
   achieved_band: string;
@@ -118,6 +121,7 @@ function isSubmission(
     "assignment_code" in data &&
     "assignment_title" in data &&
     "level" in data &&
+    "submission_track" in data &&
     "original_filename" in data &&
     "attempt_number" in data &&
     "status" in data &&
@@ -179,11 +183,13 @@ export async function getSubmissionContext(
 export async function submitAssignment(
   contextId: string,
   file: File,
+  submissionTrack: SubmissionTrack,
 ): Promise<Submission> {
   const csrfToken = await getCsrfToken();
 
   const formData = new FormData();
   formData.append("submitted_file", file);
+  formData.append("submission_track", submissionTrack);
 
   const response = await fetch(
     `${API_BASE_URL}/submissions/context/${contextId}/submit/`,

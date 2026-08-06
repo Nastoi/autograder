@@ -75,7 +75,6 @@ export function AssessmentMappingsPage() {
                 <th>Name</th>
                 <th>Cohort</th>
                 <th>Assignment</th>
-                <th>Level</th>
                 <th>Status</th>
                 <th>Usage</th>
               </tr>
@@ -96,7 +95,6 @@ export function AssessmentMappingsPage() {
                     <span style={{ color: "#64748b" }}>{mapping.assignment_title}</span>
                   </td>
 
-                  <td>{mapping.level_code}</td>
 
                   <td>
                     <span className={`status-badge ${mapping.is_active ? 'status-active' : 'status-inactive'}`}>

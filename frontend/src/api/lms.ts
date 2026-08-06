@@ -7,24 +7,23 @@ const API_BASE_URL =
     "http://localhost:8000/api";
 
 export type AssessmentMapping = {
-    id: string;
-    name: string;
+  id: string;
+  name: string;
 
-    cohort: number;
-    cohort_code: string;
-    cohort_name: string;
+  cohort: number;
+  cohort_code: string;
+  cohort_name: string;
 
-    assignment_level: string;
-    assignment_code: string;
-    assignment_title: string;
-    level_code: string;
+  assignment: string;
+  assignment_code: string;
+  assignment_title: string;
 
-    is_active: boolean;
-    has_submissions: boolean;
-    can_delete: boolean;
+  is_active: boolean;
+  has_submissions: boolean;
+  can_delete: boolean;
 
-    created_at: string;
-    updated_at: string;
+  created_at: string;
+  updated_at: string;
 };
 
 export async function getAssessmentMappings(): Promise<
@@ -93,12 +92,10 @@ export type AssignmentLevelOption = {
 
 
 
-
-
 export type CreateAssessmentMappingInput = {
-    cohort: number;
-    assignment_level: string;
-    is_active: boolean;
+  cohort: number;
+  assignment: string;
+  is_active: boolean;
 };
 
 export async function createAssessmentMapping(
@@ -372,6 +369,7 @@ export async function getModules(
         );
     }
 
+        
     return data as Module[];
 }
 
@@ -1001,7 +999,6 @@ export async function deleteGradingConfiguration(
 
     throw new Error(message);
 }
-
 
 
 export type AssignmentLevel = {
@@ -1745,3 +1742,5 @@ export async function deleteAIGradingProfile(
 
     throw new Error(message);
 }
+
+

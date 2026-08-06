@@ -78,6 +78,15 @@ export function ResultPage() {
           </div>
 
           <div className="result-row">
+            <span>Submission Type</span>
+            <strong>
+              {submission.submission_track === "basic"
+                ? "Basic"
+                : "Advanced"}
+            </strong>
+          </div>
+
+          <div className="result-row">
             <span>Status</span>
             <strong>{submission.status}</strong>
           </div>
