@@ -1,7 +1,7 @@
 import "../css/AssessmentMappings.css";
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router";
-import "./ResultPage.css";
+import "../css/ResultPage.css";
 
 import {
   getSubmission,
