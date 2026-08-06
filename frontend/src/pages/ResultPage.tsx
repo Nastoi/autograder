@@ -1,4 +1,3 @@
-import "../css/AssessmentMappings.css";
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import "../css/ResultPage.css";
@@ -116,68 +115,15 @@ export function ResultPage() {
 
         </div>
 
-        <main className="admin-container">
-          <div className="admin-header">
-            <h1>Submission received</h1>
-          </div>
-
-          <p>
-            <strong>File:</strong>{" "}
-            {submission.original_filename}
-          </p>
-
-          <p>
-            <strong>Assignment:</strong>{" "}
-            {submission.assignment_title}
-          </p>
-
-          <p>
-            <strong>Status:</strong>{" "}
-            {submission.status}
-          </p>
-
-          <p>
-            <strong>Attempt:</strong>{" "}
-            {submission.attempt_number}
-          </p>
-
-          {submission.status === "completed" && (
-            <>
-              <p>
-                <strong>Score:</strong>{" "}
-                {submission.final_score} / {submission.maximum_score}
-              </p>
-
-              <p>
-                <strong>Band:</strong>{" "}
-                {submission.achieved_band}
-              </p>
-
-              <p>
-                <strong>Feedback:</strong>{" "}
-                {submission.feedback}
-              </p>
-            </>
-          )}
-
-          {submission.status === "uploaded" && (
-            <p>
-              Your document was uploaded successfully and is
-              waiting for grading.
-            </p>
-          )}
-
-
-          <button
-            className="submit-again-btn"
-            type="button"
-            onClick={() =>
-              navigate(`/submit/${submission.context_id}`)
-            }
-          >
-            Submit Another Attempt
-          </button>
-        </main>
+        <button
+          className="submit-again-btn"
+          type="button"
+          onClick={() =>
+            navigate(`/submit/${submission.context_id}`)
+          }
+        >
+          Submit Another Attempt
+        </button>
       </div>
     </main>
   );
