@@ -1,6 +1,7 @@
 import "../css/AssessmentMappings.css";
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router";
+import "../css/ResultPage.css";
 
 import {
   getSubmission,
@@ -42,8 +43,8 @@ export function ResultPage() {
     return (
       <main className="admin-container">
         <div className="admin-header">
-                <h1>Submission error</h1>
-            </div>
+          <h1>Submission error</h1>
+        </div>
         <p role="alert" className="error-message">{error}</p>
       </main>
     );
@@ -54,65 +55,130 @@ export function ResultPage() {
   }
 
   return (
-    <main className="admin-container">
-      <div className="admin-header">
-                <h1>Submission received</h1>
+
+    <main className="result-page">
+      <div className="result-card">
+
+        <div className="result-header">
+          <div className="result-icon">✓</div>
+          <h1>Submission Received</h1>
+          <p>Your assignment has been successfully uploaded.</p>
+        </div>
+
+        <div className="result-details">
+
+          <div className="result-row">
+            <span>File</span>
+            <strong>{submission.original_filename}</strong>
+          </div>
+
+          <div className="result-row">
+            <span>Assignment</span>
+            <strong>{submission.assignment_title}</strong>
+          </div>
+
+          <div className="result-row">
+            <span>Status</span>
+            <strong>{submission.status}</strong>
+          </div>
+
+          <div className="result-row">
+            <span>Attempt</span>
+            <strong>{submission.attempt_number}</strong>
+          </div>
+
+          {submission.status === "completed" && (
+            <>
+              <div className="result-row">
+                <span>Score</span>
+                <strong>
+                  {submission.final_score} / {submission.maximum_score}
+                </strong>
+              </div>
+
+              <div className="result-row">
+                <span>Band</span>
+                <strong>{submission.achieved_band}</strong>
+              </div>
+
+              <div className="feedback-box">
+                <h3>Feedback</h3>
+                <p>{submission.feedback}</p>
+              </div>
+            </>
+          )}
+
+          {submission.status === "uploaded" && (
+            <div className="pending-box">
+              Your assignment is waiting for grading.
             </div>
+          )}
 
-      <p>
-        <strong>File:</strong>{" "}
-        {submission.original_filename}
-      </p>
+        </div>
 
-      <p>
-        <strong>Assignment:</strong>{" "}
-        {submission.assignment_title}
-      </p>
+        <main className="admin-container">
+          <div className="admin-header">
+            <h1>Submission received</h1>
+          </div>
 
-      <p>
-        <strong>Status:</strong>{" "}
-        {submission.status}
-      </p>
-
-      <p>
-        <strong>Attempt:</strong>{" "}
-        {submission.attempt_number}
-      </p>
-
-      {submission.status === "completed" && (
-        <>
           <p>
-            <strong>Score:</strong>{" "}
-            {submission.final_score} / {submission.maximum_score}
+            <strong>File:</strong>{" "}
+            {submission.original_filename}
           </p>
 
           <p>
-            <strong>Band:</strong>{" "}
-            {submission.achieved_band}
+            <strong>Assignment:</strong>{" "}
+            {submission.assignment_title}
           </p>
 
           <p>
-            <strong>Feedback:</strong>{" "}
-            {submission.feedback}
+            <strong>Status:</strong>{" "}
+            {submission.status}
           </p>
-        </>
-      )}
 
-      {submission.status === "uploaded" && (
-        <p>
-          Your document was uploaded successfully and is
-          waiting for grading.
-        </p>
-      )}
+          <p>
+            <strong>Attempt:</strong>{" "}
+            {submission.attempt_number}
+          </p>
 
-      <button
-        type="button"
-        onClick={() =>
-          navigate(`/submit/${submission.context_id}`)
-        }
-      >
-        Submit another attempt
-      </button>
+          {submission.status === "completed" && (
+            <>
+              <p>
+                <strong>Score:</strong>{" "}
+                {submission.final_score} / {submission.maximum_score}
+              </p>
+
+              <p>
+                <strong>Band:</strong>{" "}
+                {submission.achieved_band}
+              </p>
+
+              <p>
+                <strong>Feedback:</strong>{" "}
+                {submission.feedback}
+              </p>
+            </>
+          )}
+
+          {submission.status === "uploaded" && (
+            <p>
+              Your document was uploaded successfully and is
+              waiting for grading.
+            </p>
+          )}
+
+
+          <button
+            className="submit-again-btn"
+            type="button"
+            onClick={() =>
+              navigate(`/submit/${submission.context_id}`)
+            }
+          >
+            Submit Another Attempt
+          </button>
+        </main>
+      </div>
     </main>
   );
 }

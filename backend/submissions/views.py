@@ -62,8 +62,8 @@ class SubmissionContextView(APIView):
                 },
                 "cohort": {
                     "id": context.cohort.id,
-                    "code": context.cohort.code,
-                    "name": context.cohort.name,
+                    "code": context.cohort.cohort_code,
+                    "name": context.cohort.cohort_name,
                 },
                 "module": {
                     "id": module.id,
