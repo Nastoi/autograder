@@ -106,3 +106,36 @@ class LearnerSubmissionDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = LearnerSubmission
         fields = "__all__"
+
+class LearnerSubmissionListSerializer(serializers.ModelSerializer):
+    assignment_code = serializers.CharField(
+        source="assignment_level.assignment.code",
+        read_only=True,
+    )
+    assignment_title = serializers.CharField(
+        source="assignment_level.assignment.title",
+        read_only=True,
+    )
+    module_id = serializers.UUIDField(
+        source="assignment_level.assignment.module.id",
+        read_only=True,
+        default=None,
+    )
+    module_title = serializers.CharField(
+        source="assignment_level.assignment.module.title",
+        read_only=True,
+        default="",
+    )
+
+    class Meta:
+        model = LearnerSubmission
+        fields = (
+            "id",
+            "status",
+            "attempt_number",
+            "submitted_at",
+            "assignment_code",
+            "assignment_title",
+            "module_id",
+            "module_title",
+        )

@@ -11,7 +11,7 @@ from rest_framework.viewsets import ModelViewSet
 from django.http import HttpResponse
 
 from .models import LearnerSubmission, SubmissionContext, SubmissionPage
-from .serializers import LearnerSubmissionSerializer, LearnerSubmissionDetailSerializer
+from .serializers import LearnerSubmissionSerializer, LearnerSubmissionDetailSerializer, LearnerSubmissionListSerializer
 from .services import extract_submission_pages, run_ai_grading
 
 ALLOWED_EXTENSIONS = {
@@ -167,19 +167,24 @@ class SubmissionCreateView(APIView):
         )
 
 class SubmissionDetailView(APIView):
-    # Set to AllowAny for Postman testing (or keep IsAuthenticated for production)
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request, submission_id):
-        submission = get_object_or_404(
-            LearnerSubmission.objects.prefetch_related("pages").select_related(
-                "assignment_level",
-                "assignment_level__assignment",
-                "context",
-            ),
-            id=submission_id,
-            # learner=request.user,  # Comment out during unauthenticated Postman testing
+        # Base Query
+        queryset = LearnerSubmission.objects.prefetch_related(
+            "pages"
+        ).select_related(
+            "assignment_level",
+            "assignment_level__assignment",
+            "context",
         )
+
+        # Filter by learner ONLY if the user is not a superuser
+        filters = {"id": submission_id}
+        if not request.user.is_superuser:
+            filters["learner"] = request.user
+
+        submission = get_object_or_404(queryset, **filters)
 
         return Response(
             LearnerSubmissionDetailSerializer(
@@ -189,22 +194,39 @@ class SubmissionDetailView(APIView):
         )
         
 class LearnerSubmissionViewSet(ModelViewSet):
-    permission_classes = [permissions.AllowAny]  # Keep open for Postman testing
-    queryset = LearnerSubmission.objects.all()
-    serializer_class = LearnerSubmissionSerializer
-    lookup_field = "id"  # Explicitly use UUID id for lookup
+    permission_classes = [permissions.IsAuthenticated]
+    lookup_field = "id"
     parser_classes = (MultiPartParser, FormParser)
+
+    def get_queryset(self):
+        user = self.request.user
+        queryset = LearnerSubmission.objects.select_related(
+            "assignment_level__assignment__module"
+        ).order_by("-submitted_at")
+
+        # Superusers can view all submissions; standard users view only their own
+        if not user.is_superuser:
+            queryset = queryset.filter(learner=user)
+
+        return queryset
+
+    def get_serializer_class(self):
+        if self.action == "list":
+            return LearnerSubmissionListSerializer
+        elif self.action in ["retrieve", "update", "partial_update"]:
+            return LearnerSubmissionDetailSerializer
+        return LearnerSubmissionSerializer
 
     def perform_create(self, serializer):
         uploaded_file = self.request.FILES.get("submitted_file")
         original_name = uploaded_file.name if uploaded_file else ""
-        
-        # Save base submission
-        submission = serializer.save(original_filename=original_name)
-        
-        # Run local extraction (PDF -> Images + Raw Text)
-        extract_submission_pages(submission)
 
+        submission = serializer.save(
+            learner=self.request.user,
+            original_filename=original_name,
+        )
+
+        extract_submission_pages(submission)
 class PageImageView(APIView):
     """Serves the binary WebP image stored in Postgres."""
 
