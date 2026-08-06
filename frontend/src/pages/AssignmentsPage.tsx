@@ -211,7 +211,7 @@ export function AssignmentsPage() {
             key={qualification.id}
             value={qualification.id}
           >
-            {qualification.code} - {qualification.name}
+            {qualification.qualification_code} - {qualification.qualification_name}
           </option>
         ))}
       </select>

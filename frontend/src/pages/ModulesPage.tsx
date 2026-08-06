@@ -227,7 +227,7 @@ export function ModulesPage() {
                   key={qualification.id}
                   value={qualification.id}
                 >
-                  {qualification.code} - {qualification.name}
+                  {qualification.qualification_code} - {qualification.qualification_name}
                 </option>
               ))}
             </select>
@@ -341,7 +341,7 @@ export function ModulesPage() {
                                                         key={qualification.id}
                                                         value={qualification.id}
                                                       >
-                                                        {qualification.code}
+                                                        {qualification.qualification_code}
                                                       </option>
                                                     ),
                                                   )}

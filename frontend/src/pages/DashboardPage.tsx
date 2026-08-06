@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router";
-import { useAuth } from "../auth/AuthContext";
+import { Link } from "react-router";
+// import { useAuth } from "../auth/AuthContext";
 import "../css/AssessmentMappings.css";
 import {
   GraduationCap,
@@ -21,8 +21,6 @@ import {
 } from "../api/lms";
 
 export function DashboardPage() {
-  const { user, logout } = useAuth();
-  const navigate = useNavigate();
 
   const [isLoading, setIsLoading] = useState(true);
   const [metrics, setMetrics] = useState({
@@ -71,15 +69,6 @@ export function DashboardPage() {
     void loadData();
   }, []);
 
-  async function handleLogout() {
-    try {
-      await logout();
-      navigate("/login", { replace: true });
-    } catch (error) {
-      console.error("Logout failed:", error);
-      alert("Unable to log out.");
-    }
-  }
 
   return (
     <main className="admin-container">

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router";
+// import { useNavigate } from "react-router";
 
 import {
   getAssessmentMappings,
@@ -8,7 +8,7 @@ import {
 import "../css/AssessmentMappings.css";
 
 export function AssessmentMappingsPage() {
-  const navigate = useNavigate();
+  // const navigate = useNavigate();
 
   const [mappings, setMappings] = useState<
     AssessmentMapping[]

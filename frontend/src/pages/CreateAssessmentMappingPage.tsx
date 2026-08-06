@@ -165,7 +165,7 @@ export function CreateAssessmentMappingPage() {
                                 {" → "}
                                 {cohort.module_code}
                                 {" → "}
-                                {cohort.code}
+                                {cohort.cohort_code}
                             </option>
                         ))}
                     </select>
