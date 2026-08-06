@@ -1,16 +1,18 @@
 from pathlib import Path
 
 from django.shortcuts import get_object_or_404
-from rest_framework import status
-from rest_framework.parsers import FormParser, MultiPartParser
+from rest_framework import permissions, status
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.decorators import action
+from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.viewsets import ModelViewSet
+from django.http import HttpResponse
 
-from .models import LearnerSubmission, SubmissionContext
-from .serializers import LearnerSubmissionSerializer
-from .services import run_ai_grading
-
+from .models import LearnerSubmission, SubmissionContext, SubmissionPage
+from .serializers import LearnerSubmissionSerializer, LearnerSubmissionDetailSerializer
+from .services import extract_submission_pages, run_ai_grading
 
 ALLOWED_EXTENSIONS = {
     ".doc",
@@ -164,20 +166,54 @@ class SubmissionCreateView(APIView):
             status=status.HTTP_201_CREATED,
         )
 
-
 class SubmissionDetailView(APIView):
-    permission_classes = [IsAuthenticated]
+    # Set to AllowAny for Postman testing (or keep IsAuthenticated for production)
+    permission_classes = [permissions.AllowAny]
 
     def get(self, request, submission_id):
         submission = get_object_or_404(
-            LearnerSubmission.objects.select_related(
+            LearnerSubmission.objects.prefetch_related("pages").select_related(
                 "assignment_level",
                 "assignment_level__assignment",
+                "context",
             ),
             id=submission_id,
-            learner=request.user,
+            # learner=request.user,  # Comment out during unauthenticated Postman testing
         )
 
         return Response(
-            LearnerSubmissionSerializer(submission).data
+            LearnerSubmissionDetailSerializer(
+                submission, context={"request": request}
+            ).data,
+            status=status.HTTP_200_OK,
+        )
+        
+class LearnerSubmissionViewSet(ModelViewSet):
+    permission_classes = [permissions.AllowAny]  # Keep open for Postman testing
+    queryset = LearnerSubmission.objects.all()
+    serializer_class = LearnerSubmissionSerializer
+    lookup_field = "id"  # Explicitly use UUID id for lookup
+    parser_classes = (MultiPartParser, FormParser)
+
+    def perform_create(self, serializer):
+        uploaded_file = self.request.FILES.get("submitted_file")
+        original_name = uploaded_file.name if uploaded_file else ""
+        
+        # Save base submission
+        submission = serializer.save(original_filename=original_name)
+        
+        # Run local extraction (PDF -> Images + Raw Text)
+        extract_submission_pages(submission)
+
+class PageImageView(APIView):
+    """Serves the binary WebP image stored in Postgres."""
+
+    def get(self, request, page_id):
+        page = get_object_or_404(SubmissionPage, id=page_id)
+        if not page.image_data:
+            return HttpResponse(status=404)
+
+        return HttpResponse(
+            page.image_data, 
+            content_type=page.image_mime_type
         )

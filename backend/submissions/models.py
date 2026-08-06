@@ -143,3 +143,26 @@ class LearnerSubmission(models.Model):
             f"{self.learner.username} — "
             f"{self.original_filename}"
         )
+        
+class SubmissionPage(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    submission = models.ForeignKey(
+        LearnerSubmission, on_delete=models.CASCADE, related_name="pages"
+    )
+    page_number = models.PositiveIntegerField()
+    
+    # Store page text extracted via pdfplumber
+    extracted_text = models.TextField(blank=True, default="")
+    
+    # Store binary WebP image directly in Postgres bytea column
+    image_data = models.BinaryField(null=True, blank=True)
+    image_mime_type = models.CharField(max_length=50, default="image/webp")
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["page_number"]
+        unique_together = ["submission", "page_number"]
+
+    def __str__(self):
+        return f"Submission {self.submission_id} - Page {self.page_number}"

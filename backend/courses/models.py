@@ -25,7 +25,7 @@ class Qualification(models.Model):
 
     class Meta:
         db_table = "qualification"
-        managed = False
+        # managed = False
         ordering = ("code",)
 
     def __str__(self) -> str:
@@ -56,7 +56,7 @@ class Module(models.Model):
 
     class Meta:
         db_table = "module"
-        managed = False
+        # managed = False
         ordering = ("code",)
 
     def __str__(self) -> str:
@@ -152,7 +152,7 @@ class ModuleAssignment(models.Model):
 
     class Meta:
         db_table = "module_assignment"
-        managed = False
+        # managed = False
         ordering = ("module", "assignment_number")
 
     def __str__(self) -> str:
@@ -224,7 +224,7 @@ class AssignmentLevel(models.Model):
 
     class Meta:
         db_table = "assignment_level"
-        managed = False
+        # managed = False
         ordering = (
             "assignment__assignment_number",
             "level_code",

@@ -52,7 +52,6 @@ class GradingConfiguration(models.Model):
 
     class Meta:
         db_table = "grading_configuration"
-        managed = False
         ordering = ("code",)
 
     def __str__(self) -> str:

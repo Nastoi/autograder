@@ -1,6 +1,9 @@
-from django.urls import path
+from django.urls import include, path
+from rest_framework.routers import DefaultRouter
 
 from .views import (
+    LearnerSubmissionViewSet,
+    PageImageView,
     SubmissionContextView,
     SubmissionCreateView,
     SubmissionDetailView,
@@ -8,7 +11,16 @@ from .views import (
 
 app_name = "submissions"
 
+router = DefaultRouter()
+router.register(r"", LearnerSubmissionViewSet, basename="learner-submission")
+
 urlpatterns = [
+    # 1. Explicit static routes (always place first)
+    path(
+        "pages/<uuid:page_id>/image/",
+        PageImageView.as_view(),
+        name="page-image",
+    ),
     path(
         "context/<uuid:context_id>/",
         SubmissionContextView.as_view(),
@@ -24,4 +36,7 @@ urlpatterns = [
         SubmissionDetailView.as_view(),
         name="detail",
     ),
+
+    # 2. Router Fallback (POST / and ViewSet actions like /<pk>/grade/)
+    path("", include(router.urls)),
 ]
