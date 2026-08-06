@@ -2,9 +2,17 @@ from rest_framework import serializers
 
 from .models import (
     AIGradingProfile,
+    CriterionResult,
+    ExtractedEvidence,
     GradingConfiguration,
+    Prompt,
+    Response,
     RubricBand,
     RubricCriterion,
+    Task,
+    TaskCriterionWeight,
+    TaskCriteriaMapping,
+    TaskEvidenceMap,
 )
 
 
@@ -506,3 +514,184 @@ class AIGradingProfileSerializer(
             )
 
         return value
+
+
+class TaskSerializer(serializers.ModelSerializer):
+    assignment_code = serializers.CharField(
+        source="assignment_level.assignment.code",
+        read_only=True,
+    )
+    level_code = serializers.CharField(
+        source="assignment_level.level_code",
+        read_only=True,
+    )
+
+    class Meta:
+        model = Task
+        fields = (
+            "id",
+            "assignment_level",
+            "assignment_code",
+            "level_code",
+            "task_code",
+            "title",
+            "instructions",
+            "sequence",
+            "created_at",
+        )
+        read_only_fields = (
+            "id",
+            "assignment_code",
+            "level_code",
+            "created_at",
+        )
+
+
+class TaskCriterionWeightSerializer(serializers.ModelSerializer):
+    task_code = serializers.CharField(
+        source="task.task_code",
+        read_only=True,
+    )
+    criterion_code = serializers.CharField(
+        source="rubric_criterion.criterion_code",
+        read_only=True,
+    )
+
+    class Meta:
+        model = TaskCriterionWeight
+        fields = (
+            "id",
+            "task",
+            "task_code",
+            "rubric_criterion",
+            "criterion_code",
+            "weight_percentage",
+            "band",
+        )
+        read_only_fields = (
+            "id",
+            "task_code",
+            "criterion_code",
+        )
+
+
+class TaskCriteriaMappingSerializer(serializers.ModelSerializer):
+    task_code = serializers.CharField(
+        source="task.task_code",
+        read_only=True,
+    )
+    criterion_code = serializers.CharField(
+        source="rubric_criterion.criterion_code",
+        read_only=True,
+    )
+    assignment_level_id = serializers.UUIDField(
+        source="assignment_level.id",
+        read_only=True,
+    )
+
+    class Meta:
+        model = TaskCriteriaMapping
+        fields = (
+            "id",
+            "assignment_level",
+            "assignment_level_id",
+            "task",
+            "task_code",
+            "rubric_criterion",
+            "criterion_code",
+            "inferred_weight",
+            "ai_explanation",
+            "created_at",
+        )
+        read_only_fields = (
+            "id",
+            "task_code",
+            "criterion_code",
+            "assignment_level_id",
+            "created_at",
+        )
+
+
+class ExtractedEvidenceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ExtractedEvidence
+        fields = (
+            "id",
+            "submission",
+            "evidence_type",
+            "content_text",
+            "file_path",
+            "extraction_confidence",
+            "created_at",
+        )
+        read_only_fields = (
+            "id",
+            "created_at",
+        )
+
+
+class TaskEvidenceMapSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TaskEvidenceMap
+        fields = (
+            "id",
+            "task",
+            "evidence",
+            "mapping_role",
+            "confidence_score",
+        )
+        read_only_fields = (
+            "id",
+        )
+
+
+class PromptSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Prompt
+        fields = (
+            "id",
+            "submission",
+            "stage",
+            "prompt_text",
+            "prompt_payload",
+            "created_at",
+        )
+        read_only_fields = (
+            "id",
+            "created_at",
+        )
+
+
+class ResponseSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Response
+        fields = (
+            "id",
+            "prompt",
+            "model_name",
+            "response_payload",
+            "confidence_score",
+            "created_at",
+        )
+        read_only_fields = (
+            "id",
+            "created_at",
+        )
+
+
+class CriterionResultSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CriterionResult
+        fields = (
+            "id",
+            "submission",
+            "rubric_criterion",
+            "awarded_marks",
+            "achievement_band",
+            "feedback",
+            "created_at",
+        )
+        read_only_fields = (
+            "id",
+            "created_at",
+        )

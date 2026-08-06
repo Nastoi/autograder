@@ -1,15 +1,32 @@
-from django.urls import include, path
+from django.urls import path
 
 from .views import (
     AIGradingProfileDetailView,
     AIGradingProfileListCreateView,
+    CriterionResultDetailView,
+    CriterionResultListCreateView,
+    ExtractedEvidenceDetailView,
+    ExtractedEvidenceListCreateView,
     GradingConfigurationDetailView,
     GradingConfigurationListCreateView,
+    PromptDetailView,
+    PromptListCreateView,
+    ResponseDetailView,
+    ResponseListCreateView,
     RubricBandDetailView,
     RubricBandListCreateView,
     RubricCriterionDetailView,
     RubricCriterionListCreateView,
+    TaskCriteriaMappingDetailView,
+    TaskCriteriaMappingListCreateView,
+    TaskCriterionWeightDetailView,
+    TaskCriterionWeightListCreateView,
+    TaskDetailView,
+    TaskListCreateView,
+    TaskEvidenceMapDetailView,
+    TaskEvidenceMapListCreateView,
 )
+
 urlpatterns = [
     path(
         "configurations/",
@@ -22,33 +39,113 @@ urlpatterns = [
         name="grading-configuration-detail",
     ),
     path(
-    "rubric-criteria/",
-    RubricCriterionListCreateView.as_view(),
-    name="rubric-criterion-list-create",
-),
-path(
-    "rubric-criteria/<uuid:id>/",
-    RubricCriterionDetailView.as_view(),
-    name="rubric-criterion-detail",
-),
-path(
-    "rubric-bands/",
-    RubricBandListCreateView.as_view(),
-    name="rubric-band-list-create",
-),
-path(
-    "rubric-bands/<uuid:id>/",
-    RubricBandDetailView.as_view(),
-    name="rubric-band-detail",
-),
-path(
-    "ai-grading-profiles/",
-    AIGradingProfileListCreateView.as_view(),
-    name="ai-grading-profile-list-create",
-),
-path(
-    "ai-grading-profiles/<uuid:id>/",
-    AIGradingProfileDetailView.as_view(),
-    name="ai-grading-profile-detail",
-),
+        "rubric-criteria/",
+        RubricCriterionListCreateView.as_view(),
+        name="rubric-criterion-list-create",
+    ),
+    path(
+        "rubric-criteria/<uuid:id>/",
+        RubricCriterionDetailView.as_view(),
+        name="rubric-criterion-detail",
+    ),
+    path(
+        "rubric-bands/",
+        RubricBandListCreateView.as_view(),
+        name="rubric-band-list-create",
+    ),
+    path(
+        "rubric-bands/<uuid:id>/",
+        RubricBandDetailView.as_view(),
+        name="rubric-band-detail",
+    ),
+    path(
+        "ai-grading-profiles/",
+        AIGradingProfileListCreateView.as_view(),
+        name="ai-grading-profile-list-create",
+    ),
+    path(
+        "ai-grading-profiles/<uuid:id>/",
+        AIGradingProfileDetailView.as_view(),
+        name="ai-grading-profile-detail",
+    ),
+    path(
+        "tasks/",
+        TaskListCreateView.as_view(),
+        name="task-list-create",
+    ),
+    path(
+        "tasks/<uuid:id>/",
+        TaskDetailView.as_view(),
+        name="task-detail",
+    ),
+    path(
+        "task-criterion-weights/",
+        TaskCriterionWeightListCreateView.as_view(),
+        name="task-criterion-weight-list-create",
+    ),
+    path(
+        "task-criterion-weights/<uuid:id>/",
+        TaskCriterionWeightDetailView.as_view(),
+        name="task-criterion-weight-detail",
+    ),
+    path(
+        "task-criteria-mappings/",
+        TaskCriteriaMappingListCreateView.as_view(),
+        name="task-criteria-mapping-list-create",
+    ),
+    path(
+        "task-criteria-mappings/<uuid:id>/",
+        TaskCriteriaMappingDetailView.as_view(),
+        name="task-criteria-mapping-detail",
+    ),
+    path(
+        "extracted-evidence/",
+        ExtractedEvidenceListCreateView.as_view(),
+        name="extracted-evidence-list-create",
+    ),
+    path(
+        "extracted-evidence/<uuid:id>/",
+        ExtractedEvidenceDetailView.as_view(),
+        name="extracted-evidence-detail",
+    ),
+    path(
+        "task-evidence-maps/",
+        TaskEvidenceMapListCreateView.as_view(),
+        name="task-evidence-map-list-create",
+    ),
+    path(
+        "task-evidence-maps/<uuid:id>/",
+        TaskEvidenceMapDetailView.as_view(),
+        name="task-evidence-map-detail",
+    ),
+    path(
+        "prompts/",
+        PromptListCreateView.as_view(),
+        name="prompt-list-create",
+    ),
+    path(
+        "prompts/<uuid:id>/",
+        PromptDetailView.as_view(),
+        name="prompt-detail",
+    ),
+    path(
+        "responses/",
+        ResponseListCreateView.as_view(),
+        name="response-list-create",
+    ),
+    path(
+        "responses/<uuid:id>/",
+        ResponseDetailView.as_view(),
+        name="response-detail",
+    ),
+    path(
+        "criterion-results/",
+        CriterionResultListCreateView.as_view(),
+        name="criterion-result-list-create",
+    ),
+    path(
+        "criterion-results/<uuid:id>/",
+        CriterionResultDetailView.as_view(),
+        name="criterion-result-detail",
+    ),
 ]

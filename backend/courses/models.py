@@ -89,6 +89,8 @@ class Enrolment(models.Model):
     enrolled_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
+        db_table = "enrolment"
+        managed = False
         ordering = ("module", "user")
         constraints = [
             models.UniqueConstraint(
@@ -245,6 +247,7 @@ class Cohort(models.Model):
         Module,
         on_delete=models.CASCADE,
         related_name="cohorts",
+        db_column="module_id",
     )
 
     start_date = models.DateField(
@@ -263,6 +266,8 @@ class Cohort(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
+        db_table = "cohort"
+        managed = False
         ordering = ("code",)
 
     def __str__(self) -> str:
