@@ -1,4 +1,4 @@
-import "../css/AssessmentMappings.css";
+import "../css/SubmissionPage.css";
 import {
   useEffect,
   useState,
@@ -99,91 +99,178 @@ export function SubmissionPage() {
       setIsSubmitting(false);
     }
   }
-
   if (isLoading) {
-    return <main className="admin-container">Loading submission page...</main>;
+    return (
+      <main className="submission-page">
+        <div className="submission-content">
+          Loading submission page...
+        </div>
+      </main>
+    );
   }
 
   if (error && !context) {
     return (
-      <main className="admin-container">
-        <div className="admin-header">
-                <h1>Unable to load submission</h1>
+      <main className="submission-page">
+        <div className="submission-content">
+          <header className="submission-header">
+            <div>
+              <h1>Unable to load submission</h1>
             </div>
-        <p role="alert" className="error-message">{error}</p>
+          </header>
+
+          <p role="alert" className="error-message">
+            {error}
+          </p>
+        </div>
       </main>
     );
   }
 
   if (!context) {
-    return <main className="admin-container">Submission context was not found.</main>;
+    return (
+      <main className="submission-page">
+        <div className="submission-content">
+          Submission context was not found.
+        </div>
+      </main>
+    );
   }
 
   return (
-    <main className="admin-container">
-      <div className="admin-header">
-                <h1>Submit Assignment</h1>
+    <main className="submission-page">
+      <div className="submission-content">
+        <header className="submission-header">
+          <div>
+            <p className="submission-eyebrow">
+              Learner Submission
+            </p>
+
+            <h1>Submit Assignment</h1>
+
+            <p className="submission-intro">
+              Review your assignment details and upload the
+              required document.
+            </p>
+          </div>
+
+          <span className="level-badge">
+            {context.assignment_level.display_name}
+          </span>
+        </header>
+
+        <section
+          className="assignment-summary"
+          aria-label="Assignment details"
+        >
+          <div className="summary-item">
+            <span className="summary-label">Learner</span>
+            <strong>{context.learner.name}</strong>
+          </div>
+
+          <div className="summary-item">
+            <span className="summary-label">Module</span>
+            <strong>
+              {context.module.code} — {context.module.name}
+            </strong>
+          </div>
+
+          <div className="summary-item">
+            <span className="summary-label">Cohort</span>
+            <strong>{context.cohort.name}</strong>
+          </div>
+
+          <div className="summary-item summary-item-wide">
+            <span className="summary-label">Assignment</span>
+            <strong>{context.assignment.title}</strong>
+          </div>
+        </section>
+
+        <form
+          onSubmit={handleSubmit}
+          className="submission-form"
+        >
+          <div className="upload-heading">
+            <div>
+              <h2>Upload your document</h2>
+              <p>
+                Accepted formats: DOC, DOCX, PDF, PBIX and ZIP.
+              </p>
             </div>
+          </div>
 
-      <section>
-        <p>
-          <strong>Learner:</strong>{" "}
-          {context.learner.name}
-        </p>
+          <label
+            htmlFor="submitted-file"
+            className="file-upload-box"
+          >
+            <span className="upload-icon" aria-hidden="true">
+              ↑
+            </span>
 
-        <p>
-          <strong>Module:</strong>{" "}
-          {context.module.code} — {context.module.name}
-        </p>
+            <span className="upload-title">
+              Choose a file to upload
+            </span>
 
-        <p>
-          <strong>Cohort:</strong>{" "}
-          {context.cohort.name}
-        </p>
+            <span className="upload-help">
+              Select the completed assignment from your computer.
+            </span>
 
-        <p>
-          <strong>Assignment:</strong>{" "}
-          {context.assignment.title}
-        </p>
+            <span className="file-button">
+              Browse files
+            </span>
+          </label>
 
-        <p>
-          <strong>Level:</strong>{" "}
-          {context.assignment_level.display_name}
-        </p>
-      </section>
+          <input
+            id="submitted-file"
+            name="submitted_file"
+            className="file-input"
+            type="file"
+            accept=".doc,.docx,.pdf,.pbix,.zip"
+            onChange={handleFileChange}
+            disabled={isSubmitting}
+            required
+          />
 
-      <form onSubmit={handleSubmit} className="modern-form">
-        <label htmlFor="submitted-file">
-          Select your document
-        </label>
+          {selectedFile && (
+            <div className="selected-file">
+              <div>
+                <span className="selected-file-label">
+                  Selected file
+                </span>
 
-        <input
-          id="submitted-file"
-          name="submitted_file"
-          type="file"
-          accept=".doc,.docx,.pdf,.pbix,.zip"
-          onChange={handleFileChange}
-          disabled={isSubmitting}
-          required
-        />
+                <strong>{selectedFile.name}</strong>
+              </div>
 
-        {selectedFile && (
-          <p>Selected: {selectedFile.name}</p>
-        )}
+              <button
+                type="button"
+                className="remove-file-button"
+                onClick={() => setSelectedFile(null)}
+                disabled={isSubmitting}
+              >
+                Remove
+              </button>
+            </div>
+          )}
 
-        {error && <p role="alert" className="error-message">{error}</p>}
+          {error && (
+            <p role="alert" className="error-message">
+              {error}
+            </p>
+          )}
 
-        <div className="form-actions">
-                        <button
-                                  type="submit"
-                                  disabled={!selectedFile || isSubmitting}
-                                 className="btn-primary">
-                                  {isSubmitting
-                                    ? "Submitting..."
-                                    : "Submit document"}
-                                </button>
-                    </div>
-      </form>
+          <div className="form-actions">
+            <button
+              type="submit"
+              disabled={!selectedFile || isSubmitting}
+              className="btn-primary"
+            >
+              {isSubmitting
+                ? "Submitting..."
+                : "Submit document"}
+            </button>
+          </div>
+        </form>
+      </div>
     </main>
   );
 }
