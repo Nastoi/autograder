@@ -1,3 +1,4 @@
+import "../css/AssessmentMappings.css";
 import {
   useEffect,
   useState,
@@ -110,29 +111,40 @@ const [isSubmitting, setIsSubmitting] =
 
 
   if (isLoading) {
-    return <main>Loading rubric bands...</main>;
+    return <main className="admin-container">Loading rubric bands...</main>;
   }
 
   return (
-    <main>
-      <h1>Rubric bands</h1>
+    <main className="admin-container">
+      <div className="admin-header">
+                <h1>Rubric bands</h1>
+            </div>
 
-      {error && <p role="alert">{error}</p>}
+      {error && <p role="alert" className="error-message">{error}</p>}
 
       <section>
         <h2>Setup status</h2>
 
-        <p>Rubric criteria: {criteria.length}</p>
-        <p>Rubric bands: {bands.length}</p>
+        <div className="status-grid">
+          <div className="status-card">
+              <span className="status-label">Rubric criteria</span>
+              <span className="status-value">{criteria.length}</span>
+            </div>
+          <div className="status-card">
+              <span className="status-label">Rubric bands</span>
+              <span className="status-value">{bands.length}</span>
+            </div>
+        </div>
       </section>
 
 
 
-        <section>
-  <h2>Add rubric band</h2>
+        <div className="admin-split-layout">
+<section>
+  <h2 style={{ marginBottom: "16px", color: "#112642" }}>Add rubric band</h2>
 
-  <form onSubmit={handleSubmit}>
-    <div>
+  <form onSubmit={handleSubmit} className="modern-form">
+    <div className="form-group">
       <label htmlFor="band-criterion">
         Rubric criterion
       </label>
@@ -163,7 +175,7 @@ const [isSubmitting, setIsSubmitting] =
       </select>
     </div>
 
-    <div>
+    <div className="form-group">
       <label htmlFor="band-code">
         Band
       </label>
@@ -190,7 +202,7 @@ const [isSubmitting, setIsSubmitting] =
       </select>
     </div>
 
-    <div>
+    <div className="form-group">
       <label htmlFor="band-display-name">
         Display name
       </label>
@@ -205,7 +217,7 @@ const [isSubmitting, setIsSubmitting] =
       />
     </div>
 
-    <div>
+    <div className="form-group">
       <label htmlFor="band-minimum-percentage">
         Minimum percentage
       </label>
@@ -224,7 +236,7 @@ const [isSubmitting, setIsSubmitting] =
       />
     </div>
 
-    <div>
+    <div className="form-group">
       <label htmlFor="band-maximum-percentage">
         Maximum percentage
       </label>
@@ -243,7 +255,7 @@ const [isSubmitting, setIsSubmitting] =
       />
     </div>
 
-    <div>
+    <div className="form-group">
       <label htmlFor="band-descriptor">
         Descriptor
       </label>
@@ -258,7 +270,7 @@ const [isSubmitting, setIsSubmitting] =
       />
     </div>
 
-    <div>
+    <div className="form-group">
       <label htmlFor="band-sequence">
         Sequence
       </label>
@@ -275,25 +287,27 @@ const [isSubmitting, setIsSubmitting] =
       />
     </div>
 
-    {error && <p role="alert">{error}</p>}
+    {error && <p role="alert" className="error-message">{error}</p>}
 
-    <button
-      type="submit"
-      disabled={
-        isSubmitting ||
-        !rubricCriterionId
-      }
-    >
-      {isSubmitting
-        ? "Creating..."
-        : "Add rubric band"}
-    </button>
+    <div className="form-actions">
+                        <button
+                              type="submit"
+                              disabled={
+                                isSubmitting ||
+                                !rubricCriterionId
+                              }
+                             className="btn-primary">
+                              {isSubmitting
+                                ? "Creating..."
+                                : "Add rubric band"}
+                            </button>
+                    </div>
   </form>
 </section>
 
 
       <section>
-        <h2>Existing rubric bands</h2>
+        <h2 style={{ marginBottom: "16px", color: "#112642" }}>Existing rubric bands</h2>
 
         {bands.length === 0 ? (
           <p>
@@ -301,41 +315,44 @@ const [isSubmitting, setIsSubmitting] =
             criterion first.
           </p>
         ) : (
-          <table>
-            <thead>
-              <tr>
-                <th>Assignment</th>
-                <th>Level</th>
-                <th>Criterion</th>
-                <th>Band</th>
-                <th>Percentage range</th>
-                <th>Sequence</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {bands.map((band) => (
-                <tr key={band.id}>
-                  <td>{band.assignment_code}</td>
-                  <td>{band.level_code}</td>
-                  <td>
-                    {band.criterion_code} —{" "}
-                    {band.criterion_title}
-                  </td>
-                  <td>
-                    {band.band_code} — {band.display_name}
-                  </td>
-                  <td>
-                    {band.minimum_percentage}% to{" "}
-                    {band.maximum_percentage}%
-                  </td>
-                  <td>{band.sequence}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="table-container">
+                        <table className="modern-table">
+                                    <thead>
+                                      <tr>
+                                        <th>Assignment</th>
+                                        <th>Level</th>
+                                        <th>Criterion</th>
+                                        <th>Band</th>
+                                        <th>Percentage range</th>
+                                        <th>Sequence</th>
+                                      </tr>
+                                    </thead>
+                        
+                                    <tbody>
+                                      {bands.map((band) => (
+                                        <tr key={band.id}>
+                                          <td>{band.assignment_code}</td>
+                                          <td>{band.level_code}</td>
+                                          <td>
+                                            {band.criterion_code} —{" "}
+                                            {band.criterion_title}
+                                          </td>
+                                          <td>
+                                            {band.band_code} — {band.display_name}
+                                          </td>
+                                          <td>
+                                            {band.minimum_percentage}% to{" "}
+                                            {band.maximum_percentage}%
+                                          </td>
+                                          <td>{band.sequence}</td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                    </div>
         )}
       </section>
+</div>
     </main>
   );
 }

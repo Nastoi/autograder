@@ -3,29 +3,26 @@ from rest_framework import serializers
 from .models import AssessmentMapping
 
 
-class AssessmentMappingSerializer(serializers.ModelSerializer):
+class AssessmentMappingSerializer(
+    serializers.ModelSerializer,
+):
     cohort_code = serializers.CharField(
-        source="cohort.code",
+        source="cohort.cohort_code",
         read_only=True,
     )
 
     cohort_name = serializers.CharField(
-        source="cohort.name",
+        source="cohort.cohort_name",
         read_only=True,
     )
 
     assignment_code = serializers.CharField(
-        source="assignment_level.assignment.code",
+        source="assignment.code",
         read_only=True,
     )
 
     assignment_title = serializers.CharField(
-        source="assignment_level.assignment.title",
-        read_only=True,
-    )
-
-    level_code = serializers.CharField(
-        source="assignment_level.level_code",
+        source="assignment.title",
         read_only=True,
     )
 
@@ -40,10 +37,9 @@ class AssessmentMappingSerializer(serializers.ModelSerializer):
             "cohort",
             "cohort_code",
             "cohort_name",
-            "assignment_level",
+            "assignment",
             "assignment_code",
             "assignment_title",
-            "level_code",
             "is_active",
             "has_submissions",
             "can_delete",
@@ -80,21 +76,18 @@ class AssessmentMappingSerializer(serializers.ModelSerializer):
             getattr(self.instance, "cohort", None),
         )
 
-        assignment_level = attrs.get(
-            "assignment_level",
-            getattr(self.instance, "assignment_level", None),
+        assignment = attrs.get(
+            "assignment",
+            getattr(self.instance, "assignment", None),
         )
 
-        if cohort and assignment_level:
-            if (
-                cohort.module_id
-                != assignment_level.assignment.module_id
-            ):
+        if cohort and assignment:
+            if cohort.module_id != assignment.module_id:
                 raise serializers.ValidationError(
                     {
-                        "assignment_level": (
-                            "The assignment level must belong to "
-                            "the same module as the selected cohort."
+                        "assignment": (
+                            "The assignment must belong to the "
+                            "same module as the selected cohort."
                         )
                     }
                 )
@@ -103,12 +96,11 @@ class AssessmentMappingSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         cohort = validated_data["cohort"]
-        assignment_level = validated_data["assignment_level"]
+        assignment = validated_data["assignment"]
 
         validated_data["name"] = (
-            f"{cohort.code} - "
-            f"{assignment_level.assignment.code} - "
-            f"{assignment_level.level_code}"
+            f"{cohort.cohort_code} - "
+            f"{assignment.code}"
         )
 
         return super().create(validated_data)
@@ -119,15 +111,14 @@ class AssessmentMappingSerializer(serializers.ModelSerializer):
             instance.cohort,
         )
 
-        assignment_level = validated_data.get(
-            "assignment_level",
-            instance.assignment_level,
+        assignment = validated_data.get(
+            "assignment",
+            instance.assignment,
         )
 
         validated_data["name"] = (
-            f"{cohort.code} - "
-            f"{assignment_level.assignment.code} - "
-            f"{assignment_level.level_code}"
+            f"{cohort.cohort_code} - "
+            f"{assignment.code}"
         )
 
         return super().update(

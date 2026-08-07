@@ -36,7 +36,7 @@ class CohortListView(generics.ListAPIView):
             Cohort.objects
             .select_related("module", "module__qualification")
             .filter(is_active=True)
-            .order_by("code")
+            .order_by("cohort_code")
         )
 
     def list(self, request, *args, **kwargs):
@@ -45,8 +45,8 @@ class CohortListView(generics.ListAPIView):
         data = [
             {
                 "id": cohort.id,
-                "code": cohort.code,
-                "name": cohort.name,
+                "cohort_code": cohort.cohort_code,
+                "cohort_name": cohort.cohort_name,
                 "module": {
                     "id": str(cohort.module.id),
                     "code": cohort.module.code,
@@ -54,8 +54,12 @@ class CohortListView(generics.ListAPIView):
                 },
                 "qualification": {
                     "id": str(cohort.module.qualification.id),
-                    "code": cohort.module.qualification.code,
-                    "name": cohort.module.qualification.name,
+                    "qualification_code": (
+                        cohort.module.qualification.qualification_code
+                    ),
+                                        "qualification_name": (
+                        cohort.module.qualification.qualification_name
+                    ),
                 },
             }
             for cohort in cohorts
@@ -144,7 +148,7 @@ class QualificationListCreateView(
     ]
 
     def get_queryset(self):
-        return Qualification.objects.order_by("code")
+        return Qualification.objects.order_by("qualification_code")
 
 
 class QualificationDetailView(
@@ -155,7 +159,7 @@ class QualificationDetailView(
     lookup_field = "id"
 
     def get_queryset(self):
-        return Qualification.objects.order_by("code")
+        return Qualification.objects.order_by("qualification_code")
 
     def destroy(self, request, *args, **kwargs):
         qualification = self.get_object()
@@ -185,7 +189,7 @@ class ModuleListCreateView(
         queryset = Module.objects.select_related(
             "qualification",
         ).order_by(
-            "qualification__code",
+            "qualification__qualification_code",
             "code",
         )
 
@@ -211,7 +215,7 @@ class ModuleDetailView(
     def get_queryset(self):
         return Module.objects.select_related(
             "qualification",
-        ).order_by("code")
+        ).order_by("cohort_code")
 
     def destroy(self, request, *args, **kwargs):
         module = self.get_object()
@@ -243,7 +247,7 @@ class CohortListCreateView(
         queryset = Cohort.objects.select_related(
             "module",
             "module__qualification",
-        ).order_by("code")
+        ).order_by("cohort_code")
 
         module_id = self.request.query_params.get(
             "module_id",
@@ -277,7 +281,7 @@ class CohortDetailView(
         return Cohort.objects.select_related(
             "module",
             "module__qualification",
-        ).order_by("code")
+        ).order_by("cohort_code")
 
     def destroy(self, request, *args, **kwargs):
         cohort = self.get_object()

@@ -6,6 +6,7 @@ import {
 } from "react-router";
 
 
+import { Header } from "./components/Header";
 import { ProtectedRoute } from "./auth/ProtectedRoute";
 import { LoginPage } from "./pages/LoginPage";
 import { ResultPage } from "./pages/ResultPage";
@@ -23,12 +24,11 @@ import { RubricCriteriaPage } from "./pages/RubricCriteriaPage";
 import { RubricBandsPage } from "./pages/RubricBandsPage";
 import { AIGradingProfilesPage } from "./pages/AIGradingProfilesPage";
 
-const TEST_CONTEXT_ID =
-  "72b85e24-ecda-4cda-965a-e771e91c3592";
 
 export default function App() {
   return (
     <BrowserRouter>
+      <Header />
       <Routes>
         <Route path="/login" element={<LoginPage />} />
 
@@ -95,18 +95,13 @@ export default function App() {
         </Route>
 
         <Route
-          path="/"
-          element={
-            <Navigate
-              to={`/submit/${TEST_CONTEXT_ID}`}
-              replace
-            />
-          }
+          path="*"
+          element={<Navigate to="/login" replace />}
         />
 
         <Route
-          path="*"
-          element={<Navigate to="/login" replace />}
+          path="/"
+          element={<Navigate to="/dashboard" replace />}
         />
 
 

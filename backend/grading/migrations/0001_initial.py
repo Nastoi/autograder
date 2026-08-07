@@ -4,6 +4,7 @@ import django.db.models.deletion
 import pgvector.django.vector
 import uuid
 from django.db import migrations, models
+from pgvector.django import VectorExtension
 
 
 class Migration(migrations.Migration):
@@ -11,6 +12,7 @@ class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
+        ('courses', '0001_initial'),
         ('courses', '0001_initial'),
     ]
 
@@ -33,6 +35,8 @@ class Migration(migrations.Migration):
                 ('is_active', models.BooleanField(default=True)),
                 ('created_at', models.DateTimeField(auto_now_add=True)),
                 ('updated_at', models.DateTimeField(auto_now=True)),
+                ('created_at', models.DateTimeField(auto_now_add=True)),
+                ('updated_at', models.DateTimeField(auto_now=True)),
             ],
             options={
                 'db_table': 'grading_configuration',
@@ -40,6 +44,7 @@ class Migration(migrations.Migration):
             },
         ),
         migrations.CreateModel(
+            name='AIGradingProfile',
             name='AIGradingProfile',
             fields=[
                 ('id', models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)),
@@ -55,6 +60,7 @@ class Migration(migrations.Migration):
                 ('assignment_level', models.OneToOneField(blank=True, db_column='assignment_level_id', null=True, on_delete=django.db.models.deletion.CASCADE, related_name='ai_grading_profile', to='courses.assignmentlevel')),
             ],
             options={
+                'db_table': 'ai_grading_profile',
                 'db_table': 'ai_grading_profile',
             },
         ),
@@ -79,6 +85,7 @@ class Migration(migrations.Migration):
         ),
         migrations.CreateModel(
             name='RagChunk',
+            name='RagChunk',
             fields=[
                 ('id', models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)),
                 ('chunk_index', models.PositiveIntegerField()),
@@ -90,6 +97,8 @@ class Migration(migrations.Migration):
                 ('rag_source', models.ForeignKey(blank=True, db_column='rag_source_id', null=True, on_delete=django.db.models.deletion.CASCADE, related_name='chunks', to='grading.ragsource')),
             ],
             options={
+                'db_table': 'rag_chunk',
+                'ordering': ('rag_source', 'chunk_index'),
                 'db_table': 'rag_chunk',
                 'ordering': ('rag_source', 'chunk_index'),
             },

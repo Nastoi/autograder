@@ -1,3 +1,4 @@
+import "../css/AssessmentMappings.css";
 import {
   useEffect,
   useState,
@@ -120,19 +121,23 @@ const [isSubmitting, setIsSubmitting] = useState(false);
 
 
   if (isLoading) {
-    return <main>Loading grading configurations...</main>;
+    return <main className="admin-container">Loading grading configurations...</main>;
   }
 
   return (
-    <main>
-      <h1>Grading configurations</h1>
+    <main className="admin-container">
+      <div className="admin-header">
+                <h1>Grading configurations</h1>
+            </div>
 
-      {error && <p role="alert">{error}</p>}
+      {error && <p role="alert" className="error-message">{error}</p>}
+        
+      <div className="admin-split-layout">
         <section>
-  <h2>Add grading configuration</h2>
+  <h2 style={{ marginBottom: "16px", color: "#112642" }}>Add grading configuration</h2>
 
-  <form onSubmit={handleSubmit}>
-    <div>
+  <form onSubmit={handleSubmit} className="modern-form">
+    <div className="form-group">
       <label htmlFor="grading-code">Code</label>
 
       <input
@@ -143,7 +148,7 @@ const [isSubmitting, setIsSubmitting] = useState(false);
       />
     </div>
 
-    <div>
+    <div className="form-group">
       <label htmlFor="grading-name">Name</label>
 
       <input
@@ -154,7 +159,7 @@ const [isSubmitting, setIsSubmitting] = useState(false);
       />
     </div>
 
-    <div>
+    <div className="form-group">
       <label htmlFor="grading-type">Grading type</label>
 
       <select
@@ -174,7 +179,7 @@ const [isSubmitting, setIsSubmitting] = useState(false);
       </select>
     </div>
 
-    <label>
+    <label className="checkbox-group">
       <input
         type="checkbox"
         checked={structuralCheckEnabled}
@@ -185,7 +190,7 @@ const [isSubmitting, setIsSubmitting] = useState(false);
       Structural checks enabled
     </label>
 
-    <label>
+    <label className="checkbox-group">
       <input
         type="checkbox"
         checked={automatedTestingEnabled}
@@ -196,7 +201,7 @@ const [isSubmitting, setIsSubmitting] = useState(false);
       Automated testing enabled
     </label>
 
-    <label>
+    <label className="checkbox-group">
       <input
         type="checkbox"
         checked={ragEnabled}
@@ -207,7 +212,7 @@ const [isSubmitting, setIsSubmitting] = useState(false);
       RAG enabled
     </label>
 
-    <label>
+    <label className="checkbox-group">
       <input
         type="checkbox"
         checked={aiGradingEnabled}
@@ -218,7 +223,7 @@ const [isSubmitting, setIsSubmitting] = useState(false);
       AI grading enabled
     </label>
 
-    <label>
+    <label className="checkbox-group">
       <input
         type="checkbox"
         checked={manualReviewRequired}
@@ -229,7 +234,7 @@ const [isSubmitting, setIsSubmitting] = useState(false);
       Manual review required
     </label>
 
-    <div>
+    <div className="form-group">
       <label htmlFor="confidence-threshold">
         Confidence review threshold
       </label>
@@ -248,7 +253,7 @@ const [isSubmitting, setIsSubmitting] = useState(false);
       />
     </div>
 
-    <div>
+    <div className="form-group">
       <label htmlFor="configuration-version">
         Version
       </label>
@@ -265,7 +270,7 @@ const [isSubmitting, setIsSubmitting] = useState(false);
       />
     </div>
 
-    <label>
+    <label className="checkbox-group">
       <input
         type="checkbox"
         checked={isActive}
@@ -276,71 +281,79 @@ const [isSubmitting, setIsSubmitting] = useState(false);
       Active
     </label>
 
-    {error && <p role="alert">{error}</p>}
+    {error && <p role="alert" className="error-message">{error}</p>}
 
-    <button
-      type="submit"
-      disabled={isSubmitting}
-    >
-      {isSubmitting
-        ? "Creating..."
-        : "Add grading configuration"}
-    </button>
+    <div className="form-actions">
+                        <button
+                              type="submit"
+                              disabled={isSubmitting}
+                             className="btn-primary">
+                              {isSubmitting
+                                ? "Creating..."
+                                : "Add grading configuration"}
+                            </button>
+                    </div>
   </form>
 </section>
 
+      <section>
+        <h2 style={{ marginBottom: "16px", color: "#112642" }}>Existing grading configurations</h2>
       {configurations.length === 0 ? (
         <p>
           No grading configurations found. Create one before
           creating assignment levels.
         </p>
       ) : (
-        <table>
-          <thead>
-            <tr>
-              <th>Code</th>
-              <th>Name</th>
-              <th>Type</th>
-              <th>Version</th>
-              <th>RAG</th>
-              <th>AI grading</th>
-              <th>Manual review</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-
-          <tbody>
-            {configurations.map((configuration) => (
-              <tr key={configuration.id}>
-                <td>{configuration.code}</td>
-                <td>{configuration.name}</td>
-                <td>{configuration.grading_type}</td>
-                <td>{configuration.version}</td>
-                <td>
-                  {configuration.rag_enabled
-                    ? "Enabled"
-                    : "Disabled"}
-                </td>
-                <td>
-                  {configuration.ai_grading_enabled
-                    ? "Enabled"
-                    : "Disabled"}
-                </td>
-                <td>
-                  {configuration.manual_review_required
-                    ? "Required"
-                    : "Not required"}
-                </td>
-                <td>
-                  {configuration.is_active
-                    ? "Active"
-                    : "Inactive"}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <div className="table-container">
+                        <table className="modern-table">
+                                  <thead>
+                                    <tr>
+                                      <th>Code</th>
+                                      <th>Name</th>
+                                      <th>Type</th>
+                                      <th>Version</th>
+                                      <th>RAG</th>
+                                      <th>AI grading</th>
+                                      <th>Manual review</th>
+                                      <th>Status</th>
+                                    </tr>
+                                  </thead>
+                        
+                                  <tbody>
+                                    {configurations.map((configuration) => (
+                                      <tr key={configuration.id}>
+                                        <td>{configuration.code}</td>
+                                        <td>{configuration.name}</td>
+                                        <td>{configuration.grading_type}</td>
+                                        <td>{configuration.version}</td>
+                                        <td>
+                                          {configuration.rag_enabled
+                                            ? "Enabled"
+                                            : "Disabled"}
+                                        </td>
+                                        <td>
+                                          {configuration.ai_grading_enabled
+                                            ? "Enabled"
+                                            : "Disabled"}
+                                        </td>
+                                        <td>
+                                          {configuration.manual_review_required
+                                            ? "Required"
+                                            : "Not required"}
+                                        </td>
+                                        <td>
+                                          {configuration.is_active
+                                            ? "Active"
+                                            : "Inactive"}
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                    </div>
       )}
+      </section>
+      </div>
     </main>
   );
 }

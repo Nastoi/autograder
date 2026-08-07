@@ -65,6 +65,10 @@ class LearnerSubmission(models.Model):
         FAILED = "failed", "Failed"
         MANUAL_REVIEW = "manual_review", "Manual review"
 
+    class SubmissionTrack(models.TextChoices):
+        BASIC = "basic", "Basic"
+        ADVANCED = "advanced", "Advanced"
+
     id = models.UUIDField(
         primary_key=True,
         default=uuid.uuid4,
@@ -87,6 +91,11 @@ class LearnerSubmission(models.Model):
         "courses.AssignmentLevel",
         on_delete=models.PROTECT,
         related_name="learner_submissions",
+    )
+
+    submission_track = models.CharField(
+        max_length=20,
+        choices=SubmissionTrack.choices,
     )
 
     submitted_file = models.FileField(
@@ -132,6 +141,11 @@ class LearnerSubmission(models.Model):
         null=True,
     )
 
+    submission_track = models.CharField(
+        max_length=20,
+        choices=SubmissionTrack.choices,
+        default=SubmissionTrack.BASIC,
+    )
     
 
     class Meta:

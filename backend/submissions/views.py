@@ -115,8 +115,8 @@ class SubmissionContextView(APIView):
                 },
                 "cohort": {
                     "id": context.cohort.id,
-                    "code": context.cohort.code,
-                    "name": context.cohort.name,
+                    "code": context.cohort.cohort_code,
+                    "name": context.cohort.cohort_name,
                 },
                 "module": {
                     "id": module.id,
@@ -162,6 +162,24 @@ class SubmissionCreateView(APIView):
 
         uploaded_file = request.FILES.get("submitted_file")
 
+        submission_track = request.data.get("submission_track")
+
+        valid_tracks = {
+            LearnerSubmission.SubmissionTrack.BASIC,
+            LearnerSubmission.SubmissionTrack.ADVANCED,
+        }
+
+        if submission_track not in valid_tracks:
+            return Response(
+                {
+                    "detail": (
+                        "Please select a valid submission track: "
+                        "basic or advanced."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         if uploaded_file is None:
             return Response(
                 {"detail": "Please select a file."},
@@ -204,6 +222,7 @@ class SubmissionCreateView(APIView):
             status=LearnerSubmission.Status.UPLOADED,
             maximum_score=assignment.maximum_score,
         )
+
 
         submission = run_ai_grading(submission)
 

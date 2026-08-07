@@ -1,3 +1,5 @@
+import "../css/SubmissionPage.css";
+
 import {
   useEffect,
   useState,
@@ -15,6 +17,8 @@ import {
   type SubmissionContext,
 } from "../api/submissions";
 
+type SubmissionTrack = "basic" | "advanced";
+
 export function SubmissionPage() {
   const { contextId } = useParams();
   const navigate = useNavigate();
@@ -24,6 +28,9 @@ export function SubmissionPage() {
 
   const [selectedFile, setSelectedFile] =
     useState<File | null>(null);
+
+  const [submissionTrack, setSubmissionTrack] =
+    useState<SubmissionTrack | "">("");
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -66,6 +73,11 @@ export function SubmissionPage() {
   ) {
     event.preventDefault();
 
+    if (!submissionTrack) {
+      setError("Please select Basic or Advanced.");
+      return;
+    }
+
     if (!contextId) {
       setError("Submission context is missing.");
       return;
@@ -83,6 +95,7 @@ export function SubmissionPage() {
       const submission = await submitAssignment(
         contextId,
         selectedFile,
+        submissionTrack,
       );
 
       navigate(`/results/${submission.id}`, {
@@ -100,83 +113,235 @@ export function SubmissionPage() {
   }
 
   if (isLoading) {
-    return <main>Loading submission page...</main>;
+    return (
+      <main className="submission-page">
+        <div className="submission-content">
+          Loading submission page...
+        </div>
+      </main>
+    );
   }
 
   if (error && !context) {
     return (
-      <main>
-        <h1>Unable to load submission</h1>
-        <p role="alert">{error}</p>
+      <main className="submission-page">
+        <div className="submission-content">
+          <header className="submission-header">
+            <h1>Unable to load submission</h1>
+          </header>
+
+          <p role="alert" className="error-message">
+            {error}
+          </p>
+        </div>
       </main>
     );
   }
 
   if (!context) {
-    return <main>Submission context was not found.</main>;
+    return (
+      <main className="submission-page">
+        <div className="submission-content">
+          Submission context was not found.
+        </div>
+      </main>
+    );
   }
 
   return (
-    <main>
-      <h1>Submit Assignment</h1>
+    <main className="admin-container submission-page">
+      <div className="admin-header">
+        <h1>Submit Assignment</h1>
+      </div>
 
-      <section>
-        <p>
-          <strong>Learner:</strong>{" "}
-          {context.learner.name}
-        </p>
+      <div className="submission-content">
+        <header className="submission-header">
+          <div>
+            <p className="submission-eyebrow">
+              Learner Submission
+            </p>
 
-        <p>
-          <strong>Module:</strong>{" "}
-          {context.module.code} — {context.module.name}
-        </p>
+            <h1>Submit Assignment</h1>
 
-        <p>
-          <strong>Cohort:</strong>{" "}
-          {context.cohort.name}
-        </p>
+            <p className="submission-intro">
+              Review your assignment details and upload the
+              required document.
+            </p>
+          </div>
 
-        <p>
-          <strong>Assignment:</strong>{" "}
-          {context.assignment.title}
-        </p>
+          <span className="level-badge">
+            {context.assignment_level.display_name}
+          </span>
+        </header>
 
-        <p>
-          <strong>Level:</strong>{" "}
-          {context.assignment_level.display_name}
-        </p>
-      </section>
-
-      <form onSubmit={handleSubmit}>
-        <label htmlFor="submitted-file">
-          Select your document
-        </label>
-
-        <input
-          id="submitted-file"
-          name="submitted_file"
-          type="file"
-          accept=".doc,.docx,.pdf,.pbix,.zip"
-          onChange={handleFileChange}
-          disabled={isSubmitting}
-          required
-        />
-
-        {selectedFile && (
-          <p>Selected: {selectedFile.name}</p>
-        )}
-
-        {error && <p role="alert">{error}</p>}
-
-        <button
-          type="submit"
-          disabled={!selectedFile || isSubmitting}
+        <section
+          className="assignment-summary"
+          aria-label="Assignment details"
         >
-          {isSubmitting
-            ? "Submitting..."
-            : "Submit document"}
-        </button>
-      </form>
+          <div className="summary-item">
+            <span className="summary-label">
+              Learner
+            </span>
+            <strong>{context.learner.name}</strong>
+          </div>
+
+          <div className="summary-item">
+            <span className="summary-label">
+              Module
+            </span>
+            <strong>
+              {context.module.code} — {context.module.name}
+            </strong>
+          </div>
+
+          <div className="summary-item">
+            <span className="summary-label">
+              Cohort
+            </span>
+            <strong>{context.cohort.name}</strong>
+          </div>
+
+          <div className="summary-item summary-item-wide">
+            <span className="summary-label">
+              Assignment
+            </span>
+            <strong>{context.assignment.title}</strong>
+          </div>
+        </section>
+
+        <form
+          onSubmit={handleSubmit}
+          className="submission-form"
+        >
+          <div className="upload-heading">
+            <div>
+              <h2>Upload your document</h2>
+              <p>
+                Accepted formats: DOC, DOCX, PDF, PBIX and ZIP.
+              </p>
+            </div>
+          </div>
+
+          <fieldset className="submission-track-options">
+            <legend>Select submission type</legend>
+
+            <label>
+              <input
+                type="radio"
+                name="submission_track"
+                value="basic"
+                checked={submissionTrack === "basic"}
+                onChange={() =>
+                  setSubmissionTrack("basic")
+                }
+                disabled={isSubmitting}
+                required
+              />
+              Basic
+            </label>
+
+            <p>
+              Grading outcome can be Failed, Foundation, or
+              Proficient.
+            </p>
+
+            <label>
+              <input
+                type="radio"
+                name="submission_track"
+                value="advanced"
+                checked={submissionTrack === "advanced"}
+                onChange={() =>
+                  setSubmissionTrack("advanced")
+                }
+                disabled={isSubmitting}
+                required
+              />
+              Advanced
+            </label>
+
+            <p>
+              Grading outcome can be Failed, Proficient, or
+              Expert.
+            </p>
+          </fieldset>
+
+          <label
+            htmlFor="submitted-file"
+            className="file-upload-box"
+          >
+            <span className="upload-icon" aria-hidden="true">
+              ↑
+            </span>
+
+            <span className="upload-title">
+              Choose a file to upload
+            </span>
+
+            <span className="upload-help">
+              Select the completed assignment from your computer.
+            </span>
+
+            <span className="file-button">
+              Browse files
+            </span>
+          </label>
+
+          <input
+            id="submitted-file"
+            name="submitted_file"
+            className="file-input"
+            type="file"
+            accept=".doc,.docx,.pdf,.pbix,.zip"
+            onChange={handleFileChange}
+            disabled={isSubmitting}
+            required
+          />
+
+          {selectedFile && (
+            <div className="selected-file">
+              <div>
+                <span className="selected-file-label">
+                  Selected file
+                </span>
+
+                <strong>{selectedFile.name}</strong>
+              </div>
+
+              <button
+                type="button"
+                className="remove-file-button"
+                onClick={() => setSelectedFile(null)}
+                disabled={isSubmitting}
+              >
+                Remove
+              </button>
+            </div>
+          )}
+
+          {error && (
+            <p role="alert" className="error-message">
+              {error}
+            </p>
+          )}
+
+          <div className="form-actions">
+            <button
+              type="submit"
+              className="btn-primary"
+              disabled={
+                !selectedFile ||
+                !submissionTrack ||
+                isSubmitting
+              }
+            >
+              {isSubmitting
+                ? "Submitting..."
+                : "Submit document"}
+            </button>
+          </div>
+        </form>
+      </div>
     </main>
   );
 }

@@ -13,6 +13,7 @@ import {
   type Module,
   type Qualification,
 } from "../api/lms";
+import "../css/AssessmentMappings.css";
 
 export function CohortsPage() {
   const [cohorts, setCohorts] = useState<Cohort[]>([]);
@@ -24,8 +25,8 @@ export function CohortsPage() {
   const [qualificationId, setQualificationId] =
     useState("");
   const [moduleId, setModuleId] = useState("");
-  const [code, setCode] = useState("");
-  const [name, setName] = useState("");
+  const [cohortCode, setCohortCode] = useState("");
+  const [cohortName, setCohortName] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [isActive, setIsActive] = useState(true);
@@ -56,12 +57,16 @@ export function CohortsPage() {
       setCohorts(cohortData);
       setModules(moduleData);
       setQualifications(qualificationData);
-    } catch (caughtError) {
-      setError(
-        caughtError instanceof Error
-          ? caughtError.message
-          : "Unable to load cohorts.",
-      );
+    } catch (caughtError: any) {
+      if (caughtError instanceof SyntaxError && caughtError.message.includes('Unexpected token')) {
+        setError(`Parse Error: The server returned HTML instead of JSON. Check your backend terminal for a 500 error or check your API_BASE_URL. (Error: ${caughtError.message})`);
+      } else {
+        setError(
+          caughtError instanceof Error
+            ? caughtError.message
+            : "Unable to load cohorts.",
+        );
+      }
     } finally {
       setIsLoading(false);
     }
@@ -88,16 +93,16 @@ export function CohortsPage() {
 
     try {
       await createCohort({
-        code,
-        name,
+        cohort_code: cohortCode,
+        cohort_name: cohortName,
         module: moduleId,
         start_date: startDate || null,
         end_date: endDate || null,
         is_active: isActive,
       });
 
-      setCode("");
-      setName("");
+      setCohortCode("");
+      setCohortName("");
       setStartDate("");
       setEndDate("");
       setIsActive(true);
@@ -115,208 +120,220 @@ export function CohortsPage() {
   }
 
   if (isLoading) {
-    return <main>Loading cohorts...</main>;
+    return <main className="admin-container">Loading cohorts...</main>;
   }
 
   return (
-    <main>
-      <h1>Cohorts</h1>
+    <main className="admin-container">
+      <div className="admin-header">
+        <h1>Cohorts</h1>
+      </div>
 
-      <section>
-        <h2>Add cohort</h2>
+      <div className="admin-split-layout">
+        <section>
+          <h2 style={{ marginBottom: "16px", color: "#112642" }}>Add cohort</h2>
 
-        <form onSubmit={handleSubmit}>
-          <div>
-            <label htmlFor="cohort-qualification">
-              Qualification
-            </label>
+          <form onSubmit={handleSubmit} className="modern-form">
+            <div className="form-group">
+              <label htmlFor="cohort-qualification">
+                Qualification
+              </label>
 
-            <select
-              id="cohort-qualification"
-              value={qualificationId}
-              onChange={(event) =>
-                handleQualificationChange(
-                  event.target.value,
-                )
-              }
-              required
-            >
-              <option value="">
-                Select qualification
-              </option>
-
-              {qualifications.map((qualification) => (
-                <option
-                  key={qualification.id}
-                  value={qualification.id}
-                >
-                  {qualification.code} -{" "}
-                  {qualification.name}
+              <select
+                id="cohort-qualification"
+                value={qualificationId}
+                onChange={(event) =>
+                  handleQualificationChange(
+                    event.target.value,
+                  )
+                }
+                required
+              >
+                <option value="">
+                  Select qualification
                 </option>
-              ))}
-            </select>
-          </div>
 
-          <div>
-            <label htmlFor="cohort-module">
-              Module
-            </label>
+                {qualifications.map((qualification) => (
+                  <option
+                    key={qualification.id}
+                    value={qualification.id}
+                  >
+                    {qualification.qualification_code} -{" "}
+                    {qualification.qualification_name}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-            <select
-              id="cohort-module"
-              value={moduleId}
-              onChange={(event) =>
-                setModuleId(event.target.value)
-              }
-              disabled={!qualificationId}
-              required
-            >
-              <option value="">
-                Select module
-              </option>
+            <div className="form-group">
+              <label htmlFor="cohort-module">
+                Module
+              </label>
 
-              {filteredModules.map((module) => (
-                <option
-                  key={module.id}
-                  value={module.id}
-                >
-                  {module.code} - {module.name}
+              <select
+                id="cohort-module"
+                value={moduleId}
+                onChange={(event) =>
+                  setModuleId(event.target.value)
+                }
+                disabled={!qualificationId}
+                required
+              >
+                <option value="">
+                  Select module
                 </option>
-              ))}
-            </select>
-          </div>
 
-          <div>
-            <label htmlFor="cohort-code">Code</label>
+                {filteredModules.map((module) => (
+                  <option
+                    key={module.id}
+                    value={module.id}
+                  >
+                    {module.code} - {module.name}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-            <input
-              id="cohort-code"
-              value={code}
-              onChange={(event) =>
-                setCode(event.target.value)
-              }
-              required
-            />
-          </div>
+            <div className="form-group">
+              <label htmlFor="cohort-code">Cohort code
+              </label>
 
-          <div>
-            <label htmlFor="cohort-name">Name</label>
+              <input
+                id="cohort-code"
+                value={cohortCode}
+                onChange={(event) =>
+                  setCohortCode(event.target.value)
+                }
+                required
+              />
+            </div>
 
-            <input
-              id="cohort-name"
-              value={name}
-              onChange={(event) =>
-                setName(event.target.value)
-              }
-              required
-            />
-          </div>
+            <div className="form-group">
+              <label htmlFor="cohort-name">Cohort name</label>
 
-          <div>
-            <label htmlFor="cohort-start-date">
-              Start date
-            </label>
+              <input
+                id="cohort-name"
+                value={cohortName}
+                onChange={(event) =>
+                  setCohortName(event.target.value)
+                }
+                required
+              />
+            </div>
 
-            <input
-              id="cohort-start-date"
-              type="date"
-              value={startDate}
-              onChange={(event) =>
-                setStartDate(event.target.value)
-              }
-            />
-          </div>
+            <div className="form-group">
+              <label htmlFor="cohort-start-date">
+                Start date
+              </label>
 
-          <div>
-            <label htmlFor="cohort-end-date">
-              End date
-            </label>
+              <input
+                id="cohort-start-date"
+                type="date"
+                value={startDate}
+                onChange={(event) =>
+                  setStartDate(event.target.value)
+                }
+              />
+            </div>
 
-            <input
-              id="cohort-end-date"
-              type="date"
-              value={endDate}
-              onChange={(event) =>
-                setEndDate(event.target.value)
-              }
-            />
-          </div>
+            <div className="form-group">
+              <label htmlFor="cohort-end-date">
+                End date
+              </label>
 
-          <label>
-            <input
-              type="checkbox"
-              checked={isActive}
-              onChange={(event) =>
-                setIsActive(event.target.checked)
-              }
-            />
-            Active
-          </label>
+              <input
+                id="cohort-end-date"
+                type="date"
+                value={endDate}
+                onChange={(event) =>
+                  setEndDate(event.target.value)
+                }
+              />
+            </div>
 
-          {error && <p role="alert">{error}</p>}
+            <div className="form-group">
+              <label className="checkbox-group">
+                <input
+                  type="checkbox"
+                  checked={isActive}
+                  onChange={(event) =>
+                    setIsActive(event.target.checked)
+                  }
+                />
+                Active
+              </label>
+            </div>
 
-          <button
-            type="submit"
-            disabled={
-              isSubmitting ||
-              !qualificationId ||
-              !moduleId
-            }
-          >
-            {isSubmitting
-              ? "Creating..."
-              : "Add cohort"}
-          </button>
-        </form>
-      </section>
+            {error && <p role="alert" style={{ color: "#ef4444" }}>{error}</p>}
 
-      <section>
-        <h2>Existing cohorts</h2>
+            <div className="form-actions">
+              <button
+                type="submit"
+                className="btn-primary"
+                disabled={
+                  isSubmitting ||
+                  !qualificationId ||
+                  !moduleId
+                }
+              >
+                {isSubmitting
+                  ? "Creating..."
+                  : "Add cohort"}
+              </button>
+            </div>
+          </form>
+        </section>
 
-        {cohorts.length === 0 ? (
-          <p>No cohorts found.</p>
-        ) : (
-          <table>
-            <thead>
-              <tr>
-                <th>Qualification</th>
-                <th>Module</th>
-                <th>Code</th>
-                <th>Name</th>
-                <th>Dates</th>
-                <th>Status</th>
-              </tr>
-            </thead>
+        <section style={{ marginTop: "40px" }}>
+          <h2 style={{ marginBottom: "16px", color: "#112642" }}>Existing cohorts</h2>
 
-            <tbody>
-              {cohorts.map((cohort) => (
-                <tr key={cohort.id}>
-                  <td>
-                    {cohort.qualification_code}
-                  </td>
+          {cohorts.length === 0 ? (
+            <p>No cohorts found.</p>
+          ) : (
+            <div className="table-container">
+              <table className="modern-table">
+                <thead>
+                  <tr>
+                    <th>Qualification</th>
+                    <th>Module</th>
+                    <th>Code</th>
+                    <th>Name</th>
+                    <th>Dates</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
 
-                  <td>{cohort.module_code}</td>
+                <tbody>
+                  {cohorts.map((cohort) => (
+                    <tr key={cohort.id}>
+                      <td>
+                        {cohort.qualification_code}
+                      </td>
 
-                  <td>{cohort.code}</td>
+                      <td>{cohort.module_code}</td>
 
-                  <td>{cohort.name}</td>
+                      <td>{cohort.cohort_code}</td>
 
-                  <td>
-                    {cohort.start_date || "—"} to{" "}
-                    {cohort.end_date || "—"}
-                  </td>
+                      <td>{cohort.cohort_name}</td>
 
-                  <td>
-                    {cohort.is_active
-                      ? "Active"
-                      : "Inactive"}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </section>
+                      <td>
+                        {cohort.start_date || "—"} to{" "}
+                        {cohort.end_date || "—"}
+                      </td>
+
+                      <td>
+                        {cohort.is_active
+                          ? "Active"
+                          : "Inactive"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+      </div>
     </main>
   );
 }

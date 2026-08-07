@@ -22,10 +22,12 @@ class AssessmentMapping(models.Model):
         related_name="assessment_mappings",
     )
 
-    assignment_level = models.ForeignKey(
-        "courses.AssignmentLevel",
+    assignment = models.ForeignKey(
+        "courses.ModuleAssignment",
         on_delete=models.PROTECT,
         related_name="assessment_mappings",
+        null=True,
+        blank=True,
     )
 
     external_platform_id = models.CharField(
@@ -67,20 +69,22 @@ class AssessmentMapping(models.Model):
     class Meta:
         ordering = ("name",)
 
+        constraints = [
+            models.UniqueConstraint(
+                fields=("cohort", "assignment"),
+                name="unique_cohort_assignment_mapping",
+            ),
+        ]
+
     def clean(self) -> None:
         super().clean()
 
-        cohort_module_id = self.cohort.module_id
-        assignment_module_id = (
-            self.assignment_level.assignment.module_id
-        )
-
-        if cohort_module_id != assignment_module_id:
+        if self.cohort.module_id != self.assignment.module_id:
             raise ValidationError(
                 {
-                    "assignment_level": (
-                        "The assignment level must belong to the "
-                        "same module as the selected cohort."
+                    "assignment": (
+                        "The assignment must belong to the same "
+                        "module as the selected cohort."
                     )
                 }
             )

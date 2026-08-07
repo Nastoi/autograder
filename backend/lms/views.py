@@ -1,5 +1,3 @@
-from django.shortcuts import render
-
 # Create your views here.
 from rest_framework import generics
 
@@ -17,12 +15,11 @@ class AssessmentMappingListCreateView(
     def get_queryset(self):
         return (
             AssessmentMapping.objects
-            .select_related(
-                "cohort",
-                "cohort__module",
-                "assignment_level",
-                "assignment_level__assignment",
-            )
+                .select_related(
+                    "cohort",
+                    "cohort__module",
+                    "assignment",
+                )
             .order_by("name")
         )
 
