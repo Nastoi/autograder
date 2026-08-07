@@ -123,6 +123,55 @@
   font-size: 13px;
 }
 
+/* ------------------------- */
+/* Submission Track Section  */
+/* ------------------------- */
+
+.submission-track-options {
+  margin: 0 0 24px;
+  padding: 20px 22px;
+  border: 1px solid #d9e1ec;
+  border-radius: 14px;
+  background: #f8fbff;
+}
+
+.submission-track-options legend {
+  padding: 0 8px;
+  color: #13233f;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.submission-track-options label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+  color: #1a3e6b;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.submission-track-options input[type="radio"] {
+  width: 17px;
+  height: 17px;
+  margin: 0;
+  accent-color: #1a3e6b;
+  cursor: pointer;
+}
+
+.submission-track-options p {
+  margin: 5px 0 12px 27px;
+  color: #748096;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+/* ------------------------- */
+/* Upload Area               */
+/* ------------------------- */
+
 .file-upload-box {
   display: flex;
   flex-direction: column;
@@ -149,17 +198,7 @@
   border-color: #3b82f6;
   box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.12);
 }
-.file-button,
-.remove-file-button,
-.btn-primary {
-  outline: none;
-}
 
-.remove-file-button:focus-visible,
-.btn-primary:focus-visible {
-  outline: 3px solid rgba(179, 161, 36, 0.4);
-  outline-offset: 3px;
-}
 .upload-icon {
   display: grid;
   width: 48px;
@@ -281,8 +320,14 @@
 }
 
 .btn-primary:disabled {
-  cursor: not-allowed;
   opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.remove-file-button:focus-visible,
+.btn-primary:focus-visible {
+  outline: 3px solid rgba(59, 130, 246, 0.35);
+  outline-offset: 3px;
 }
 
 @media (max-width: 800px) {
@@ -313,7 +358,7 @@
   }
 
   .selected-file {
-    align-items: flex-start;
     flex-direction: column;
+    align-items: flex-start;
   }
 }
