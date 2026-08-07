@@ -171,7 +171,10 @@ class CohortSerializer(serializers.ModelSerializer):
         )
 
     def get_can_delete(self, obj):
-        return not obj.assessment_mappings.exists()
+        # Check if the relation exists before calling .exists()
+        if hasattr(obj, "enrolments"):
+            return not obj.enrolments.exists()
+        return True
 
     def validate_cohort_code(self, value):
         cohort_code = value.strip().upper()

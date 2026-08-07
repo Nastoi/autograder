@@ -102,6 +102,11 @@ DATABASES = {
     }
 }
 
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
+OPENAI_API_MODEL = os.environ.get(
+    "OPENAI_API_MODEL", "gpt-4o-mini"
+)
+
 
 # Password validation
 # https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators

@@ -28,7 +28,7 @@ urlpatterns = [
     path("api/lms/", include("lms.urls")),
     path("api/courses/", include("courses.urls")),
     path("api/grading/", include("grading.urls")),
-    
+
 ]
 
 if settings.DEBUG:

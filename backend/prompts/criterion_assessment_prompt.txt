@@ -1,0 +1,104 @@
+Assess the following learner submission for one rubric criterion.
+
+Assessment run ID:
+{{ assessment_run_id }}
+
+Organization ID:
+{{ organization_id }}
+
+Course ID:
+{{ course_id }}
+
+Assignment ID:
+{{ assignment_id }}
+
+Assignment version:
+{{ assignment_version }}
+
+Assignment title:
+{{ assignment_title }}
+
+Assignment type:
+{{ assignment_type }}
+
+Submission ID:
+{{ submission_id }}
+
+Attempt number:
+{{ attempt_number }}
+
+Criterion ID:
+{{ criterion.id }}
+
+Criterion title:
+{{ criterion.title }}
+
+Maximum marks:
+{{ criterion.maximum_marks }}
+
+Marks must be integers:
+{{ integer_marks_only }}
+
+Configured confidence threshold:
+{{ confidence_threshold }}
+
+Assignment-level score boundaries:
+{{ assignment_score_boundaries_json }}
+
+Criterion purpose:
+{{ criterion.purpose }}
+
+Task ID:
+{{ task.id }}
+
+Task title:
+{{ task.title }}
+
+Task instructions:
+{{ task.instructions }}
+
+Mandatory requirements:
+{{ mandatory_requirements_json }}
+
+Optional enhancements:
+{{ optional_enhancements_json }}
+
+Required evidence:
+{{ required_evidence_json }}
+
+Published rubric descriptors:
+{{ performance_descriptors_json }}
+
+Criterion scoring bands:
+{{ criterion_score_bands_json }}
+
+Mandatory outcome rules relevant to this criterion:
+{{ mandatory_outcome_rules_json }}
+
+Approved assessor guidance:
+{{ assessor_guidance_json }}
+
+Deterministic check results:
+{{ deterministic_checks_json }}
+
+Learner evidence:
+{{ learner_evidence_json }}
+
+Extraction warnings:
+{{ extraction_warnings_json }}
+
+Previous result:
+{{ previous_result_json }}
+
+Required assessment action:
+1. Assess only the supplied criterion.
+2. Determine the status of each mandatory requirement.
+3. Identify relevant supporting and missing evidence.
+4. Select the highest fully supported achievement level.
+5. Award marks within that level’s configured score range.
+6. Provide evidence-based learner feedback.
+7. Identify conflicts, uncertainty, or reasons for human review.
+8. Return only JSON matching the required schema.
+
+Required JSON schema:
+{{ output_json_schema }}
