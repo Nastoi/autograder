@@ -22,6 +22,11 @@ urlpatterns = [
         name="page-image",
     ),
     path(
+        "context/",
+        SubmissionContextView.as_view(), 
+        name="submission-context"
+    ),
+    path(
         "context/<uuid:context_id>/",
         SubmissionContextView.as_view(),
         name="context",

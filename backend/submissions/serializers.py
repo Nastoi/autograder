@@ -1,16 +1,20 @@
 from rest_framework import serializers
+from .models import SubmissionContext, LearnerSubmission, SubmissionPage
 
-from .models import LearnerSubmission, SubmissionPage
 
-
-class SubmissionContextSerializer(serializers.Serializer):
-    context_id = serializers.UUIDField()
-
-    learner = serializers.DictField()
-    cohort = serializers.DictField()
-    module = serializers.DictField()
-    assignment = serializers.DictField()
-    assignment_level = serializers.DictField()
+class SubmissionContextSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SubmissionContext
+        fields = (
+            "id",
+            "learner",
+            "cohort",
+            "assignment_level",
+            "is_active",
+            "created_at",
+            "updated_at",
+        )
+        read_only_fields = ("id", "learner", "created_at", "updated_at")
 
 
 class SubmissionPageSerializer(serializers.ModelSerializer):
@@ -24,6 +28,7 @@ class SubmissionPageSerializer(serializers.ModelSerializer):
         request = self.context.get("request")
         url = f"/api/submissions/pages/{obj.id}/image/"
         return request.build_absolute_uri(url) if request else url
+
 
 class LearnerSubmissionSerializer(serializers.ModelSerializer):
     context_id = serializers.UUIDField(
@@ -106,6 +111,7 @@ class LearnerSubmissionDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = LearnerSubmission
         fields = "__all__"
+
 
 class LearnerSubmissionListSerializer(serializers.ModelSerializer):
     assignment_code = serializers.CharField(

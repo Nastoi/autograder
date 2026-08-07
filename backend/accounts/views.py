@@ -1,13 +1,55 @@
-from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth import authenticate, get_user_model, login, logout
 from django.middleware.csrf import get_token
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import ensure_csrf_cookie
 from rest_framework import status
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.generics import CreateAPIView, ListAPIView
+from rest_framework.permissions import AllowAny, IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .serializers import CurrentUserSerializer, LoginSerializer
+from .models import UserProfile
+from .permissions import IsSuperUserOrStaff
+from .serializers import (
+    CurrentUserSerializer,
+    LearnerListSerializer,
+    LearnerRegisterSerializer,
+    LoginSerializer,
+)
+
+User = get_user_model()
+
+
+class LearnerListView(ListAPIView):
+    permission_classes = [IsSuperUserOrStaff]
+    serializer_class = LearnerListSerializer
+
+    def get_queryset(self):
+        # Filter users who have the LEARNER role on their profile
+        return (
+            User.objects.filter(profile__role=UserProfile.Role.LEARNER)
+            .select_related("profile")
+            .order_by("-id")
+        )
+
+
+class LearnerRegisterView(CreateAPIView):
+    authentication_classes = []
+    permission_classes = [AllowAny]
+    serializer_class = LearnerRegisterSerializer
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+
+        return Response(
+            {
+                "message": "Learner registered successfully.",
+                "user": CurrentUserSerializer(user).data,
+            },
+            status=status.HTTP_201_CREATED,
+        )
 
 
 @method_decorator(ensure_csrf_cookie, name="dispatch")
@@ -40,13 +82,9 @@ class LoginView(APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        # 1. Establish session
         login(request, user)
-
-        # 2. Force generation of CSRF token
         csrf_token = get_token(request)
 
-        # 3. Build response payload
         response = Response(
             {
                 "message": "Login successful.",
@@ -56,11 +94,10 @@ class LoginView(APIView):
             status=status.HTTP_200_OK,
         )
 
-        # 4. Set explicit CSRF cookie
         response.set_cookie(
             "csrftoken",
             csrf_token,
-            httponly=False,  # Allows frontend JS / Postman to read the token header
+            httponly=False,
             samesite="Lax",
         )
         return response

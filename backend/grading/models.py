@@ -70,6 +70,8 @@ class RubricCriterion(models.Model):
         on_delete=models.CASCADE,
         related_name="rubric_criteria",
         db_column="assignment_level_id",
+        null=True,
+        blank=True,
     )
 
     criterion_code = models.CharField(max_length=80)
@@ -89,7 +91,7 @@ class RubricCriterion(models.Model):
 
     class Meta:
         db_table = "rubric_criterion"
-        managed = False
+        # managed = False
         ordering = (
             "assignment_level",
             "sequence",
@@ -120,6 +122,8 @@ class RubricBand(models.Model):
         on_delete=models.CASCADE,
         related_name="bands",
         db_column="rubric_criterion_id",
+        null=True,
+        blank=True,
     )
 
     band_code = models.CharField(
@@ -144,7 +148,7 @@ class RubricBand(models.Model):
 
     class Meta:
         db_table = "rubric_band"
-        managed = False
+        # managed = False
         ordering = (
             "rubric_criterion",
             "sequence",
@@ -186,6 +190,8 @@ class RagSource(models.Model):
         on_delete=models.CASCADE,
         related_name="rag_sources",
         db_column="assignment_level_id",
+        null=True,
+        blank=True,
     )
 
     source_type = models.CharField(
@@ -223,7 +229,7 @@ class RagSource(models.Model):
 
     class Meta:
         db_table = "rag_source"
-        managed = False
+        # managed = False
         ordering = ("assignment_level", "title")
 
     def __str__(self) -> str:
@@ -242,6 +248,8 @@ class RagChunk(models.Model):
         on_delete=models.CASCADE,
         related_name="chunks",
         db_column="rag_source_id",
+        null=True,
+        blank=True,
     )
 
     chunk_index = models.PositiveIntegerField()
@@ -264,7 +272,7 @@ class RagChunk(models.Model):
 
     class Meta:
         db_table = "rag_chunk"
-        managed = False
+        # managed = False
         ordering = (
             "rag_source",
             "chunk_index",
@@ -289,6 +297,8 @@ class AIGradingProfile(models.Model):
         on_delete=models.CASCADE,
         related_name="ai_grading_profile",
         db_column="assignment_level_id",
+        null=True,  # Allow nulls for existing/new rows during migration
+        blank=True,
     )
 
     profile_name = models.CharField(max_length=255)
@@ -318,7 +328,7 @@ class AIGradingProfile(models.Model):
 
     class Meta:
         db_table = "ai_grading_profile"
-        managed = False
+        # managed = False
 
     def __str__(self) -> str:
         return self.profile_name

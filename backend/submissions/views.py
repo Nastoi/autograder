@@ -1,17 +1,21 @@
 from pathlib import Path
 
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from rest_framework import permissions, status
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.decorators import action
-from rest_framework.parsers import FormParser, MultiPartParser
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
-from django.http import HttpResponse
 
 from .models import LearnerSubmission, SubmissionContext, SubmissionPage
-from .serializers import LearnerSubmissionSerializer, LearnerSubmissionDetailSerializer, LearnerSubmissionListSerializer
+from .serializers import (
+    LearnerSubmissionSerializer,
+    LearnerSubmissionDetailSerializer,
+    LearnerSubmissionListSerializer,
+    SubmissionContextSerializer,
+)
 from .services import extract_submission_pages, run_ai_grading
 
 ALLOWED_EXTENSIONS = {
@@ -34,6 +38,54 @@ def get_learner_role(user) -> str | None:
 
 class SubmissionContextView(APIView):
     permission_classes = [IsAuthenticated]
+    parser_classes = [JSONParser, MultiPartParser, FormParser]
+
+    def post(self, request, *args, **kwargs):
+        serializer = SubmissionContextSerializer(data=request.data)
+
+        if serializer.is_valid():
+            # Automatically assign authenticated user as the learner
+            context = serializer.save(learner=request.user)
+
+            assignment = context.assignment_level.assignment
+            module = assignment.module
+
+            return Response(
+                {
+                    "message": "Submission context created successfully.",
+                    "context_id": context.id,
+                    "learner": {
+                        "id": request.user.id,
+                        "username": request.user.username,
+                        "name": request.user.get_full_name() or request.user.username,
+                        "email": request.user.email,
+                    },
+                    "cohort": {
+                        "id": context.cohort.id,
+                        "code": context.cohort.code,
+                        "name": context.cohort.name,
+                    },
+                    "module": {
+                        "id": module.id,
+                        "code": module.code,
+                        "name": module.name,
+                    },
+                    "assignment": {
+                        "id": assignment.id,
+                        "code": assignment.code,
+                        "title": assignment.title,
+                        "maximum_score": assignment.maximum_score,
+                    },
+                    "assignment_level": {
+                        "id": context.assignment_level.id,
+                        "level_code": context.assignment_level.level_code,
+                        "display_name": context.assignment_level.display_name,
+                    },
+                },
+                status=status.HTTP_201_CREATED,
+            )
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def get(self, request, context_id):
         context = get_object_or_404(
@@ -58,8 +110,7 @@ class SubmissionContextView(APIView):
                 "learner": {
                     "id": request.user.id,
                     "username": request.user.username,
-                    "name": request.user.get_full_name()
-                    or request.user.username,
+                    "name": request.user.get_full_name() or request.user.username,
                     "email": request.user.email,
                 },
                 "cohort": {
@@ -81,11 +132,10 @@ class SubmissionContextView(APIView):
                 "assignment_level": {
                     "id": context.assignment_level.id,
                     "level_code": context.assignment_level.level_code,
-                    "display_name": (
-                        context.assignment_level.display_name
-                    ),
+                    "display_name": context.assignment_level.display_name,
                 },
-            }
+            },
+            status=status.HTTP_200_OK,
         )
 
 
@@ -96,11 +146,7 @@ class SubmissionCreateView(APIView):
     def post(self, request, context_id):
         if get_learner_role(request.user) != "learner":
             return Response(
-                {
-                    "detail": (
-                        "Only learner accounts can submit assignments."
-                    )
-                },
+                {"detail": "Only learner accounts can submit assignments."},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
@@ -166,11 +212,11 @@ class SubmissionCreateView(APIView):
             status=status.HTTP_201_CREATED,
         )
 
+
 class SubmissionDetailView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request, submission_id):
-        # Base Query
         queryset = LearnerSubmission.objects.prefetch_related(
             "pages"
         ).select_related(
@@ -179,7 +225,6 @@ class SubmissionDetailView(APIView):
             "context",
         )
 
-        # Filter by learner ONLY if the user is not a superuser
         filters = {"id": submission_id}
         if not request.user.is_superuser:
             filters["learner"] = request.user
@@ -192,7 +237,8 @@ class SubmissionDetailView(APIView):
             ).data,
             status=status.HTTP_200_OK,
         )
-        
+
+
 class LearnerSubmissionViewSet(ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
     lookup_field = "id"
@@ -204,7 +250,6 @@ class LearnerSubmissionViewSet(ModelViewSet):
             "assignment_level__assignment__module"
         ).order_by("-submitted_at")
 
-        # Superusers can view all submissions; standard users view only their own
         if not user.is_superuser:
             queryset = queryset.filter(learner=user)
 
@@ -227,6 +272,8 @@ class LearnerSubmissionViewSet(ModelViewSet):
         )
 
         extract_submission_pages(submission)
+
+
 class PageImageView(APIView):
     """Serves the binary WebP image stored in Postgres."""
 
