@@ -45,8 +45,8 @@ export function AssessmentMappingsPage() {
       <main className="admin-container">
         <header className="admin-header">
           <div className="admin-header">
-                <h1>Assessment mappings</h1>
-            </div>
+            <h1>Assessment mappings</h1>
+          </div>
         </header>
         <div className="error-message" role="alert" style={{ marginTop: '20px' }}>
           {error}
@@ -55,12 +55,22 @@ export function AssessmentMappingsPage() {
     );
   }
 
+  function getSubmissionUrl(mappingId: string) {
+    return `${window.location.origin}/submit/mapping/${mappingId}`;
+  }
+
+  async function handleCopySubmissionUrl(mappingId: string) {
+    const url = getSubmissionUrl(mappingId);
+
+    await navigator.clipboard.writeText(url);
+  }
+
   return (
     <main className="admin-container">
       <header className="admin-header">
         <div className="admin-header">
-                <h1>Assessment mappings</h1>
-            </div>
+          <h1>Assessment mappings</h1>
+        </div>
       </header>
 
       {mappings.length === 0 ? (
@@ -77,6 +87,8 @@ export function AssessmentMappingsPage() {
                 <th>Assignment</th>
                 <th>Status</th>
                 <th>Usage</th>
+                <th>Url</th>
+                <th>Embed</th>
               </tr>
             </thead>
 
@@ -109,6 +121,33 @@ export function AssessmentMappingsPage() {
                       <span style={{ color: "#64748b" }}>Not used</span>
                     )}
                   </td>
+
+                  <td>
+                    <span
+                      className="mapping-url-text"
+                      onClick={(event) => {
+                        const selection = window.getSelection();
+                        const range = document.createRange();
+
+                        range.selectNodeContents(event.currentTarget);
+
+                        selection?.removeAllRanges();
+                        selection?.addRange(range);
+                      }}
+                    >
+                      {getSubmissionUrl(mapping.id)}
+                    </span>
+                  </td>
+                  <td>
+                    <button
+                      type="button"
+                      className="mapping-copy-button"
+                      onClick={() => handleCopySubmissionUrl(mapping.id)}
+                    >
+                      Copy URL
+                    </button>
+
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -118,3 +157,4 @@ export function AssessmentMappingsPage() {
     </main>
   );
 }
+

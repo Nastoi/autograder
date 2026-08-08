@@ -119,3 +119,58 @@ class AssessmentMappingSubmissionView(generics.RetrieveAPIView):
                 },
             }
         )
+
+    from rest_framework.permissions import AllowAny
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
+
+class RequestDebugView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        return Response({
+            "authenticated": request.user.is_authenticated,
+            "user": {
+                "id": getattr(request.user, "id", None),
+                "username": getattr(request.user, "username", None),
+                "email": getattr(request.user, "email", None),
+            },
+            "query_params": dict(request.query_params),
+            "headers": {
+                "referer": request.headers.get("Referer"),
+                "origin": request.headers.get("Origin"),
+                "user_agent": request.headers.get("User-Agent"),
+            },
+        })
+
+
+class LtiLoginDebugView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        return Response({
+            "method": "GET",
+            "query_params": dict(request.query_params),
+        })
+
+    def post(self, request):
+        return Response({
+            "method": "POST",
+            "data": dict(request.data),
+        })
+
+class LtiLaunchDebugView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        return Response({
+            "method": "GET",
+            "query_params": dict(request.query_params),
+        })
+
+    def post(self, request):
+        return Response({
+            "method": "POST",
+            "data": dict(request.data),
+        })
