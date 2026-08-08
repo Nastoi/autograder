@@ -7,6 +7,7 @@ from .views import (
     SubmissionContextView,
     SubmissionCreateView,
     SubmissionDetailView,
+    MappingSubmissionContextView,
 )
 
 app_name = "submissions"
@@ -40,6 +41,11 @@ urlpatterns = [
         "<uuid:submission_id>/",
         SubmissionDetailView.as_view(),
         name="detail",
+    ),
+    path(
+        "mapping/<uuid:mapping_id>/context/",
+        MappingSubmissionContextView.as_view(),
+        name="mapping-submission-context",
     ),
 
     # 2. Router Fallback (POST / and ViewSet actions like /<pk>/grade/)

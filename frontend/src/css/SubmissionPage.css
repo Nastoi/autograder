@@ -1,17 +1,29 @@
 @import url("https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap");
 
 .submission-page {
-  min-height: calc(100vh - 70px);
-  padding: 36px 40px 60px;
-  background: #f5f7fb;
-  font-family: "Montserrat", sans-serif;
-  color: #13233f;
+    position: relative;
+    z-index: 1;
+
+    width: 100%;
+    min-height: calc(100vh - 64px);
+    box-sizing: border-box;
+
+    padding: 36px 40px 80px;
+
+    background: #f5f7fb;
+    font-family: "Montserrat", sans-serif;
+    color: #13233f;
+
+    overflow: visible;
 }
 
 .submission-content {
-  width: 100%;
-  max-width: 1040px;
-  margin: 0 auto;
+    position: relative;
+    width: 100%;
+    max-width: 1040px;
+    margin: 0 auto;
+    padding-bottom: 40px;
+    box-sizing: border-box;
 }
 
 .submission-header {

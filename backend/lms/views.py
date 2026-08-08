@@ -46,8 +46,7 @@ class AssessmentMappingDetailView(
             .select_related(
                 "cohort",
                 "cohort__module",
-                "assignment_level",
-                "assignment_level__assignment",
+                "assignment",
             )
         )
 
@@ -79,4 +78,44 @@ class AssessmentMappingDetailView(
             request,
             *args,
             **kwargs,
+        )
+
+from rest_framework.permissions import AllowAny
+
+
+class AssessmentMappingSubmissionView(generics.RetrieveAPIView):
+    permission_classes = [AllowAny]
+    lookup_url_kwarg = "mapping_id"
+
+    def get_queryset(self):
+        return (
+            AssessmentMapping.objects
+            .select_related(
+                "cohort",
+                "cohort__module",
+                "assignment",
+            )
+            .filter(is_active=True)
+        )
+
+    def retrieve(self, request, *args, **kwargs):
+        mapping = self.get_object()
+
+        return Response(
+            {
+                "mapping_id": str(mapping.id),
+                "cohort": {
+                    "id": mapping.cohort.id,
+                    "code": mapping.cohort.cohort_code,
+                    "name": mapping.cohort.cohort_name,
+                },
+                "assignment": {
+                    "id": str(mapping.assignment.id),
+                    "code": mapping.assignment.code,
+                    "title": mapping.assignment.title,
+                    "maximum_score": str(
+                        mapping.assignment.maximum_score
+                    ),
+                },
+            }
         )

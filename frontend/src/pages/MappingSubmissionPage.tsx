@@ -12,19 +12,23 @@ import {
 } from "react-router";
 
 import {
-  getSubmissionContext,
+  getMappingSubmissionContext,
+  type MappingSubmissionContext,
+} from "../api/lms";
+
+import {
+  resolveMappingContext,
   submitAssignment,
-  type SubmissionContext,
 } from "../api/submissions";
 
 type SubmissionTrack = "basic" | "advanced";
 
-export function SubmissionPage() {
-  const { contextId } = useParams();
+export function MappingSubmissionPage() {
+  const { mappingId } = useParams();
   const navigate = useNavigate();
 
   const [context, setContext] =
-    useState<SubmissionContext | null>(null);
+    useState<MappingSubmissionContext | null>(null);
 
   const [selectedFile, setSelectedFile] =
     useState<File | null>(null);
@@ -37,34 +41,38 @@ export function SubmissionPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    async function loadContext() {
-      if (!contextId) {
-        setError("Submission context is missing.");
+    async function loadMapping() {
+      if (!mappingId) {
+        setError("Invalid assessment mapping.");
         setIsLoading(false);
         return;
       }
 
       try {
-        const data = await getSubmissionContext(contextId);
+        const data =
+          await getMappingSubmissionContext(mappingId);
+
         setContext(data);
       } catch (caughtError) {
         setError(
           caughtError instanceof Error
             ? caughtError.message
-            : "Unable to load the submission page.",
+            : "Unable to load assignment.",
         );
       } finally {
         setIsLoading(false);
       }
     }
 
-    void loadContext();
-  }, [contextId]);
+    void loadMapping();
+  }, [mappingId]);
 
   function handleFileChange(
     event: ChangeEvent<HTMLInputElement>,
   ) {
-    setSelectedFile(event.target.files?.[0] ?? null);
+    setSelectedFile(
+      event.target.files?.[0] ?? null,
+    );
     setError("");
   }
 
@@ -73,13 +81,15 @@ export function SubmissionPage() {
   ) {
     event.preventDefault();
 
-    if (!submissionTrack) {
-      setError("Please select Basic or Advanced.");
+    if (!mappingId) {
+      setError("Assessment mapping is missing.");
       return;
     }
 
-    if (!contextId) {
-      setError("Submission context is missing.");
+    if (!submissionTrack) {
+      setError(
+        "Please select Basic or Advanced.",
+      );
       return;
     }
 
@@ -92,15 +102,21 @@ export function SubmissionPage() {
     setIsSubmitting(true);
 
     try {
+      const resolvedContext =
+        await resolveMappingContext(mappingId);
+
       const submission = await submitAssignment(
-        contextId,
+        resolvedContext.context_id,
         selectedFile,
         submissionTrack,
       );
 
-      navigate(`/results/${submission.id}`, {
-        replace: true,
-      });
+      navigate(
+        `/results/${submission.id}`,
+        {
+          replace: true,
+        },
+      );
     } catch (caughtError) {
       setError(
         caughtError instanceof Error
@@ -115,9 +131,7 @@ export function SubmissionPage() {
   if (isLoading) {
     return (
       <main className="submission-page">
-        <div className="submission-content">
-          Loading submission page...
-        </div>
+        Loading submission page...
       </main>
     );
   }
@@ -126,11 +140,12 @@ export function SubmissionPage() {
     return (
       <main className="submission-page">
         <div className="submission-content">
-          <header className="submission-header">
-            <h1>Unable to load submission</h1>
-          </header>
+          <h1>Unable to load assignment</h1>
 
-          <p role="alert" className="error-message">
+          <p
+            role="alert"
+            className="error-message"
+          >
             {error}
           </p>
         </div>
@@ -141,19 +156,13 @@ export function SubmissionPage() {
   if (!context) {
     return (
       <main className="submission-page">
-        <div className="submission-content">
-          Submission context was not found.
-        </div>
+        Assignment was not found.
       </main>
     );
   }
 
   return (
-    <main className="admin-container submission-page">
-      <div className="admin-header">
-        <h1>Submit Assignment</h1>
-      </div>
-
+    <main className="submission-page">
       <div className="submission-content">
         <header className="submission-header">
           <div>
@@ -164,11 +173,10 @@ export function SubmissionPage() {
             <h1>Submit Assignment</h1>
 
             <p className="submission-intro">
-              Review your assignment details and upload the
-              required document.
+              Review your assignment details and
+              upload the required document.
             </p>
           </div>
-
         </header>
 
         <section
@@ -177,32 +185,34 @@ export function SubmissionPage() {
         >
           <div className="summary-item">
             <span className="summary-label">
-              Learner
-            </span>
-            <strong>{context.learner.name}</strong>
-          </div>
-
-          <div className="summary-item">
-            <span className="summary-label">
-              Module
-            </span>
-            <strong>
-              {context.module.code} — {context.module.name}
-            </strong>
-          </div>
-
-          <div className="summary-item">
-            <span className="summary-label">
               Cohort
             </span>
-            <strong>{context.cohort.name}</strong>
+
+            <strong>
+              {context.cohort.code} —{" "}
+              {context.cohort.name}
+            </strong>
           </div>
 
           <div className="summary-item summary-item-wide">
             <span className="summary-label">
               Assignment
             </span>
-            <strong>{context.assignment.title}</strong>
+
+            <strong>
+              {context.assignment.code} —{" "}
+              {context.assignment.title}
+            </strong>
+          </div>
+
+          <div className="summary-item">
+            <span className="summary-label">
+              Maximum score
+            </span>
+
+            <strong>
+              {context.assignment.maximum_score}
+            </strong>
           </div>
         </section>
 
@@ -210,24 +220,19 @@ export function SubmissionPage() {
           onSubmit={handleSubmit}
           className="submission-form"
         >
-          <div className="upload-heading">
-            <div>
-              <h2>Upload your document</h2>
-              <p>
-                Accepted formats: DOC, DOCX, PDF, PBIX and ZIP.
-              </p>
-            </div>
-          </div>
-
           <fieldset className="submission-track-options">
-            <legend>Select submission type</legend>
+            <legend>
+              Select submission type
+            </legend>
 
             <label>
               <input
                 type="radio"
                 name="submission_track"
                 value="basic"
-                checked={submissionTrack === "basic"}
+                checked={
+                  submissionTrack === "basic"
+                }
                 onChange={() =>
                   setSubmissionTrack("basic")
                 }
@@ -238,8 +243,8 @@ export function SubmissionPage() {
             </label>
 
             <p>
-              Grading outcome can be Failed, Foundation, or
-              Proficient.
+              Outcome can be Failed,
+              Foundation, or Proficient.
             </p>
 
             <label>
@@ -247,7 +252,9 @@ export function SubmissionPage() {
                 type="radio"
                 name="submission_track"
                 value="advanced"
-                checked={submissionTrack === "advanced"}
+                checked={
+                  submissionTrack === "advanced"
+                }
                 onChange={() =>
                   setSubmissionTrack("advanced")
                 }
@@ -258,8 +265,8 @@ export function SubmissionPage() {
             </label>
 
             <p>
-              Grading outcome can be Failed, Proficient, or
-              Expert.
+              Outcome can be Failed,
+              Proficient, or Expert.
             </p>
           </fieldset>
 
@@ -267,7 +274,10 @@ export function SubmissionPage() {
             htmlFor="submitted-file"
             className="file-upload-box"
           >
-            <span className="upload-icon" aria-hidden="true">
+            <span
+              className="upload-icon"
+              aria-hidden="true"
+            >
               ↑
             </span>
 
@@ -276,7 +286,8 @@ export function SubmissionPage() {
             </span>
 
             <span className="upload-help">
-              Select the completed assignment from your computer.
+              Select the completed assignment
+              from your computer.
             </span>
 
             <span className="file-button">
@@ -302,13 +313,17 @@ export function SubmissionPage() {
                   Selected file
                 </span>
 
-                <strong>{selectedFile.name}</strong>
+                <strong>
+                  {selectedFile.name}
+                </strong>
               </div>
 
               <button
                 type="button"
                 className="remove-file-button"
-                onClick={() => setSelectedFile(null)}
+                onClick={() =>
+                  setSelectedFile(null)
+                }
                 disabled={isSubmitting}
               >
                 Remove
@@ -317,7 +332,10 @@ export function SubmissionPage() {
           )}
 
           {error && (
-            <p role="alert" className="error-message">
+            <p
+              role="alert"
+              className="error-message"
+            >
               {error}
             </p>
           )}

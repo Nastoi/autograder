@@ -93,9 +93,9 @@
 .dropdown {
   position: relative;
   display: inline-block;
-  /* Add padding to bottom to bridge the gap */
   padding-bottom: 12px;
   margin-bottom: -12px;
+  /* Add padding to bottom to bridge the gap */
 }
 
 .dropdown-btn {

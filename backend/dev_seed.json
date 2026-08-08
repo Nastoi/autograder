@@ -894,7 +894,7 @@
     "fields": {
       "learner": 4,
       "cohort": 1,
-      "assignment_level": "20a02dc5-3233-47c8-a0e1-a9f87480a3cd",
+      "assignment": "08be02a7-d61e-4bbe-943d-beb2e0b62547",
       "assessment_mapping": null,
       "is_active": true,
       "created_at": "2026-08-03T03:06:28.472Z",
@@ -907,7 +907,8 @@
     "fields": {
       "context": "f447d07a-4741-4b95-91af-bba02c40b125",
       "learner": 4,
-      "assignment_level": "20a02dc5-3233-47c8-a0e1-a9f87480a3cd",
+      "assignment": "08be02a7-d61e-4bbe-943d-beb2e0b62547",
+      "submission_track": "basic",
       "submitted_file": "submissions/2026/08/03/PDDS_Podcast_Speaking_Guide_3k1omhk.pdf",
       "original_filename": "PDDS Podcast Speaking Guide.pdf",
       "attempt_number": 2,
@@ -926,7 +927,8 @@
     "fields": {
       "context": "f447d07a-4741-4b95-91af-bba02c40b125",
       "learner": 4,
-      "assignment_level": "20a02dc5-3233-47c8-a0e1-a9f87480a3cd",
+      "assignment": "08be02a7-d61e-4bbe-943d-beb2e0b62547",
+      "submission_track": "basic",
       "submitted_file": "submissions/2026/08/03/PDDS_Podcast_Speaking_Guide_nWci5az.pdf",
       "original_filename": "PDDS Podcast Speaking Guide.pdf",
       "attempt_number": 4,
@@ -945,7 +947,8 @@
     "fields": {
       "context": "f447d07a-4741-4b95-91af-bba02c40b125",
       "learner": 4,
-      "assignment_level": "20a02dc5-3233-47c8-a0e1-a9f87480a3cd",
+      "assignment": "08be02a7-d61e-4bbe-943d-beb2e0b62547",
+      "submission_track": "basic",
       "submitted_file": "submissions/2026/08/03/PDDS_Podcast_Speaking_Guide_7SprSLu.pdf",
       "original_filename": "PDDS Podcast Speaking Guide.pdf",
       "attempt_number": 2,
@@ -964,7 +967,8 @@
     "fields": {
       "context": "f447d07a-4741-4b95-91af-bba02c40b125",
       "learner": 4,
-      "assignment_level": "20a02dc5-3233-47c8-a0e1-a9f87480a3cd",
+      "assignment": "08be02a7-d61e-4bbe-943d-beb2e0b62547",
+      "submission_track": "basic",
       "submitted_file": "submissions/2026/08/03/PDDS_Podcast_Speaking_Guide.pdf",
       "original_filename": "PDDS Podcast Speaking Guide.pdf",
       "attempt_number": 1,
@@ -983,7 +987,8 @@
     "fields": {
       "context": "f447d07a-4741-4b95-91af-bba02c40b125",
       "learner": 4,
-      "assignment_level": "20a02dc5-3233-47c8-a0e1-a9f87480a3cd",
+      "assignment": "08be02a7-d61e-4bbe-943d-beb2e0b62547",
+      "submission_track": "basic",
       "submitted_file": "submissions/2026/08/03/PDDS_Podcast_Speaking_Guide_NoO8RfE.pdf",
       "original_filename": "PDDS Podcast Speaking Guide.pdf",
       "attempt_number": 4,

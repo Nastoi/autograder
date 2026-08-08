@@ -30,10 +30,12 @@ class SubmissionContext(models.Model):
         related_name="submission_contexts",
     )
 
-    assignment_level = models.ForeignKey(
-        "courses.AssignmentLevel",
+    assignment = models.ForeignKey(
+        "courses.ModuleAssignment",
         on_delete=models.PROTECT,
-        related_name="submission_contexts",
+        related_name="submission_contexts_by_assignment",
+        null=True,
+        blank=True,
     )
 
     assessment_mapping = models.ForeignKey(
@@ -52,8 +54,7 @@ class SubmissionContext(models.Model):
     def __str__(self) -> str:
         return (
             f"{self.learner.username} — "
-            f"{self.assignment_level.assignment.code} — "
-            f"{self.assignment_level.level_code}"
+            f"{self.assignment.code if self.assignment else 'No assignment'}"
         )
 
 
@@ -87,10 +88,12 @@ class LearnerSubmission(models.Model):
         related_name="learner_submissions",
     )
 
-    assignment_level = models.ForeignKey(
-        "courses.AssignmentLevel",
+    assignment = models.ForeignKey(
+        "courses.ModuleAssignment",
         on_delete=models.PROTECT,
-        related_name="learner_submissions",
+        related_name="learner_submissions_by_assignment",
+        null=True,
+        blank=True,
     )
 
     submitted_file = models.FileField(

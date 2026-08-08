@@ -23,7 +23,7 @@ import { AssignmentLevelsPage } from "./pages/AssignmentLevelsPage";
 import { RubricCriteriaPage } from "./pages/RubricCriteriaPage";
 import { RubricBandsPage } from "./pages/RubricBandsPage";
 import { AIGradingProfilesPage } from "./pages/AIGradingProfilesPage";
-
+import { MappingSubmissionPage } from "./pages/MappingSubmissionPage";
 
 export default function App() {
   return (
@@ -103,7 +103,10 @@ export default function App() {
           path="/"
           element={<Navigate to="/dashboard" replace />}
         />
-
+        <Route
+          path="/submit/mapping/:mappingId"
+          element={<MappingSubmissionPage />}
+        />
 
 
       </Routes>

@@ -9,20 +9,18 @@ from django.core.files.base import ContentFile
 from .models import LearnerSubmission, SubmissionPage
 
 
-def _get_assignment_type(assignment_level) -> str:
-    level_code = getattr(assignment_level, "level_code", "").lower()
-    return "ADVANCED" if level_code == "expert" else "BASIC"
+def _get_assignment_type(submission) -> str:
+    return submission.submission_track
 
 
 def _build_assignment_payload(submission: LearnerSubmission) -> dict:
-    assignment_level = submission.assignment_level
-    assignment = assignment_level.assignment
+    assignment = submission.assignment
 
     return {
         "assignment_id": str(assignment.id),
         "assignment_version": getattr(assignment, "version", "1.0"),
         "assignment_title": assignment.title,
-        "assignment_type": _get_assignment_type(assignment_level),
+        "assignment_type": _get_assignment_type(submission),
         "confidence_threshold": 0.60,
         "assignment_score_boundaries": {
             "FAILED": [0, 49],
@@ -38,18 +36,21 @@ def _build_assignment_payload(submission: LearnerSubmission) -> dict:
 
 
 def _build_task_payload(submission: LearnerSubmission) -> dict:
-    assignment_level = submission.assignment_level
+    assignment = submission.assignment
 
     return {
-        "id": str(assignment_level.id),
-        "title": assignment_level.display_name or assignment_level.level_code,
-        "instructions": assignment_level.instructions
-        or "Assess the submitted assignment evidence against the published rubric.",
+        "id": str(assignment.id),
+        "title": assignment.title,
+        "instructions": (
+            assignment.objective
+            or "Assess the submitted assignment evidence against the published rubric."
+        ),
+        "submission_track": submission.submission_track,
     }
 
 
 def _build_criterion_payload(submission: LearnerSubmission) -> dict:
-    assignment_type = _get_assignment_type(submission.assignment_level)
+    assignment_type = _get_assignment_type(submission)
 
     score_bands = {
         "BASIC": {

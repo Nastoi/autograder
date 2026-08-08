@@ -26,8 +26,6 @@ class AssessmentMapping(models.Model):
         "courses.ModuleAssignment",
         on_delete=models.PROTECT,
         related_name="assessment_mappings",
-        null=True,
-        blank=True,
     )
 
     external_platform_id = models.CharField(

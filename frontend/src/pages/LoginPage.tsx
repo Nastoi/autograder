@@ -43,9 +43,14 @@ export function LoginPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (user) {
+    const requestedPath = state?.from?.pathname;
+
     return (
       <Navigate
-        to={getDefaultDestination(user.role)}
+        to={
+          requestedPath ??
+          getDefaultDestination(user.role)
+        }
         replace
       />
     );
@@ -62,14 +67,9 @@ export function LoginPage() {
 
       const requestedPath = state?.from?.pathname;
 
-      const isAdminUser =
-        loggedInUser.role === "system_admin" ||
-        loggedInUser.role === "mapping_admin" ||
-        loggedInUser.role === "faculty";
-
-      const nextDestination = isAdminUser
-        ? "/dashboard"
-        : requestedPath ?? "/";
+      const nextDestination =
+        requestedPath ??
+        getDefaultDestination(loggedInUser.role);
 
       navigate(nextDestination, { replace: true });
     } catch (error) {
