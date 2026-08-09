@@ -1,7 +1,6 @@
 import { useState, type FormEvent } from "react";
 import {
   Navigate,
-  useLocation,
   useNavigate,
 } from "react-router";
 
@@ -10,18 +9,11 @@ import "../css/LoginPage.css";
 
 import { Bot } from "lucide-react";
 
-type LocationState = {
-  from?: {
-    pathname?: string;
-  };
-};
 
 export function LoginPage() {
   const { user, login } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
 
-  const state = location.state as LocationState | null;
 
   function getDefaultDestination(
     role: string | null | undefined,
@@ -43,18 +35,13 @@ export function LoginPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (user) {
-    const requestedPath = state?.from?.pathname;
-
-    return (
-      <Navigate
-        to={
-          requestedPath ??
-          getDefaultDestination(user.role)
-        }
-        replace
-      />
-    );
-  }
+  return (
+    <Navigate
+      to={getDefaultDestination(user.role)}
+      replace
+    />
+  );
+}
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -67,11 +54,10 @@ export function LoginPage() {
 
       const requestedPath = state?.from?.pathname;
 
-      const nextDestination =
-        requestedPath ??
-        getDefaultDestination(loggedInUser.role);
-
-      navigate(nextDestination, { replace: true });
+      navigate(
+  getDefaultDestination(loggedInUser.role),
+  { replace: true },
+);
     } catch (error) {
       setError(
         error instanceof Error

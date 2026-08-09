@@ -87,7 +87,7 @@ class RubricCriterion(models.Model):
     ai_gradable = models.BooleanField(default=True)
     deterministic = models.BooleanField(default=False)
 
-    created_at = models.DateTimeField()
+    created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         db_table = "rubric_criterion"
@@ -223,7 +223,7 @@ class RagSource(models.Model):
         default=IngestionStatus.PENDING,
     )
 
-    created_at = models.DateTimeField()
+    created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         db_table = "rag_source"
@@ -265,7 +265,7 @@ class RagChunk(models.Model):
         null=True,
     )
 
-    created_at = models.DateTimeField()
+    created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         db_table = "rag_chunk"

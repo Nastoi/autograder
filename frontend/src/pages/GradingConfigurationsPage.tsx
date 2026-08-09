@@ -34,8 +34,6 @@ const [automatedTestingEnabled, setAutomatedTestingEnabled] =
   useState(false);
 
 const [ragEnabled, setRagEnabled] = useState(true);
-const [aiGradingEnabled, setAiGradingEnabled] =
-  useState(true);
 
 const [manualReviewRequired, setManualReviewRequired] =
   useState(true);
@@ -85,7 +83,7 @@ const [isSubmitting, setIsSubmitting] = useState(false);
       structural_check_enabled: structuralCheckEnabled,
       automated_testing_enabled: automatedTestingEnabled,
       rag_enabled: ragEnabled,
-      ai_grading_enabled: aiGradingEnabled,
+      ai_grading_enabled: true,
       manual_review_required: manualReviewRequired,
       confidence_review_threshold:
         confidenceReviewThreshold,
@@ -100,7 +98,6 @@ const [isSubmitting, setIsSubmitting] = useState(false);
     setStructuralCheckEnabled(true);
     setAutomatedTestingEnabled(false);
     setRagEnabled(true);
-    setAiGradingEnabled(true);
     setManualReviewRequired(true);
     setConfidenceReviewThreshold("0.700");
     setVersion("1");
@@ -212,16 +209,7 @@ const [isSubmitting, setIsSubmitting] = useState(false);
       RAG enabled
     </label>
 
-    <label className="checkbox-group">
-      <input
-        type="checkbox"
-        checked={aiGradingEnabled}
-        onChange={(event) =>
-          setAiGradingEnabled(event.target.checked)
-        }
-      />
-      AI grading enabled
-    </label>
+
 
     <label className="checkbox-group">
       <input

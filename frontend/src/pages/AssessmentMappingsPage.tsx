@@ -65,12 +65,42 @@ export function AssessmentMappingsPage() {
     await navigator.clipboard.writeText(url);
   }
 
+  async function handleCopyAllSubmissionUrls() {
+  const text = mappings
+    .map(
+      (mapping) =>
+        `${mapping.cohort_code} | ${mapping.assignment_code} | ${getSubmissionUrl(mapping.id)}`,
+    )
+    .join("\n");
+
+  await navigator.clipboard.writeText(text);
+}
+
   return (
     <main className="admin-container">
       <header className="admin-header">
-        <div className="admin-header">
-          <h1>Assessment mappings</h1>
-        </div>
+        <div
+  className="admin-header"
+  style={{
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+  }}
+>
+  <h1>Assessment mappings</h1>
+
+  {mappings.length > 0 && (
+    <button
+      type="button"
+      className="btn-primary"
+      onClick={() =>
+        void handleCopyAllSubmissionUrls()
+      }
+    >
+      Copy All URLs
+    </button>
+  )}
+</div>
       </header>
 
       {mappings.length === 0 ? (
@@ -142,7 +172,9 @@ export function AssessmentMappingsPage() {
                     <button
                       type="button"
                       className="mapping-copy-button"
-                      onClick={() => handleCopySubmissionUrl(mapping.id)}
+                      onClick={() =>
+  void handleCopySubmissionUrl(mapping.id)
+}
                     >
                       Copy URL
                     </button>

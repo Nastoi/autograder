@@ -506,3 +506,11 @@ class AIGradingProfileSerializer(
             )
 
         return value
+
+def create(self, validated_data):
+    validated_data["ai_grading_enabled"] = True
+    return super().create(validated_data)
+
+def update(self, instance, validated_data):
+    validated_data["ai_grading_enabled"] = True
+    return super().update(instance, validated_data)

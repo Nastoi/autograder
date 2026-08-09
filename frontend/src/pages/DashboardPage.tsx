@@ -1,35 +1,32 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
-// import { useAuth } from "../auth/AuthContext";
-import "../css/AssessmentMappings.css";
 import {
   GraduationCap,
-  BookOpen,
   Users,
   ClipboardList,
-  Network,
-  Bot
+  Layers3,
+  ArrowRight,
 } from "lucide-react";
 
+import "../css/AssessmentMappings.css";
+
 import {
-  getQualifications,
-  getModules,
+  getAssessmentMappings,
   getCohorts,
   getModuleAssignments,
-  getAssessmentMappings,
-  getAIGradingProfiles,
+  getModules,
+  getQualifications,
 } from "../api/lms";
 
 export function DashboardPage() {
-
   const [isLoading, setIsLoading] = useState(true);
+
   const [metrics, setMetrics] = useState({
     qualifications: 0,
     modules: 0,
     cohorts: 0,
     assignments: 0,
     mappings: 0,
-    profiles: 0,
   });
 
   useEffect(() => {
@@ -41,14 +38,12 @@ export function DashboardPage() {
           cohortsData,
           assignmentsData,
           mappingsData,
-          profilesData,
         ] = await Promise.all([
           getQualifications(),
           getModules(),
           getCohorts(),
           getModuleAssignments(),
           getAssessmentMappings(),
-          getAIGradingProfiles(),
         ]);
 
         setMetrics({
@@ -57,10 +52,12 @@ export function DashboardPage() {
           cohorts: cohortsData.length,
           assignments: assignmentsData.length,
           mappings: mappingsData.length,
-          profiles: profilesData.length,
         });
       } catch (error) {
-        console.error("Failed to load dashboard metrics", error);
+        console.error(
+          "Failed to load dashboard metrics",
+          error,
+        );
       } finally {
         setIsLoading(false);
       }
@@ -69,108 +66,226 @@ export function DashboardPage() {
     void loadData();
   }, []);
 
-
   return (
     <main className="admin-container">
       <div className="admin-header">
-        <h1>Dashboard</h1>
+        <div>
+          <h1>Dashboard</h1>
+          <p className="section-description">
+            Overview of the AutoGrader academic setup and assessment workflow.
+          </p>
+        </div>
       </div>
 
-      <section>
-        <h2 style={{ marginBottom: "16px", color: "#112642" }}>System Overview</h2>
-        
+      <section className="page-section">
+        <div className="section-header">
+          <div>
+            <h2>System overview</h2>
+            <p className="section-description">
+              Current academic and assessment configuration.
+            </p>
+          </div>
+        </div>
+
         {isLoading ? (
           <p>Loading metrics...</p>
         ) : (
-          <div className="status-grid">
-            <Link to="/admin/qualifications" style={{ textDecoration: 'none' }}>
-              <div className="status-card qualifications">
-                <GraduationCap color="#10b981" size={32} style={{ marginBottom: "0.5rem" }} />
-                <span className="status-label">Qualifications</span>
-                <span className="status-value">{metrics.qualifications}</span>
+          <div className="dashboard-metric-grid">
+            <Link
+              to="/admin/qualifications"
+              className="dashboard-metric-card"
+            >
+              <div className="dashboard-metric-icon">
+                <GraduationCap size={24} />
               </div>
-            </Link>
-            
-            <Link to="/admin/modules" style={{ textDecoration: 'none' }}>
-              <div className="status-card modules">
-                <BookOpen color="#f59e0b" size={32} style={{ marginBottom: "0.5rem" }} />
-                <span className="status-label">Modules</span>
-                <span className="status-value">{metrics.modules}</span>
+
+              <div>
+                <span className="dashboard-metric-label">
+                  Qualifications
+                </span>
+                <strong className="dashboard-metric-value">
+                  {metrics.qualifications}
+                </strong>
               </div>
             </Link>
 
-            <Link to="/admin/cohorts" style={{ textDecoration: 'none' }}>
-              <div className="status-card cohorts">
-                <Users color="#8b5cf6" size={32} style={{ marginBottom: "0.5rem" }} />
-                <span className="status-label">Cohorts</span>
-                <span className="status-value">{metrics.cohorts}</span>
+            <Link
+              to="/admin/qualifications"
+              className="dashboard-metric-card"
+            >
+              <div className="dashboard-metric-icon">
+                <Layers3 size={24} />
+              </div>
+
+              <div>
+                <span className="dashboard-metric-label">
+                  Modules
+                </span>
+                <strong className="dashboard-metric-value">
+                  {metrics.modules}
+                </strong>
               </div>
             </Link>
 
-            <Link to="/admin/assignments" style={{ textDecoration: 'none' }}>
-              <div className="status-card assignments">
-                <ClipboardList color="#ef4444" size={32} style={{ marginBottom: "0.5rem" }} />
-                <span className="status-label">Assignments</span>
-                <span className="status-value">{metrics.assignments}</span>
+            <Link
+              to="/admin/cohorts"
+              className="dashboard-metric-card"
+            >
+              <div className="dashboard-metric-icon">
+                <Users size={24} />
+              </div>
+
+              <div>
+                <span className="dashboard-metric-label">
+                  Cohorts
+                </span>
+                <strong className="dashboard-metric-value">
+                  {metrics.cohorts}
+                </strong>
+              </div>
+            </Link>
+
+            <Link
+              to="/admin/assignments"
+              className="dashboard-metric-card"
+            >
+              <div className="dashboard-metric-icon">
+                <ClipboardList size={24} />
+              </div>
+
+              <div>
+                <span className="dashboard-metric-label">
+                  Assignments
+                </span>
+                <strong className="dashboard-metric-value">
+                  {metrics.assignments}
+                </strong>
+              </div>
+            </Link>
+
+            <Link
+              to="/admin/cohorts"
+              className="dashboard-metric-card"
+            >
+              <div className="dashboard-metric-icon">
+                <Layers3 size={24} />
+              </div>
+
+              <div>
+                <span className="dashboard-metric-label">
+                  Assigned assessments
+                </span>
+                <strong className="dashboard-metric-value">
+                  {metrics.mappings}
+                </strong>
               </div>
             </Link>
           </div>
         )}
       </section>
 
-      <section style={{ marginTop: "2rem" }}>
-        <h2 style={{ marginBottom: "16px", color: "#112642" }}>Grading Configuration</h2>
-        
-        {isLoading ? (
-          <p>Loading metrics...</p>
-        ) : (
-          <div className="status-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))" }}>
-            <Link to="/admin/mappings" style={{ textDecoration: 'none' }}>
-              <div className="status-card mappings">
-                <Network color="#3b82f6" size={32} style={{ marginBottom: "0.5rem" }} />
-                <span className="status-label">Assessment Mappings</span>
-                <span className="status-value">{metrics.mappings}</span>
-              </div>
-            </Link>
-
-            <Link to="/admin/ai-grading-profiles" style={{ textDecoration: 'none' }}>
-              <div className="status-card profiles">
-                <Bot color="#ec4899" size={32} style={{ marginBottom: "0.5rem" }} />
-                <span className="status-label">AI Profiles</span>
-                <span className="status-value">{metrics.profiles}</span>
-              </div>
-            </Link>
+      <section className="workspace-section">
+        <div className="section-header">
+          <div>
+            <h2>Workflow</h2>
+            <p className="section-description">
+              Follow the setup order from academic structure to learner submission.
+            </p>
           </div>
-        )}
-      </section>
+        </div>
 
-      <section style={{ marginTop: "2rem" }}>
-        <h2 style={{ marginBottom: "16px", color: "#112642" }}>Quick Actions</h2>
-        
-        <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
-          <Link to="/admin/qualifications" style={{ textDecoration: "none" }}>
-            <button className="btn-secondary" style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-              <GraduationCap color="#10b981" size={18} /> Manage Qualifications
-            </button>
+        <div className="dashboard-workflow">
+          <Link
+            to="/admin/qualifications"
+            className="workflow-card"
+          >
+            <span className="workflow-step">1</span>
+            <div>
+              <strong>Academic Setup</strong>
+              <p>
+                Create qualifications and manage modules.
+              </p>
+            </div>
+            <ArrowRight size={18} />
           </Link>
-          <Link to="/admin/assignments" style={{ textDecoration: "none" }}>
-            <button className="btn-secondary" style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-              <ClipboardList color="#ef4444" size={18} /> Manage Assignments
-            </button>
+
+          <Link
+            to="/admin/assignments"
+            className="workflow-card"
+          >
+            <span className="workflow-step">2</span>
+            <div>
+              <strong>Assignments</strong>
+              <p>
+                Configure assignments, grading levels and rubrics.
+              </p>
+            </div>
+            <ArrowRight size={18} />
           </Link>
-          <Link to="/admin/mappings" style={{ textDecoration: "none" }}>
-            <button className="btn-secondary" style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-              <Network color="#3b82f6" size={18} /> Assessment Mappings
-            </button>
+
+          <Link
+            to="/admin/cohorts"
+            className="workflow-card"
+          >
+            <span className="workflow-step">3</span>
+            <div>
+              <strong>Cohorts</strong>
+              <p>
+                Create cohorts and assign assessments.
+              </p>
+            </div>
+            <ArrowRight size={18} />
           </Link>
-          <Link to="/admin/ai-grading-profiles" style={{ textDecoration: "none" }}>
-            <button className="btn-secondary" style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-              <Bot color="#ec4899" size={18} /> AI Grading Profiles
-            </button>
+
+          <Link
+            to="/admin/cohorts"
+            className="workflow-card"
+          >
+            <span className="workflow-step">4</span>
+            <div>
+              <strong>Submission URLs</strong>
+              <p>
+                Copy unique learner submission links from each cohort.
+              </p>
+            </div>
+            <ArrowRight size={18} />
           </Link>
         </div>
       </section>
 
+      <section className="workspace-section">
+        <div className="section-header">
+          <div>
+            <h2>Quick actions</h2>
+          </div>
+        </div>
+
+        <div className="dashboard-actions">
+          <Link
+            to="/admin/qualifications"
+            className="btn-secondary dashboard-action-link"
+          >
+            <GraduationCap size={17} />
+            Manage Academic Setup
+          </Link>
+
+          <Link
+            to="/admin/assignments"
+            className="btn-secondary dashboard-action-link"
+          >
+            <ClipboardList size={17} />
+            Manage Assignments
+          </Link>
+
+          <Link
+            to="/admin/cohorts"
+            className="btn-secondary dashboard-action-link"
+          >
+            <Users size={17} />
+            Manage Cohorts
+          </Link>
+        </div>
+      </section>
     </main>
   );
 }

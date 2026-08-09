@@ -11,7 +11,7 @@ from .models import (
     AssignmentLevel,
     Cohort,
     Module,
-    ModuleAssignment,
+    ModuleAssignment,   
     Qualification,
 )
 
@@ -215,7 +215,10 @@ class ModuleDetailView(
     def get_queryset(self):
         return Module.objects.select_related(
             "qualification",
-        ).order_by("cohort_code")
+        ).order_by(
+            "qualification__qualification_code",
+            "code",
+        )
 
     def destroy(self, request, *args, **kwargs):
         module = self.get_object()
