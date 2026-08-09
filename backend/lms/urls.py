@@ -4,9 +4,8 @@ from .views import (
     AssessmentMappingDetailView,
     AssessmentMappingListCreateView,
     AssessmentMappingSubmissionView,
-    RequestDebugView,
-    LtiLoginDebugView,
-    LtiLaunchDebugView,
+    LtiLoginView,
+    LtiLaunchView
 )
 
 
@@ -27,18 +26,13 @@ urlpatterns = [
         name="assessment-mapping-submission",
     ),
     path(
-        "debug/request/",
-        RequestDebugView.as_view(),
-        name="request-debug",
-    ),
-    path(
         "lti/login/",
-        LtiLoginDebugView.as_view(),
+        LtiLoginView.as_view(),
         name="lti-login-debug",
     ),
     path(
         "lti/launch/",
-        LtiLaunchDebugView.as_view(),
+        LtiLaunchView.as_view(),
         name="lti-launch-debug",
     ),
 ]

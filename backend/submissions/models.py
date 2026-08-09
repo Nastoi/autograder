@@ -63,7 +63,7 @@ class LearnerSubmission(models.Model):
         UPLOADED = "uploaded", "Uploaded"
         PROCESSING = "processing", "Processing"
         COMPLETED = "completed", "Completed"
-        FAILED = "failed", "Failed"
+        ERROR = "error", "Error"
         MANUAL_REVIEW = "manual_review", "Manual review"
 
     class SubmissionTrack(models.TextChoices):

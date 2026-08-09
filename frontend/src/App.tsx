@@ -28,7 +28,6 @@ import { RubricBandsPage } from "./pages/RubricBandsPage";
 import { AIGradingProfilesPage } from "./pages/AIGradingProfilesPage";
 
 import { MappingSubmissionPage } from "./pages/MappingSubmissionPage";
-import { LmsDebugPage } from "./pages/LmsDebugPage";
 
 export default function App() {
   return (
@@ -43,11 +42,6 @@ export default function App() {
         <Route
           path="/login"
           element={<LoginPage />}
-        />
-
-        <Route
-          path="/lms-debug"
-          element={<LmsDebugPage />}
         />
 
         {/* -------------------- */}

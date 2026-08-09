@@ -26,7 +26,12 @@ SECRET_KEY = 'django-insecure-9&iixm@c_4fr8b5p5c$+^www&bxzjs*wuu3%^+@bf(%v6d_a-9
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    "localhost",
+    "127.0.0.1",
+    "backend",
+    "refill-blot-unnamed.ngrok-free.dev",
+]
 
 
 # Application definition
@@ -152,13 +157,41 @@ CORS_ALLOW_CREDENTIALS = True
 
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:5173",
+    "https://refill-blot-unnamed.ngrok-free.dev",
+    "https://claaslms.educlaas.com",
+    "https://apps.claaslms.educlaas.com",
 ]
 
 SESSION_COOKIE_HTTPONLY = True
-SESSION_COOKIE_SAMESITE = "Lax"
+SESSION_COOKIE_SAMESITE = "None"
+SESSION_COOKIE_SECURE = True
 
 CSRF_COOKIE_HTTPONLY = False
-CSRF_COOKIE_SAMESITE = "Lax"
+CSRF_COOKIE_SAMESITE = "None"
+CSRF_COOKIE_SECURE = True
 
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
+
+X_FRAME_OPTIONS = "ALLOWALL"
+
+
+
+LTI_PLATFORM_ISSUER = os.environ["LTI_PLATFORM_ISSUER"]
+LTI_CLIENT_ID = os.environ["LTI_CLIENT_ID"]
+LTI_JWKS_URL = os.environ["LTI_JWKS_URL"]
+LTI_LOGIN_URL = os.environ["LTI_LOGIN_URL"]
+LTI_DEPLOYMENT_ID = os.environ["LTI_DEPLOYMENT_ID"]
+
+AUTOGRADER_PUBLIC_URL = os.environ[
+    "AUTOGRADER_PUBLIC_URL"
+]
+
+CACHES = {
+    "default": {
+        "BACKEND": (
+            "django.core.cache.backends.redis.RedisCache"
+        ),
+        "LOCATION": "redis://redis:6379/1",
+    }
+}

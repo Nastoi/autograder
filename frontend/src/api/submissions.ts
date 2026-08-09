@@ -52,6 +52,7 @@ export type Submission = {
   status:
   | "uploaded"
   | "processing"
+  | "graded"
   | "completed"
   | "failed"
   | "manual_review";
@@ -299,4 +300,44 @@ export async function resolveMappingContext(
   }
 
   return data as MappingResolvedContext;
+}
+
+
+export async function getMappingSubmissionHistory(
+  mappingId: string,
+): Promise<Submission[]> {
+  const response = await fetch(
+    `${API_BASE_URL}/submissions/mapping/${mappingId}/attempts/`,
+    {
+      method: "GET",
+      credentials: "include",
+    },
+  );
+
+  const data = await readJson<unknown>(response);
+
+  if (!response.ok) {
+    throw new Error(
+      getErrorMessage(
+        data,
+        "Unable to load previous attempts.",
+      ),
+    );
+  }
+
+  if (!Array.isArray(data)) {
+    throw new Error(
+      "The server returned invalid submission history data.",
+    );
+  }
+
+  const submissions = data.filter(isSubmission);
+
+  if (submissions.length !== data.length) {
+    throw new Error(
+      "The server returned invalid submission history data.",
+    );
+  }
+
+  return submissions;
 }
