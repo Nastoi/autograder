@@ -52,8 +52,6 @@ export function LoginPage() {
     try {
       const loggedInUser = await login(username, password);
 
-      const requestedPath = state?.from?.pathname;
-
       navigate(
   getDefaultDestination(loggedInUser.role),
   { replace: true },

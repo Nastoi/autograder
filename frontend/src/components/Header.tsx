@@ -5,7 +5,6 @@ import {
   GraduationCap,
   Users,
   ClipboardList,
-  Network,
   LayoutDashboard,
 } from "lucide-react";
 

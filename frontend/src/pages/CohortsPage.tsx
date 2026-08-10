@@ -73,8 +73,9 @@ export function CohortsPage() {
   }
 
   useEffect(() => {
-    void loadData();
-  }, []);
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  void loadData();
+}, []);
 
   const filteredModules = modules.filter(
     (module) =>

@@ -67,8 +67,9 @@ export function QualificationsPage() {
   }
 
   useEffect(() => {
-    void loadData();
-  }, []);
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  void loadData();
+}, []);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
