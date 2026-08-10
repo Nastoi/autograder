@@ -137,15 +137,15 @@ export function CohortsPage() {
     }
   }
 
-  function getSubmissionUrl(mappingId: string) {
-    return `${window.location.origin}/submit/mapping/${mappingId}`;
-  }
+  function copyLtiUrl(mappingId: string) {
+  const publicUrl =
+    import.meta.env.VITE_AUTOGRADER_PUBLIC_URL;
 
-  async function copyUrl(mappingId: string) {
-    await navigator.clipboard.writeText(
-      getSubmissionUrl(mappingId),
-    );
-  }
+  const ltiUrl =
+    `${publicUrl}/api/lms/lti/launch/${mappingId}/`;
+
+  void navigator.clipboard.writeText(ltiUrl);
+}
 
 
   if (isLoading) {
@@ -488,7 +488,7 @@ export function CohortsPage() {
 
                         <td>
                           <span className="mapping-url-text">
-                            {getSubmissionUrl(mapping.id)}
+                            {`${import.meta.env.VITE_AUTOGRADER_PUBLIC_URL}/api/lms/lti/launch/${mapping.id}/`}
                           </span>
                         </td>
 
@@ -496,11 +496,9 @@ export function CohortsPage() {
                           <button
                             type="button"
                             className="mapping-copy-button"
-                            onClick={() =>
-                              void copyUrl(mapping.id)
-                            }
-                          >
-                            Copy URL
+                            onClick={() => copyLtiUrl(mapping.id)}
+>
+                            Copy LTI URL
                           </button>
                         </td>
                       </tr>

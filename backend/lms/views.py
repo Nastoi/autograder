@@ -230,12 +230,12 @@ class LtiLoginView(APIView):
                 status=400,
             )
 
-        expected_target_link_uri = (
+        expected_prefix = (
             f"{settings.AUTOGRADER_PUBLIC_URL}"
             "/api/lms/lti/launch/"
         )
 
-        if target_link_uri != expected_target_link_uri:
+        if not target_link_uri.startswith(expected_prefix):
             return Response(
                 {"detail": "Invalid LTI target link URI."},
                 status=400,
@@ -284,7 +284,11 @@ class LtiLaunchView(APIView):
     authentication_classes = []
 
 
-    def post(self, request):
+    def post(
+        self,
+        request,
+        mapping_id,
+    ):
         id_token = request.data.get("id_token")
         state = request.data.get("state")
 
@@ -313,7 +317,10 @@ class LtiLaunchView(APIView):
         login(request, user)
 
         mapping, mapping_error = (
-            get_lti_assessment_mapping(claims)
+            get_lti_assessment_mapping(
+                claims,
+                mapping_id,
+            )
         )
 
         if mapping_error is not None:

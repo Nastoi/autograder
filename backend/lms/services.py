@@ -36,7 +36,10 @@ def get_or_create_lti_user(
     return identity.user
 
 
-def get_lti_assessment_mapping(claims):
+def get_lti_assessment_mapping(
+    claims,
+    mapping_id,
+):
     resource_link = claims.get(
         "https://purl.imsglobal.org/spec/lti/claim/resource_link",
         {},
@@ -52,18 +55,49 @@ def get_lti_assessment_mapping(claims):
 
     try:
         mapping = AssessmentMapping.objects.get(
-            external_resource_link_id=resource_link_id,
+            id=mapping_id,
             is_active=True,
         )
     except AssessmentMapping.DoesNotExist:
         return None, Response(
             {
                 "detail": (
-                    "This LMS activity is not linked to an "
-                    "AutoGrad3r assessment mapping."
+                    "This AutoGrad3r assessment mapping "
+                    "does not exist or is inactive."
                 )
             },
             status=404,
+        )
+
+    # First launch from this LMS activity:
+    # automatically bind it to the mapping.
+    if not mapping.external_resource_link_id:
+        mapping.external_resource_link_id = (
+            resource_link_id
+        )
+        mapping.save(
+            update_fields=[
+                "external_resource_link_id",
+                "updated_at",
+            ]
+        )
+
+        return mapping, None
+
+    # Mapping is already linked.
+    # The LMS activity must still match.
+    if (
+        mapping.external_resource_link_id
+        != resource_link_id
+    ):
+        return None, Response(
+            {
+                "detail": (
+                    "This AutoGrad3r mapping is already "
+                    "linked to a different LMS activity."
+                )
+            },
+            status=409,
         )
 
     return mapping, None
