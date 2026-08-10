@@ -18,22 +18,22 @@ def request_assessment(
 
     client = OpenAI(api_key=settings.OPENAI_API_KEY)
 
-    response = client.responses.create(
+    response = client.chat.completions.create(
         model=model,
-        input=[
+        messages=[
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
         ],
-        max_output_tokens=max_tokens,
+        max_tokens=max_tokens,
         temperature=temperature,
         top_p=top_p,
     )
 
     try:
-        output_text = response.output[0].content[0].text
-    except Exception:
+        output_text = response.choices[0].message.content
+    except (AttributeError, IndexError) as e:
         output_text = json.dumps(
-            response.to_dict(),
+            response.model_dump(),
             ensure_ascii=False,
             indent=2,
         )

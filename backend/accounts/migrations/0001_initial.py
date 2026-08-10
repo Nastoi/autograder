@@ -19,7 +19,6 @@ class Migration(migrations.Migration):
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
                 ('role', models.CharField(choices=[('system_admin', 'System administrator'), ('mapping_admin', 'Mapping administrator'), ('faculty', 'Faculty'), ('learner', 'Learner')], default='learner', max_length=20)),
-                ('role', models.CharField(choices=[('system_admin', 'System administrator'), ('mapping_admin', 'Mapping administrator'), ('faculty', 'Faculty'), ('learner', 'Learner')], default='learner', max_length=20)),
                 ('lms_user_id', models.CharField(blank=True, db_index=True, max_length=255)),
                 ('created_at', models.DateTimeField(auto_now_add=True)),
                 ('updated_at', models.DateTimeField(auto_now=True)),

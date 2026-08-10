@@ -51,7 +51,6 @@ class GradingConfiguration(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        db_table = "grading_configuration"
         ordering = ("code",)
 
     def __str__(self) -> str:
@@ -69,7 +68,6 @@ class RubricCriterion(models.Model):
         "courses.AssignmentLevel",
         on_delete=models.CASCADE,
         related_name="rubric_criteria",
-        db_column="assignment_level_id",
         null=True,
         blank=True,
     )
@@ -87,11 +85,9 @@ class RubricCriterion(models.Model):
     ai_gradable = models.BooleanField(default=True)
     deterministic = models.BooleanField(default=False)
 
-    created_at = models.DateTimeField()
+    created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        db_table = "rubric_criterion"
-        # managed = False
         ordering = (
             "assignment_level",
             "sequence",
@@ -121,7 +117,6 @@ class RubricBand(models.Model):
         RubricCriterion,
         on_delete=models.CASCADE,
         related_name="bands",
-        db_column="rubric_criterion_id",
         null=True,
         blank=True,
     )
@@ -147,8 +142,6 @@ class RubricBand(models.Model):
     sequence = models.PositiveIntegerField()
 
     class Meta:
-        db_table = "rubric_band"
-        # managed = False
         ordering = (
             "rubric_criterion",
             "sequence",
@@ -189,7 +182,6 @@ class RagSource(models.Model):
         "courses.AssignmentLevel",
         on_delete=models.CASCADE,
         related_name="rag_sources",
-        db_column="assignment_level_id",
         null=True,
         blank=True,
     )
@@ -225,11 +217,9 @@ class RagSource(models.Model):
         default=IngestionStatus.PENDING,
     )
 
-    created_at = models.DateTimeField()
+    created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        db_table = "rag_source"
-        # managed = False
         ordering = ("assignment_level", "title")
 
     def __str__(self) -> str:
@@ -247,7 +237,6 @@ class RagChunk(models.Model):
         RagSource,
         on_delete=models.CASCADE,
         related_name="chunks",
-        db_column="rag_source_id",
         null=True,
         blank=True,
     )
@@ -268,11 +257,9 @@ class RagChunk(models.Model):
         null=True,
     )
 
-    created_at = models.DateTimeField()
+    created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        db_table = "rag_chunk"
-        # managed = False
         ordering = (
             "rag_source",
             "chunk_index",
@@ -296,8 +283,7 @@ class AIGradingProfile(models.Model):
         "courses.AssignmentLevel",
         on_delete=models.CASCADE,
         related_name="ai_grading_profile",
-        db_column="assignment_level_id",
-        null=True,  # Allow nulls for existing/new rows during migration
+        null=True,
         blank=True,
     )
 
@@ -325,10 +311,6 @@ class AIGradingProfile(models.Model):
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        db_table = "ai_grading_profile"
-        # managed = False
 
     def __str__(self) -> str:
         return self.profile_name

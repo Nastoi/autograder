@@ -27,9 +27,7 @@ class Qualification(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        db_table = "qualification"
-        managed = False
-        ordering = ("code",)
+        ordering = ("qualification_code",)
 
     def __str__(self) -> str:
         return (
@@ -49,7 +47,6 @@ class Module(models.Model):
         Qualification,
         on_delete=models.PROTECT,
         related_name="modules",
-        db_column="qualification_id",
     )
 
     code = models.CharField(max_length=50)
@@ -61,8 +58,6 @@ class Module(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        db_table = "module"
-        managed = False
         ordering = ("code",)
 
     def __str__(self) -> str:
@@ -122,7 +117,6 @@ class ModuleAssignment(models.Model):
         Module,
         on_delete=models.PROTECT,
         related_name="assignments",
-        db_column="module_id",
     )
 
     assignment_number = models.PositiveIntegerField()
@@ -157,8 +151,6 @@ class ModuleAssignment(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        db_table = "module_assignment"
-        managed = False
         ordering = ("module", "assignment_number")
 
     def __str__(self) -> str:
@@ -186,14 +178,12 @@ class AssignmentLevel(models.Model):
         ModuleAssignment,
         on_delete=models.CASCADE,
         related_name="levels",
-        db_column="assignment_id",
     )
 
     grading_configuration = models.ForeignKey(
         "grading.GradingConfiguration",
         on_delete=models.PROTECT,
         related_name="assignment_levels",
-        db_column="grading_configuration_id",
     )
 
     level_code = models.CharField(
@@ -229,8 +219,6 @@ class AssignmentLevel(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        db_table = "assignment_level"
-        managed = False
         ordering = (
             "assignment__assignment_number",
             "level_code",
@@ -244,6 +232,12 @@ class AssignmentLevel(models.Model):
 
 
 class Cohort(models.Model):
+    id = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False,
+    )
+
     cohort_name = models.CharField(max_length=255)
 
     cohort_code = models.CharField(

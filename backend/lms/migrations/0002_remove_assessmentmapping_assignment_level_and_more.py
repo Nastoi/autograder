@@ -23,7 +23,7 @@ def copy_assignment_from_level(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('courses', '0004_alter_cohort_options_rename_code_cohort_cohort_code_and_more'),
+        ('courses', '0003_add_indexes'),
         ('lms', '0001_initial'),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]

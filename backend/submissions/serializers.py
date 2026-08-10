@@ -16,6 +16,18 @@ class SubmissionContextSerializer(serializers.ModelSerializer):
         )
         read_only_fields = ("id", "learner", "created_at", "updated_at")
 
+    def validate(self, attrs):
+        """Ensure cohort and assignment_level are from the same module."""
+        cohort = attrs.get('cohort')
+        assignment_level = attrs.get('assignment_level')
+
+        if cohort and assignment_level:
+            if cohort.module_id != assignment_level.assignment.module_id:
+                raise serializers.ValidationError(
+                    "Cohort and assignment level must belong to the same module."
+                )
+        return attrs
+
 
 class SubmissionPageSerializer(serializers.ModelSerializer):
     image_url = serializers.SerializerMethodField()
@@ -25,6 +37,10 @@ class SubmissionPageSerializer(serializers.ModelSerializer):
         fields = ("id", "page_number", "extracted_text", "image_url")
 
     def get_image_url(self, obj):
+        """
+        Build absolute URL to the page image endpoint.
+        Falls back gracefully if request is not in context.
+        """
         request = self.context.get("request")
         url = f"/api/submissions/pages/{obj.id}/image/"
         return request.build_absolute_uri(url) if request else url
@@ -62,6 +78,7 @@ class LearnerSubmissionSerializer(serializers.ModelSerializer):
             "assignment_code",
             "assignment_title",
             "level",
+            "submission_track",
             "submitted_file",
             "original_filename",
             "attempt_number",
@@ -128,7 +145,7 @@ class LearnerSubmissionListSerializer(serializers.ModelSerializer):
         default=None,
     )
     module_title = serializers.CharField(
-        source="assignment_level.assignment.module.title",
+        source="assignment_level.assignment.module.name",
         read_only=True,
         default="",
     )
