@@ -55,6 +55,7 @@ export type Submission = {
   | "graded"
   | "completed"
   | "failed"
+  | "error"
   | "manual_review";
   final_score: string | null;
   maximum_score: string | null;
