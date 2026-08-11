@@ -9,6 +9,7 @@ from .views import (
     ExtractedEvidenceListCreateView,
     GradingConfigurationDetailView,
     GradingConfigurationListCreateView,
+    MapTasksCriteriaView,
     PromptDetailView,
     PromptListCreateView,
     ResponseDetailView,
@@ -147,5 +148,11 @@ urlpatterns = [
         "criterion-results/<uuid:id>/",
         CriterionResultDetailView.as_view(),
         name="criterion-result-detail",
+    ),
+    # ── AI Task→Criteria Mapping ─────────────────────────────────────────
+    path(
+        "assignments/<uuid:assignment_id>/map-tasks-criteria/",
+        MapTasksCriteriaView.as_view(),
+        name="map-tasks-criteria",
     ),
 ]

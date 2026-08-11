@@ -5,7 +5,6 @@ from .models import (
     Module,
     ModuleAssignment,
     Qualification,
-    AssignmentLevel,
 )
 
 class QualificationSerializer(serializers.ModelSerializer):
@@ -37,11 +36,11 @@ class QualificationSerializer(serializers.ModelSerializer):
     ) -> bool:
         return not obj.modules.exists()
 
-    def validate_code(self, value: str) -> str:
+    def validate_qualification_code(self, value: str) -> str:
         normalized = value.strip().upper()
 
         queryset = Qualification.objects.filter(
-            code__iexact=normalized,
+            qualification_code__iexact=normalized,
         )
 
         if self.instance:
@@ -57,11 +56,11 @@ class QualificationSerializer(serializers.ModelSerializer):
 
 class ModuleSerializer(serializers.ModelSerializer):
     qualification_code = serializers.CharField(
-        source="qualification.code",
+        source="qualification.qualification_code",
         read_only=True,
     )
     qualification_name = serializers.CharField(
-        source="qualification.name",
+        source="qualification.qualification_name",
         read_only=True,
     )
     can_delete = serializers.SerializerMethodField()
@@ -96,11 +95,11 @@ class ModuleSerializer(serializers.ModelSerializer):
             and not obj.assignments.exists()
         )
 
-    def validate_code(self, value):
+    def validate_module_code(self, value):
         code = value.strip().upper()
 
         queryset = Module.objects.filter(
-            code__iexact=code,
+            module_code__iexact=code,
         )
 
         if self.instance:
@@ -223,11 +222,11 @@ class CohortSerializer(serializers.ModelSerializer):
 
 class ModuleAssignmentSerializer(serializers.ModelSerializer):
     module_code = serializers.CharField(
-        source="module.code",
+        source="module.module_code",
         read_only=True,
     )
     module_name = serializers.CharField(
-        source="module.name",
+        source="module.module_name",
         read_only=True,
     )
     qualification_id = serializers.UUIDField(
@@ -235,11 +234,23 @@ class ModuleAssignmentSerializer(serializers.ModelSerializer):
         read_only=True,
     )
     qualification_code = serializers.CharField(
-        source="module.qualification.code",
+        source="module.qualification.qualification_code",
         read_only=True,
     )
     qualification_name = serializers.CharField(
-        source="module.qualification.name",
+        source="module.qualification.qualification_name",
+        read_only=True,
+    )
+    grading_configuration_code = serializers.CharField(
+        source="grading_configuration.grading_config_code",
+        read_only=True,
+    )
+    grading_configuration_name = serializers.CharField(
+        source="grading_configuration.grading_config_name",
+        read_only=True,
+    )
+    level_display_name = serializers.CharField(
+        source="get_level_display",
         read_only=True,
     )
     can_delete = serializers.SerializerMethodField()
@@ -254,7 +265,11 @@ class ModuleAssignmentSerializer(serializers.ModelSerializer):
             "qualification_id",
             "qualification_code",
             "qualification_name",
-            "assignment_number",
+            "grading_configuration",
+            "grading_configuration_code",
+            "grading_configuration_name",
+            "level",
+            "level_display_name",
             "assignment_code",
             "assignment_title",
             "skill_statement_code",
@@ -278,15 +293,24 @@ class ModuleAssignmentSerializer(serializers.ModelSerializer):
             "qualification_id",
             "qualification_code",
             "qualification_name",
+            "grading_configuration_code",
+            "grading_configuration_name",
+            "level_display_name",
             "can_delete",
             "created_at",
             "updated_at",
         )
 
     def get_can_delete(self, obj):
-        return not obj.levels.exists()
+        return (
+            not obj.rubric_criteria.exists()
+            and not obj.rag_sources.exists()
+            and not obj.grading_tasks.exists()
+            and not obj.task_criteria_mappings.exists()
+            and not hasattr(obj, "ai_grading_profile")
+        )
 
-    def validate_code(self, value):
+    def validate_assignment_code(self, value):
         return value.strip().upper()
 
     def validate(self, attrs):
@@ -294,13 +318,9 @@ class ModuleAssignmentSerializer(serializers.ModelSerializer):
             "module",
             getattr(self.instance, "module", None),
         )
-        code = attrs.get(
-            "code",
-            getattr(self.instance, "code", None),
-        )
-        assignment_number = attrs.get(
-            "assignment_number",
-            getattr(self.instance, "assignment_number", None),
+        assignment_code = attrs.get(
+            "assignment_code",
+            getattr(self.instance, "assignment_code", None),
         )
         maximum_score = attrs.get(
             "maximum_score",
@@ -323,10 +343,10 @@ class ModuleAssignmentSerializer(serializers.ModelSerializer):
             getattr(self.instance, "final_mark_weight", None),
         )
 
-        if module and code:
+        if module and assignment_code:
             queryset = ModuleAssignment.objects.filter(
                 module=module,
-                code__iexact=code,
+                assignment_code__iexact=assignment_code,
             )
 
             if self.instance:
@@ -337,30 +357,9 @@ class ModuleAssignmentSerializer(serializers.ModelSerializer):
             if queryset.exists():
                 raise serializers.ValidationError(
                     {
-                        "code": (
+                        "assignment_code": (
                             "An assignment with this code already "
                             "exists in the selected module."
-                        )
-                    }
-                )
-
-        if module and assignment_number is not None:
-            queryset = ModuleAssignment.objects.filter(
-                module=module,
-                assignment_number=assignment_number,
-            )
-
-            if self.instance:
-                queryset = queryset.exclude(
-                    id=self.instance.id,
-                )
-
-            if queryset.exists():
-                raise serializers.ValidationError(
-                    {
-                        "assignment_number": (
-                            "This assignment number already exists "
-                            "in the selected module."
                         )
                     }
                 )
@@ -393,127 +392,127 @@ class ModuleAssignmentSerializer(serializers.ModelSerializer):
 
 
 
-class AssignmentLevelSerializer(serializers.ModelSerializer):
-    assignment_code = serializers.CharField(
-        source="assignment.code",
-        read_only=True,
-    )
-    assignment_title = serializers.CharField(
-        source="assignment.title",
-        read_only=True,
-    )
-    module_id = serializers.UUIDField(
-        source="assignment.module.id",
-        read_only=True,
-    )
-    module_code = serializers.CharField(
-        source="assignment.module.code",
-        read_only=True,
-    )
-    qualification_id = serializers.UUIDField(
-        source="assignment.module.qualification.id",
-        read_only=True,
-    )
-    qualification_code = serializers.CharField(
-        source="assignment.module.qualification.code",
-        read_only=True,
-    )
-    grading_configuration_code = serializers.CharField(
-        source="grading_configuration.code",
-        read_only=True,
-    )
-    grading_configuration_name = serializers.CharField(
-        source="grading_configuration.name",
-        read_only=True,
-    )
-    can_delete = serializers.SerializerMethodField()
+# class AssignmentLevelSerializer(serializers.ModelSerializer):
+#     assignment_code = serializers.CharField(
+#         source="assignment.assignment_code",
+#         read_only=True,
+#     )
+#     assignment_title = serializers.CharField(
+#         source="assignment.assignment_title",
+#         read_only=True,
+#     )
+#     module_id = serializers.UUIDField(
+#         source="assignment.module.id",
+#         read_only=True,
+#     )
+#     module_code = serializers.CharField(
+#         source="assignment.module.module_code",
+#         read_only=True,
+#     )
+#     qualification_id = serializers.UUIDField(
+#         source="assignment.module.qualification.id",
+#         read_only=True,
+#     )
+#     qualification_code = serializers.CharField(
+#         source="assignment.module.qualification.qualification_code",
+#         read_only=True,
+#     )
+#     grading_configuration_code = serializers.CharField(
+#         source="grading_configuration.grading_config_code",
+#         read_only=True,
+#     )
+#     grading_configuration_name = serializers.CharField(
+#         source="grading_configuration.grading_config_name",
+#         read_only=True,
+#     )
+#     can_delete = serializers.SerializerMethodField()
 
-    class Meta:
-        model = AssignmentLevel
-        fields = (
-            "id",
-            "assignment",
-            "assignment_code",
-            "assignment_title",
-            "module_id",
-            "module_code",
-            "qualification_id",
-            "qualification_code",
-            "grading_configuration",
-            "grading_configuration_code",
-            "grading_configuration_name",
-            "level_code",
-            "display_name",
-            "title",
-            "instructions",
-            "tasks",
-            "deliverables",
-            "expected_outcome",
-            "source_filename",
-            "version",
-            "configuration_status",
-            "is_active",
-            "can_delete",
-            "created_at",
-            "updated_at",
-        )
+#     class Meta:
+#         model = AssignmentLevel
+#         fields = (
+#             "id",
+#             "assignment",
+#             "assignment_code",
+#             "assignment_title",
+#             "module_id",
+#             "module_code",
+#             "qualification_id",
+#             "qualification_code",
+#             "grading_configuration",
+#             "grading_configuration_code",
+#             "grading_configuration_name",
+#             "level_code",
+#             "display_name",
+#             "title",
+#             "instructions",
+#             "tasks",
+#             "deliverables",
+#             "expected_outcome",
+#             "source_filename",
+#             "version",
+#             "configuration_status",
+#             "is_active",
+#             "can_delete",
+#             "created_at",
+#             "updated_at",
+#         )
 
-        read_only_fields = (
-            "id",
-            "assignment_code",
-            "assignment_title",
-            "module_id",
-            "module_code",
-            "qualification_id",
-            "qualification_code",
-            "grading_configuration_code",
-            "grading_configuration_name",
-            "can_delete",
-            "created_at",
-            "updated_at",
-        )
+#         read_only_fields = (
+#             "id",
+#             "assignment_code",
+#             "assignment_title",
+#             "module_id",
+#             "module_code",
+#             "qualification_id",
+#             "qualification_code",
+#             "grading_configuration_code",
+#             "grading_configuration_name",
+#             "can_delete",
+#             "created_at",
+#             "updated_at",
+#         )
 
-    def get_can_delete(self, obj):
-        return (
-            not obj.rubric_criteria.exists()
-            and not obj.rag_sources.exists()
-            and not hasattr(obj, "ai_grading_profile")
-        )
+#     def get_can_delete(self, obj):
+#         return (
+#             not obj.rubric_criteria.exists()
+#             and not obj.rag_sources.exists()
+#             and not hasattr(obj, "ai_grading_profile")
+#         )
 
-    def validate(self, attrs):
-        assignment = attrs.get(
-            "assignment",
-            getattr(self.instance, "assignment", None),
-        )
-        level_code = attrs.get(
-            "level_code",
-            getattr(self.instance, "level_code", None),
-        )
-        version = attrs.get(
-            "version",
-            getattr(self.instance, "version", None),
-        )
+#     def validate(self, attrs):
+#         assignment = attrs.get(
+#             "assignment",
+#             getattr(self.instance, "assignment", None),
+#         )
+#         level_code = attrs.get(
+#             "level_code",
+#             getattr(self.instance, "level_code", None),
+#         )
+#         version = attrs.get(
+#             "version",
+#             getattr(self.instance, "version", None),
+#         )
 
-        if assignment and level_code and version is not None:
-            queryset = AssignmentLevel.objects.filter(
-                assignment=assignment,
-                level_code=level_code,
-                version=version,
-            )
+#         if assignment and level_code and version is not None:
+#             queryset = AssignmentLevel.objects.filter(
+#                 assignment=assignment,
+#                 level_code=level_code,
+#                 version=version,
+#             )
 
-            if self.instance:
-                queryset = queryset.exclude(
-                    id=self.instance.id,
-                )
+#             if self.instance:
+#                 queryset = queryset.exclude(
+#                     id=self.instance.id,
+#                 )
 
-            if queryset.exists():
-                raise serializers.ValidationError(
-                    {
-                        "level_code": (
-                            "This assignment already has this "
-                            "level and version."
-                        )
-                    }
-                )
+#             if queryset.exists():
+#                 raise serializers.ValidationError(
+#                     {
+#                         "level_code": (
+#                             "This assignment already has this "
+#                             "level and version."
+#                         )
+#                     }
+#                 )
 
-        return attrs
+#         return attrs

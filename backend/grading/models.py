@@ -54,7 +54,10 @@ class GradingConfiguration(models.Model):
         ordering = ("grading_config_code",)
 
     def __str__(self) -> str:
-        return f"{self.code} — {self.name}"
+        return (
+            f"{self.grading_config_code} — "
+            f"{self.grading_config_name}"
+        )
 
 
 class RubricCriterion(models.Model):
@@ -65,7 +68,7 @@ class RubricCriterion(models.Model):
     )
 
     assignment_level = models.ForeignKey(
-        "courses.AssignmentLevel",
+        "courses.ModuleAssignment",
         on_delete=models.CASCADE,
         related_name="rubric_criteria",
         null=True,
@@ -126,7 +129,7 @@ class RubricBand(models.Model):
         choices=Band.choices,
     )
 
-    display_name = models.CharField(max_length=100)
+    display_name = models.CharField(max_length=300)
 
     minimum_percentage = models.DecimalField(
         max_digits=5,
@@ -179,7 +182,7 @@ class RagSource(models.Model):
     )
 
     assignment_level = models.ForeignKey(
-        "courses.AssignmentLevel",
+        "courses.ModuleAssignment",
         on_delete=models.CASCADE,
         related_name="rag_sources",
         null=True,
@@ -280,7 +283,7 @@ class AIGradingProfile(models.Model):
     )
 
     assignment_level = models.OneToOneField(
-        "courses.AssignmentLevel",
+        "courses.ModuleAssignment",
         on_delete=models.CASCADE,
         related_name="ai_grading_profile",
         null=True,
@@ -320,7 +323,7 @@ class Task(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
 
     assignment_level = models.ForeignKey(
-        "courses.AssignmentLevel",
+        "courses.ModuleAssignment",
         on_delete=models.CASCADE,
         related_name="grading_tasks",
         db_column="assignment_level_id",
@@ -387,7 +390,7 @@ class TaskCriteriaMapping(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
 
     assignment_level = models.ForeignKey(
-        "courses.AssignmentLevel",
+        "courses.ModuleAssignment",
         on_delete=models.CASCADE,
         related_name="task_criteria_mappings",
         db_column="assignment_level_id",

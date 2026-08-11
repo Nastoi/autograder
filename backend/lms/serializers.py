@@ -17,12 +17,12 @@ class AssessmentMappingSerializer(
     )
 
     assignment_code = serializers.CharField(
-        source="assignment.code",
+        source="assignment.assignment_code",
         read_only=True,
     )
 
     assignment_title = serializers.CharField(
-        source="assignment.title",
+        source="assignment.assignment_title",
         read_only=True,
     )
 
@@ -100,7 +100,7 @@ class AssessmentMappingSerializer(
 
         validated_data["name"] = (
             f"{cohort.cohort_code} - "
-            f"{assignment.code}"
+            f"{assignment.assignment_code}"
         )
 
         return super().create(validated_data)
@@ -118,7 +118,7 @@ class AssessmentMappingSerializer(
 
         validated_data["name"] = (
             f"{cohort.cohort_code} - "
-            f"{assignment.code}"
+            f"{assignment.assignment_code}"
         )
 
         return super().update(

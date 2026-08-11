@@ -1,7 +1,7 @@
 from django.contrib import admin
 
 from .models import (
-    AssignmentLevel,
+    # AssignmentLevel,
     Cohort,
     Enrolment,
     Module,
@@ -13,6 +13,6 @@ admin.site.register(Qualification)
 admin.site.register(Module)
 admin.site.register(Enrolment)
 admin.site.register(ModuleAssignment)
-admin.site.register(AssignmentLevel)
+# admin.site.register(AssignmentLevel)
 admin.site.register(Cohort)
 

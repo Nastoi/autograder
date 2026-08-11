@@ -1740,7 +1740,257 @@ export async function deleteAIGradingProfile(
         // Keep the default message.
     }
 
+
     throw new Error(message);
 }
 
 
+// ─── Tasks ──────────────────────────────────────────────────────────────────
+
+export type Task = {
+    id: string;
+
+    assignment_level: string;
+    assignment_code: string;
+    level_code: string;
+
+    task_code: string;
+    title: string;
+    instructions: string;
+    sequence: number;
+
+    created_at: string;
+};
+
+export type CreateTaskInput = {
+    assignment_level: string;
+    task_code: string;
+    title: string;
+    instructions: string;
+    sequence: number;
+};
+
+export type UpdateTaskInput = Partial<CreateTaskInput>;
+
+export async function getTasks(
+    assignmentLevelId?: string,
+): Promise<Task[]> {
+    const query = assignmentLevelId
+        ? `?assignment_level_id=${encodeURIComponent(assignmentLevelId)}`
+        : "";
+
+    const response = await fetch(
+        `${API_BASE_URL}/grading/tasks/${query}`,
+        {
+            method: "GET",
+            credentials: "include",
+        },
+    );
+
+    const data = await response.json();
+
+    if (!response.ok || !Array.isArray(data)) {
+        throw new Error(
+            typeof data?.detail === "string"
+                ? data.detail
+                : "Unable to load tasks.",
+        );
+    }
+
+    return data as Task[];
+}
+
+export async function createTask(
+    input: CreateTaskInput,
+): Promise<Task> {
+    const csrfToken = await getCsrfToken();
+
+    const response = await fetch(
+        `${API_BASE_URL}/grading/tasks/`,
+        {
+            method: "POST",
+            credentials: "include",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRFToken": csrfToken,
+            },
+            body: JSON.stringify(input),
+        },
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+        throw new Error(
+            typeof data?.detail === "string"
+                ? data.detail
+                : "Unable to create task.",
+        );
+    }
+
+    return data as Task;
+}
+
+export async function deleteTask(taskId: string): Promise<void> {
+    const csrfToken = await getCsrfToken();
+
+    const response = await fetch(
+        `${API_BASE_URL}/grading/tasks/${taskId}/`,
+        {
+            method: "DELETE",
+            credentials: "include",
+            headers: {
+                "X-CSRFToken": csrfToken,
+            },
+        },
+    );
+
+    if (response.status === 204) {
+        return;
+    }
+
+    let message = "Unable to delete task.";
+    try {
+        const data = (await response.json()) as { detail?: string };
+        if (data.detail) {
+            message = data.detail;
+        }
+    } catch {
+        // Keep the default message.
+    }
+
+    throw new Error(message);
+}
+
+
+// ─── TaskCriteriaMappings ────────────────────────────────────────────────────
+
+export type TaskCriteriaMapping = {
+    id: string;
+
+    assignment_level: string;
+    assignment_level_id: string;
+
+    task: string;
+    task_code: string;
+
+    rubric_criterion: string;
+    criterion_code: string;
+
+    inferred_weight: string;
+    ai_explanation: string;
+
+    created_at: string;
+};
+
+export type AIMappingCriterion = {
+    criterion_code: string;
+    inferred_weight: number;
+    explanation: string;
+};
+
+export type AIMappingTask = {
+    task_code: string;
+    criteria: AIMappingCriterion[];
+};
+
+export type AIMappingResult = {
+    assignment_code: string;
+    created: number;
+    updated: number;
+    mapping_rationale: string;
+    validation_warnings: string[];
+    mappings: AIMappingTask[];
+};
+
+export async function getTaskCriteriaMappings(
+    assignmentLevelId?: string,
+): Promise<TaskCriteriaMapping[]> {
+    const query = assignmentLevelId
+        ? `?assignment_level_id=${encodeURIComponent(assignmentLevelId)}`
+        : "";
+
+    const response = await fetch(
+        `${API_BASE_URL}/grading/task-criteria-mappings/${query}`,
+        {
+            method: "GET",
+            credentials: "include",
+        },
+    );
+
+    const data = await response.json();
+
+    if (!response.ok || !Array.isArray(data)) {
+        throw new Error(
+            typeof data?.detail === "string"
+                ? data.detail
+                : "Unable to load task-criteria mappings.",
+        );
+    }
+
+    return data as TaskCriteriaMapping[];
+}
+
+export async function generateTaskCriteriaMappings(
+    assignmentLevelId: string,
+): Promise<AIMappingResult> {
+    const csrfToken = await getCsrfToken();
+
+    const response = await fetch(
+        `${API_BASE_URL}/grading/assignments/${assignmentLevelId}/map-tasks-criteria/`,
+        {
+            method: "POST",
+            credentials: "include",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRFToken": csrfToken,
+            },
+            body: JSON.stringify({}),
+        },
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+        throw new Error(
+            typeof data?.detail === "string"
+                ? data.detail
+                : "AI mapping generation failed.",
+        );
+    }
+
+    return data as AIMappingResult;
+}
+
+export async function deleteTaskCriteriaMapping(
+    mappingId: string,
+): Promise<void> {
+    const csrfToken = await getCsrfToken();
+
+    const response = await fetch(
+        `${API_BASE_URL}/grading/task-criteria-mappings/${mappingId}/`,
+        {
+            method: "DELETE",
+            credentials: "include",
+            headers: {
+                "X-CSRFToken": csrfToken,
+            },
+        },
+    );
+
+    if (response.status === 204) {
+        return;
+    }
+
+    let message = "Unable to delete mapping.";
+    try {
+        const data = (await response.json()) as { detail?: string };
+        if (data.detail) {
+            message = data.detail;
+        }
+    } catch {
+        // Keep the default message.
+    }
+
+    throw new Error(message);
+}

@@ -31,7 +31,7 @@ class SubmissionContext(models.Model):
     )
 
     assignment_level = models.ForeignKey(
-        "courses.AssignmentLevel",
+        "courses.ModuleAssignment",
         on_delete=models.PROTECT,
         related_name="submission_contexts",
     )
@@ -52,8 +52,8 @@ class SubmissionContext(models.Model):
     def __str__(self) -> str:
         return (
             f"{self.learner.username} — "
-            f"{self.assignment_level.assignment.code} — "
-            f"{self.assignment_level.level_code}"
+            f"{self.assignment_level.assignment_code} — "
+            f"{self.assignment_level.level}"
         )
 
 
@@ -88,7 +88,7 @@ class LearnerSubmission(models.Model):
     )
 
     assignment_level = models.ForeignKey(
-        "courses.AssignmentLevel",
+        "courses.ModuleAssignment",
         on_delete=models.PROTECT,
         related_name="learner_submissions",
     )
