@@ -419,11 +419,15 @@ class ExtractedEvidenceDetailView(
         ).order_by("created_at")
 
 
-class TaskEvidenceMapListCreateView(
-    generics.ListCreateAPIView
-):
+class TaskEvidenceMapListCreateView(generics.ListCreateAPIView):
     serializer_class = TaskEvidenceMapSerializer
     permission_classes = [IsAuthenticated, IsMappingAdmin]
+
+    def get_serializer(self, *args, **kwargs):
+        # Dynamically set many=True if the payload is a JSON array
+        if isinstance(kwargs.get("data"), list):
+            kwargs["many"] = True
+        return super().get_serializer(*args, **kwargs)
 
     def get_queryset(self):
         queryset = TaskEvidenceMap.objects.select_related(

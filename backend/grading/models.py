@@ -442,8 +442,9 @@ class ExtractedEvidence(models.Model):
         null=True,  # Add null=True
         blank=True, # Add blank=True
     )
-
+    
     evidence_type = models.CharField(max_length=20, choices=EvidenceType.choices)
+    page_number = models.PositiveIntegerField(null=True, blank=True)
     content_text = models.TextField(blank=True)
     file_path = models.CharField(max_length=1024, blank=True)
     extraction_confidence = models.DecimalField(max_digits=5, decimal_places=2, blank=True, null=True)

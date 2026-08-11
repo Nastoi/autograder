@@ -619,6 +619,7 @@ class ExtractedEvidenceSerializer(serializers.ModelSerializer):
             "id",
             "submission",
             "evidence_type",
+            "page_number",
             "content_text",
             "file_path",
             "extraction_confidence",

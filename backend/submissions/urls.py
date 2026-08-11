@@ -4,6 +4,7 @@ from rest_framework.routers import DefaultRouter
 from .views import (
     LearnerSubmissionViewSet,
     PageImageView,
+    PageTextJsonView,
     SubmissionContextView,
     SubmissionCreateView,
     SubmissionDetailView,
@@ -20,6 +21,11 @@ urlpatterns = [
         "pages/<uuid:page_id>/image/",
         PageImageView.as_view(),
         name="page-image",
+    ),
+    path(
+        "pages/<uuid:page_id>/text/",
+        PageTextJsonView.as_view(),
+        name="page-text",
     ),
     path(
         "context/",

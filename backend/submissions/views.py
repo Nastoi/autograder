@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404
 from rest_framework import permissions, status
 from rest_framework.permissions import IsAuthenticated
@@ -305,3 +305,15 @@ class PageImageView(APIView):
             page.image_data, 
             content_type=page.image_mime_type
         )
+        
+class PageTextJsonView(APIView):
+    """Serves the extracted text as a JSON object."""
+
+    def get(self, request, page_id):
+        page = get_object_or_404(SubmissionPage, id=page_id)
+        
+        return JsonResponse({
+            "page_id": str(page.id),
+            "page_number": page.page_number,
+            "extracted_text": page.extracted_text
+        })
