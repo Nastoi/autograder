@@ -246,7 +246,7 @@ class TaskListCreateView(generics.ListCreateAPIView):
             "assignment_level",
             "assignment_level__assignment",
         ).order_by(
-            "assignment_level__assignment__code",
+            "assignment_level__assignment",
             "sequence",
         )
 

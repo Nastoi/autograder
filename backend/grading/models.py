@@ -324,6 +324,8 @@ class Task(models.Model):
         on_delete=models.CASCADE,
         related_name="grading_tasks",
         db_column="assignment_level_id",
+        null=True,  # Add null=True
+        blank=True, # Add blank=True
     )
 
     task_code = models.CharField(max_length=80)
@@ -335,7 +337,7 @@ class Task(models.Model):
 
     class Meta:
         db_table = "task"
-        managed = False
+        # managed = False
         ordering = ("assignment_level", "sequence")
 
     def __str__(self) -> str:
@@ -350,6 +352,8 @@ class TaskCriterionWeight(models.Model):
         on_delete=models.CASCADE,
         related_name="criterion_weights",
         db_column="task_id",
+        null=True,  # Add null=True
+        blank=True, # Add blank=True        
     )
 
     rubric_criterion = models.ForeignKey(
@@ -357,6 +361,8 @@ class TaskCriterionWeight(models.Model):
         on_delete=models.CASCADE,
         related_name="task_weights",
         db_column="rubric_criterion_id",
+        null=True,  # Add null=True
+        blank=True, # Add blank=True        
     )
 
     weight_percentage = models.DecimalField(max_digits=5, decimal_places=2)
@@ -371,7 +377,7 @@ class TaskCriterionWeight(models.Model):
 
     class Meta:
         db_table = "task_criterion_weight"
-        managed = False
+        # managed = False
 
     def __str__(self) -> str:
         return f"{self.task} — {self.rubric_criterion} ({self.weight_percentage}%)"
@@ -385,6 +391,8 @@ class TaskCriteriaMapping(models.Model):
         on_delete=models.CASCADE,
         related_name="task_criteria_mappings",
         db_column="assignment_level_id",
+        null=True,  # Add null=True
+        blank=True, # Add blank=True
     )
 
     task = models.ForeignKey(
@@ -392,6 +400,8 @@ class TaskCriteriaMapping(models.Model):
         on_delete=models.CASCADE,
         related_name="criteria_mappings",
         db_column="task_id",
+        null=True,  # Add null=True
+        blank=True, # Add blank=True        
     )
 
     rubric_criterion = models.ForeignKey(
@@ -399,6 +409,8 @@ class TaskCriteriaMapping(models.Model):
         on_delete=models.CASCADE,
         related_name="task_mappings",
         db_column="rubric_criterion_id",
+        null=True,  # Add null=True
+        blank=True, # Add blank=True
     )
 
     inferred_weight = models.DecimalField(max_digits=5, decimal_places=2)
@@ -407,7 +419,7 @@ class TaskCriteriaMapping(models.Model):
 
     class Meta:
         db_table = "task_criteria_mapping"
-        managed = False
+        # managed = False
 
     def __str__(self) -> str:
         return f"AI mapping {self.task} → {self.rubric_criterion} ({self.inferred_weight}%)"
@@ -427,6 +439,8 @@ class ExtractedEvidence(models.Model):
         on_delete=models.CASCADE,
         related_name="extracted_evidence",
         db_column="submission_id",
+        null=True,  # Add null=True
+        blank=True, # Add blank=True
     )
 
     evidence_type = models.CharField(max_length=20, choices=EvidenceType.choices)
@@ -438,7 +452,7 @@ class ExtractedEvidence(models.Model):
 
     class Meta:
         db_table = "extracted_evidence"
-        managed = False
+        # managed = False
 
     def __str__(self) -> str:
         return f"Evidence {self.id} ({self.evidence_type})"
@@ -452,6 +466,8 @@ class TaskEvidenceMap(models.Model):
         on_delete=models.CASCADE,
         related_name="evidence_maps",
         db_column="task_id",
+        null=True,  # Add null=True
+        blank=True, # Add blank=True        
     )
 
     evidence = models.ForeignKey(
@@ -459,6 +475,8 @@ class TaskEvidenceMap(models.Model):
         on_delete=models.CASCADE,
         related_name="task_maps",
         db_column="evidence_id",
+        null=True,  # Add null=True
+        blank=True, # Add blank=True        
     )
 
     class MappingRole(models.TextChoices):
@@ -474,7 +492,7 @@ class TaskEvidenceMap(models.Model):
 
     class Meta:
         db_table = "task_evidence_map"
-        managed = False
+        # managed = False
 
     def __str__(self) -> str:
         return f"{self.task} ≤ {self.evidence} ({self.mapping_role})"
@@ -493,6 +511,8 @@ class Prompt(models.Model):
         on_delete=models.CASCADE,
         related_name="prompts",
         db_column="submission_id",
+        null=True,  # Add null=True
+        blank=True, # Add blank=True
     )
 
     stage = models.CharField(max_length=50, choices=Stage.choices)
@@ -502,7 +522,7 @@ class Prompt(models.Model):
 
     class Meta:
         db_table = "prompt"
-        managed = False
+        # managed = False
 
     def __str__(self) -> str:
         return f"Prompt {self.stage} for {self.submission_id}"
@@ -516,6 +536,8 @@ class Response(models.Model):
         on_delete=models.CASCADE,
         related_name="responses",
         db_column="prompt_id",
+        null=True,  # Add null=True
+        blank=True, # Add blank=True
     )
 
     model_name = models.CharField(max_length=100)
@@ -525,7 +547,7 @@ class Response(models.Model):
 
     class Meta:
         db_table = "response"
-        managed = False
+        # managed = False
 
     def __str__(self) -> str:
         return f"Response {self.model_name} for prompt {self.prompt_id}"
@@ -539,6 +561,9 @@ class CriterionResult(models.Model):
         on_delete=models.CASCADE,
         related_name="criterion_results",
         db_column="submission_id",
+        null=True,  # Add null=True
+        blank=True, # Add blank=True
+
     )
 
     rubric_criterion = models.ForeignKey(
@@ -546,6 +571,8 @@ class CriterionResult(models.Model):
         on_delete=models.CASCADE,
         related_name="criterion_results",
         db_column="rubric_criterion_id",
+        null=True,  # Add null=True
+        blank=True, # Add blank=True
     )
 
     awarded_marks = models.DecimalField(max_digits=8, decimal_places=2)
@@ -566,7 +593,7 @@ class CriterionResult(models.Model):
 
     class Meta:
         db_table = "criterion_result"
-        managed = False
+        # managed = False
 
     def __str__(self) -> str:
         return f"{self.rubric_criterion} — {self.awarded_marks}"
