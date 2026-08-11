@@ -384,7 +384,7 @@ class AssignmentLevelListCreateView(
             "assignment__module__qualification",
             "grading_configuration",
         ).order_by(
-            "assignment__module__code",
+            "assignment__module",
             "assignment__assignment_number",
             "level_code",
             "version",

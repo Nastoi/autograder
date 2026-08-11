@@ -62,18 +62,18 @@ class SubmissionContextView(APIView):
                     },
                     "cohort": {
                         "id": context.cohort.id,
-                        "code": context.cohort.code,
-                        "name": context.cohort.name,
+                        "code": context.cohort.cohort_code,
+                        "name": context.cohort.cohort_name,
                     },
                     "module": {
                         "id": module.id,
-                        "code": module.code,
-                        "name": module.name,
+                        "code": module.module_code,
+                        "name": module.module_name,
                     },
                     "assignment": {
                         "id": assignment.id,
-                        "code": assignment.code,
-                        "title": assignment.title,
+                        "code": assignment.assignment_code,
+                        "title": assignment.assignment_title,
                         "maximum_score": assignment.maximum_score,
                     },
                     "assignment_level": {
@@ -121,11 +121,11 @@ class SubmissionContextView(APIView):
                 "module": {
                     "id": module.id,
                     "code": module.code,
-                    "name": module.name,
+                    "name": module.module_name,
                 },
                 "assignment": {
                     "id": assignment.id,
-                    "code": assignment.code,
+                    "code": assignment.assignment_code,
                     "title": assignment.title,
                     "maximum_score": assignment.maximum_score,
                 },

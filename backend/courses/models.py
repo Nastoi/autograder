@@ -271,7 +271,7 @@ class Cohort(models.Model):
 
     class Meta:
         db_table = "cohort"
-        managed = False
+        # managed = False
         ordering = ("cohort_code",)
 
     def __str__(self) -> str:
