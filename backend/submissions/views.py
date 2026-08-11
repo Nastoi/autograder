@@ -47,7 +47,7 @@ class SubmissionContextView(APIView):
             # Automatically assign authenticated user as the learner
             context = serializer.save(learner=request.user)
 
-            assignment = context.assignment_level.assignment
+            assignment = context.assignment_level
             module = assignment.module
 
             return Response(
@@ -78,8 +78,8 @@ class SubmissionContextView(APIView):
                     },
                     "assignment_level": {
                         "id": context.assignment_level.id,
-                        "level_code": context.assignment_level.level_code,
-                        "display_name": context.assignment_level.display_name,
+                        "level": context.assignment_level.level,
+                        "display_name": context.assignment_level.get_level_display(),
                     },
                 },
                 status=status.HTTP_201_CREATED,
@@ -94,14 +94,14 @@ class SubmissionContextView(APIView):
                 "cohort",
                 "cohort__module",
                 "assignment_level",
-                "assignment_level__assignment",
+                "assignment_level__module",
             ),
             id=context_id,
             learner=request.user,
             is_active=True,
         )
 
-        assignment = context.assignment_level.assignment
+        assignment = context.assignment_level
         module = assignment.module
 
         return Response(
@@ -120,19 +120,19 @@ class SubmissionContextView(APIView):
                 },
                 "module": {
                     "id": module.id,
-                    "code": module.code,
+                    "code": module.module_code,
                     "name": module.module_name,
                 },
                 "assignment": {
                     "id": assignment.id,
                     "code": assignment.assignment_code,
-                    "title": assignment.title,
+                    "title": assignment.assignment_title,
                     "maximum_score": assignment.maximum_score,
                 },
                 "assignment_level": {
                     "id": context.assignment_level.id,
-                    "level_code": context.assignment_level.level_code,
-                    "display_name": context.assignment_level.display_name,
+                    "level": context.assignment_level.level,
+                    "display_name": context.assignment_level.get_level_display(),
                 },
             },
             status=status.HTTP_200_OK,
@@ -153,7 +153,7 @@ class SubmissionCreateView(APIView):
         context = get_object_or_404(
             SubmissionContext.objects.select_related(
                 "assignment_level",
-                "assignment_level__assignment",
+                "assignment_level__module",
             ),
             id=context_id,
             learner=request.user,
@@ -210,7 +210,7 @@ class SubmissionCreateView(APIView):
             context=context,
         ).count()
 
-        assignment = context.assignment_level.assignment
+        assignment = context.assignment_level
 
         submission = LearnerSubmission.objects.create(
             context=context,
@@ -240,7 +240,7 @@ class SubmissionDetailView(APIView):
             "pages"
         ).select_related(
             "assignment_level",
-            "assignment_level__assignment",
+            "assignment_level__module",
             "context",
         )
 
@@ -266,7 +266,7 @@ class LearnerSubmissionViewSet(ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         queryset = LearnerSubmission.objects.select_related(
-            "assignment_level__assignment__module"
+            "assignment_level__module"
         ).order_by("-submitted_at")
 
         if not user.is_superuser:

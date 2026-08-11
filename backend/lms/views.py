@@ -46,8 +46,8 @@ class AssessmentMappingDetailView(
             .select_related(
                 "cohort",
                 "cohort__module",
-                "assignment_level",
-                "assignment_level__assignment",
+                "assignment",
+                "assignment__module",
             )
         )
 

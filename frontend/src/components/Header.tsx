@@ -12,7 +12,8 @@ import {
   ListChecks,
   BarChart,
   Bot,
-  LayoutDashboard
+  LayoutDashboard,
+  GitMerge
 } from "lucide-react";
 
 export function Header() {
@@ -92,6 +93,9 @@ export function Header() {
                 </Link>
                 <Link to="/admin/ai-grading-profiles" className="nav-link" style={{ display: "flex", alignItems: "center", gap: "6px" }}>
                   <Bot size={16} color="#ec4899" /> AI Profiles
+                </Link>
+                <Link to="/admin/task-criteria-mappings" className="nav-link" style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                  <GitMerge size={16} color="#6366f1" /> Task-Criteria Mappings
                 </Link>
               </div>
             </div>

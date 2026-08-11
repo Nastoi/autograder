@@ -1,14 +1,10 @@
-from rest_framework import generics
+from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
 
 from lms.permissions import IsMappingAdmin
 
-from .models import AssignmentLevel, Cohort
-from rest_framework import generics, status
-from rest_framework.response import Response
-
 from .models import (
-    AssignmentLevel,
     Cohort,
     Module,
     ModuleAssignment,
@@ -20,8 +16,6 @@ from .serializers import (
     ModuleAssignmentSerializer,
     ModuleSerializer,
     QualificationSerializer,
-    AssignmentLevelSerializer,
-    
 )
 
 
@@ -49,8 +43,8 @@ class CohortListView(generics.ListAPIView):
                 "cohort_name": cohort.cohort_name,
                 "module": {
                     "id": str(cohort.module.id),
-                    "code": cohort.module.code,
-                    "name": cohort.module.name,
+                    "module_code": cohort.module.module_code,
+                    "module_name": cohort.module.module_name,
                 },
                 "qualification": {
                     "id": str(cohort.module.qualification.id),
@@ -65,77 +59,75 @@ class CohortListView(generics.ListAPIView):
             for cohort in cohorts
         ]
 
-        from rest_framework.response import Response
-
         return Response(data)
 
-from .models import AssignmentLevel
+# from .models import AssignmentLevel
 
 
-class AssignmentLevelListView(generics.ListAPIView):
-    permission_classes = [
-        IsAuthenticated,
-        IsMappingAdmin,
-    ]
+# class AssignmentLevelListView(generics.ListAPIView):
+#     permission_classes = [
+#         IsAuthenticated,
+#         IsMappingAdmin,
+#     ]
 
-    def get_queryset(self):
-        queryset = (
-            AssignmentLevel.objects
-            .select_related(
-                "assignment",
-                "assignment__module",
-            )
-            .filter(is_active=True)
-            .order_by(
-                "assignment__assignment_number",
-                "level_code",
-            )
-        )
+#     def get_queryset(self):
+#         queryset = (
+#             AssignmentLevel.objects
+#             .select_related(
+#                 "assignment",
+#                 "assignment__module",
+#             )
+#             .filter(is_active=True)
+#             .order_by(
+#                 "assignment__assignment_number",
+#                 "level_code",
+#             )
+#         )
 
-        module_id = self.request.query_params.get("module_id")
+#         module_id = self.request.query_params.get("module_id")
 
-        if module_id:
-            queryset = queryset.filter(
-                assignment__module_id=module_id,
-            )
+#         if module_id:
+#             queryset = queryset.filter(
+#                 assignment__module_id=module_id,
+#             )
 
-        return queryset
+#         return queryset
 
-    def list(self, request, *args, **kwargs):
-        levels = self.get_queryset()
+#     def list(self, request, *args, **kwargs):
+#         levels = self.get_queryset()
 
-        data = [
-            {
-                "id": str(level.id),
-                "level_code": level.level_code,
-                "display_name": level.display_name,
-                "version": level.version,
-                "configuration_status": (
-                    level.configuration_status
-                ),
-                "assignment": {
-                    "id": str(level.assignment.id),
-                    "code": level.assignment.code,
-                    "title": level.assignment.title,
-                    "assignment_number": (
-                        level.assignment.assignment_number
-                    ),
-                    "maximum_score": str(
-                        level.assignment.maximum_score
-                    ),
-                },
-                "module": {
-                    "id": str(level.assignment.module.id),
-                    "code": level.assignment.module.code,
-                    "name": level.assignment.module.name,
-                },
-            }
-            for level in levels
-        ]
+#         data = [
+#             {
+#                 "id": str(level.id),
+#                 "level_code": level.level_code,
+#                 "display_name": level.display_name,
+#                 "version": level.version,
+#                 "configuration_status": (
+#                     level.configuration_status
+#                 ),
+#                 "assignment": {
+#                     "id": str(level.assignment.id),
+#                     "code": level.assignment.assignment_code,
+#                     "title": level.assignment.assignment_title,
+#                     "assignment_number": (
+#                         level.assignment.assignment_number
+#                     ),
+#                     "maximum_score": str(
+#                         level.assignment.maximum_score
+#                     ),
+#                 },
+#                 "module": {
+#                     "id": str(level.assignment.module.id),
+#                     "code": level.assignment.module.module_code,
+#                     "name": level.assignment.module.module_name,
+#                 },
+#             }
+#             for level in levels
+#         ]
 
-        from rest_framework.response import Response
+#         from rest_framework.response import Response
 
-        return Response(data)
+#         return Response(data)
 
 
 class QualificationListCreateView(
@@ -188,9 +180,6 @@ class ModuleListCreateView(
     def get_queryset(self):
         queryset = Module.objects.select_related(
             "qualification",
-        ).order_by(
-            "qualification__qualification_code",
-            "code",
         )
 
         qualification_id = self.request.query_params.get(
@@ -215,7 +204,7 @@ class ModuleDetailView(
     def get_queryset(self):
         return Module.objects.select_related(
             "qualification",
-        ).order_by("cohort_code")
+        ).order_by("module_code")
 
     def destroy(self, request, *args, **kwargs):
         module = self.get_object()
@@ -311,9 +300,11 @@ class ModuleAssignmentListCreateView(
         queryset = ModuleAssignment.objects.select_related(
             "module",
             "module__qualification",
+            "grading_configuration",
         ).order_by(
-            "module__code",
-            "assignment_number",
+            "module__module_code",
+            "level",
+            "assignment_code",
         )
 
         module_id = self.request.query_params.get(
@@ -348,20 +339,28 @@ class ModuleAssignmentDetailView(
         return ModuleAssignment.objects.select_related(
             "module",
             "module__qualification",
+            "grading_configuration",
         ).order_by(
-            "module__code",
-            "assignment_number",
+            "module__module_code",
+            "level",
+            "assignment_code",
         )
 
     def destroy(self, request, *args, **kwargs):
         assignment = self.get_object()
 
-        if assignment.levels.exists():
+        if (
+            assignment.rubric_criteria.exists()
+            or assignment.rag_sources.exists()
+            or assignment.grading_tasks.exists()
+            or assignment.task_criteria_mappings.exists()
+            or hasattr(assignment, "ai_grading_profile")
+        ):
             return Response(
                 {
                     "detail": (
                         "This assignment cannot be deleted because "
-                        "it already has assignment levels. "
+                        "it already has grading configuration. "
                         "Deactivate it instead."
                     )
                 },
@@ -371,86 +370,5 @@ class ModuleAssignmentDetailView(
         return super().destroy(request, *args, **kwargs)
 
 
-class AssignmentLevelListCreateView(
-    generics.ListCreateAPIView
-):
-    serializer_class = AssignmentLevelSerializer
-    permission_classes = [IsAuthenticated, IsMappingAdmin]
-
-    def get_queryset(self):
-        queryset = AssignmentLevel.objects.select_related(
-            "assignment",
-            "assignment__module",
-            "assignment__module__qualification",
-            "grading_configuration",
-        ).order_by(
-            "assignment__module",
-            "assignment__assignment_number",
-            "level_code",
-            "version",
-        )
-
-        assignment_id = self.request.query_params.get(
-            "assignment_id",
-        )
-
-        module_id = self.request.query_params.get(
-            "module_id",
-        )
-
-        if assignment_id:
-            queryset = queryset.filter(
-                assignment_id=assignment_id,
-            )
-
-        if module_id:
-            queryset = queryset.filter(
-                assignment__module_id=module_id,
-            )
-
-        return queryset
-
-
-class AssignmentLevelDetailView(
-    generics.RetrieveUpdateDestroyAPIView
-):
-    serializer_class = AssignmentLevelSerializer
-    permission_classes = [IsAuthenticated, IsMappingAdmin]
-    lookup_field = "id"
-
-    def get_queryset(self):
-        return AssignmentLevel.objects.select_related(
-            "assignment",
-            "assignment__module",
-            "assignment__module__qualification",
-            "grading_configuration",
-        ).order_by(
-            "assignment__module__code",
-            "assignment__assignment_number",
-            "level_code",
-            "version",
-        )
-
-    def destroy(self, request, *args, **kwargs):
-        assignment_level = self.get_object()
-
-        if (
-            assignment_level.rubric_criteria.exists()
-            or assignment_level.rag_sources.exists()
-            or hasattr(
-                assignment_level,
-                "ai_grading_profile",
-            )
-        ):
-            return Response(
-                {
-                    "detail": (
-                        "This assignment level cannot be deleted "
-                        "because it already has rubric, RAG, or AI "
-                        "grading configuration. Deactivate it instead."
-                    )
-                },
-                status=status.HTTP_409_CONFLICT,
-            )
-
-        return super().destroy(request, *args, **kwargs)
+AssignmentLevelListCreateView = ModuleAssignmentListCreateView
+AssignmentLevelDetailView = ModuleAssignmentDetailView

@@ -55,11 +55,11 @@ class GradingConfigurationSerializer(
     ) -> bool:
         return not obj.assignment_levels.exists()
 
-    def validate_code(self, value):
+    def validate_grading_config_code(self, value):
         code = value.strip().upper()
 
         queryset = GradingConfiguration.objects.filter(
-            code__iexact=code,
+            grading_config_code__iexact=code,
         )
 
         if self.instance:
@@ -109,22 +109,22 @@ class RubricCriterionSerializer(
     serializers.ModelSerializer
 ):
     assignment_code = serializers.CharField(
-        source="assignment_level.assignment.code",
+        source="assignment_level.assignment_code",
         read_only=True,
     )
 
     assignment_title = serializers.CharField(
-        source="assignment_level.assignment.title",
+        source="assignment_level.assignment_title",
         read_only=True,
     )
 
     level_code = serializers.CharField(
-        source="assignment_level.level_code",
+        source="assignment_level.level",
         read_only=True,
     )
 
     level_display_name = serializers.CharField(
-        source="assignment_level.display_name",
+        source="assignment_level.get_level_display",
         read_only=True,
     )
 
@@ -274,7 +274,7 @@ class RubricBandSerializer(serializers.ModelSerializer):
     assignment_code = serializers.CharField(
         source=(
             "rubric_criterion."
-            "assignment_level.assignment.code"
+            "assignment_level.assignment_code"
         ),
         read_only=True,
     )
@@ -282,7 +282,7 @@ class RubricBandSerializer(serializers.ModelSerializer):
     level_code = serializers.CharField(
         source=(
             "rubric_criterion."
-            "assignment_level.level_code"
+            "assignment_level.level"
         ),
         read_only=True,
     )
@@ -433,22 +433,22 @@ class AIGradingProfileSerializer(
     serializers.ModelSerializer
 ):
     assignment_code = serializers.CharField(
-        source="assignment_level.assignment.code",
+        source="assignment_level.assignment_code",
         read_only=True,
     )
 
     assignment_title = serializers.CharField(
-        source="assignment_level.assignment.title",
+        source="assignment_level.assignment_title",
         read_only=True,
     )
 
     level_code = serializers.CharField(
-        source="assignment_level.level_code",
+        source="assignment_level.level",
         read_only=True,
     )
 
     level_display_name = serializers.CharField(
-        source="assignment_level.display_name",
+        source="assignment_level.get_level_display",
         read_only=True,
     )
 
@@ -518,11 +518,11 @@ class AIGradingProfileSerializer(
 
 class TaskSerializer(serializers.ModelSerializer):
     assignment_code = serializers.CharField(
-        source="assignment_level.assignment.code",
+        source="assignment_level.assignment_code",
         read_only=True,
     )
     level_code = serializers.CharField(
-        source="assignment_level.level_code",
+        source="assignment_level.level",
         read_only=True,
     )
 

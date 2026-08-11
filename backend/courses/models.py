@@ -103,12 +103,22 @@ class Enrolment(models.Model):
     def __str__(self) -> str:
         return (
             f"{self.user.username} — "
-            f"{self.module.code} — "
+            f"{self.module.module_code} — "
             f"{self.get_role_display()}"
         )
 
 
 class ModuleAssignment(models.Model):
+    class Level(models.TextChoices):
+        BASIC = "basic", "Basic"
+        ADVANCED = "advanced", "Advanced"
+
+    level = models.CharField(
+        max_length=20,
+        choices=Level.choices,
+        default=Level.BASIC,
+    )
+
     id = models.UUIDField(
         primary_key=True,
         default=uuid.uuid4,
@@ -121,7 +131,14 @@ class ModuleAssignment(models.Model):
         related_name="assignments",
     )
 
-    assignment_number = models.PositiveIntegerField()
+    grading_configuration = models.ForeignKey(
+        "grading.GradingConfiguration",
+        on_delete=models.PROTECT,
+        related_name="assignment_levels",
+        blank=True,
+        null=True,
+    )
+
     assignment_code = models.CharField(max_length=50)
     assignment_title = models.CharField(max_length=255)
 
@@ -153,84 +170,89 @@ class ModuleAssignment(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ("module", "assignment_number")
-
-    def __str__(self) -> str:
-        return f"{self.code} — {self.title}"
-
-
-class AssignmentLevel(models.Model):
-    class Level(models.TextChoices):
-        FOUNDATION = "foundation", "Foundation"
-        PROFICIENT = "proficient", "Proficient"
-        EXPERT = "expert", "Expert"
-
-    class ConfigurationStatus(models.TextChoices):
-        DRAFT = "draft", "Draft"
-        READY = "ready", "Ready"
-        RETIRED = "retired", "Retired"
-
-    id = models.UUIDField(
-        primary_key=True,
-        default=uuid.uuid4,
-        editable=False,
-    )
-
-    assignment = models.ForeignKey(
-        ModuleAssignment,
-        on_delete=models.CASCADE,
-        related_name="levels",
-    )
-
-    grading_configuration = models.ForeignKey(
-        "grading.GradingConfiguration",
-        on_delete=models.PROTECT,
-        related_name="assignment_levels",
-    )
-
-    level_code = models.CharField(
-        max_length=20,
-        choices=Level.choices,
-    )
-
-    display_name = models.CharField(max_length=100)
-    title = models.CharField(max_length=255)
-    instructions = models.TextField(blank=True)
-
-    tasks = models.JSONField(default=list)
-    deliverables = models.JSONField(default=list)
-    expected_outcome = models.TextField(blank=True)
-
-    source_filename = models.CharField(
-        max_length=255,
-        blank=True,
-        null=True,
-    )
-
-    version = models.PositiveIntegerField(default=1)
-
-    configuration_status = models.CharField(
-        max_length=20,
-        choices=ConfigurationStatus.choices,
-        default=ConfigurationStatus.DRAFT,
-    )
-
-    is_active = models.BooleanField(default=True)
-
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        ordering = (
-            "assignment__assignment_number",
-            "level_code",
-        )
+        ordering = ("module", "level", "assignment_code")
 
     def __str__(self) -> str:
         return (
-            f"{self.assignment.module.module_code} — "
-            f"{self.get_level_code_display()}"
+            f"{self.assignment_code} — "
+            f"{self.assignment_title}"
         )
+
+
+# class AssignmentLevel(models.Model):
+#     class Level(models.TextChoices):
+#         # FOUNDATION = "foundation", "Foundation"
+#         # PROFICIENT = "proficient", "Proficient"
+#         # EXPERT = "expert", "Expert"
+#         BASIC = "basic", "BASIC"
+#         ADVANCED = "advanced", "ADVANCED"
+
+#     class ConfigurationStatus(models.TextChoices):
+#         DRAFT = "draft", "Draft"
+#         READY = "ready", "Ready"
+#         RETIRED = "retired", "Retired"
+
+#     id = models.UUIDField(
+#         primary_key=True,
+#         default=uuid.uuid4,
+#         editable=False,
+#     )
+
+#     assignment = models.ForeignKey(
+#         ModuleAssignment,
+#         on_delete=models.CASCADE,
+#         related_name="levels",
+#     )
+
+#     grading_configuration = models.ForeignKey(
+#         "grading.GradingConfiguration",
+#         on_delete=models.PROTECT,
+#         related_name="assignment_levels",
+#     )
+
+#     level_code = models.CharField(
+#         max_length=20,
+#         choices=Level.choices,
+#     )
+
+#     display_name = models.CharField(max_length=100)
+#     title = models.CharField(max_length=255)
+#     instructions = models.TextField(blank=True)
+
+#     tasks = models.JSONField(default=list)
+#     deliverables = models.JSONField(default=list)
+#     expected_outcome = models.TextField(blank=True)
+
+#     source_filename = models.CharField(
+#         max_length=255,
+#         blank=True,
+#         null=True,
+#     )
+
+#     version = models.PositiveIntegerField(default=1)
+
+#     configuration_status = models.CharField(
+#         max_length=20,
+#         choices=ConfigurationStatus.choices,
+#         default=ConfigurationStatus.DRAFT,
+#     )
+
+#     is_active = models.BooleanField(default=True)
+
+#     created_at = models.DateTimeField(auto_now_add=True)
+#     updated_at = models.DateTimeField(auto_now=True)
+
+#     class Meta:
+#         ordering = (
+#             "assignment__assignment_number",
+#             "level_code",
+#         )
+
+#     def __str__(self) -> str:
+#         return (
+#             f"{self.assignment.assignment_code} — "
+#             f"{self.get_level_code_display()}"
+#         )
 
 
 class Cohort(models.Model):

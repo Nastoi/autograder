@@ -23,6 +23,7 @@ import { AssignmentLevelsPage } from "./pages/AssignmentLevelsPage";
 import { RubricCriteriaPage } from "./pages/RubricCriteriaPage";
 import { RubricBandsPage } from "./pages/RubricBandsPage";
 import { AIGradingProfilesPage } from "./pages/AIGradingProfilesPage";
+import { TaskCriteriaMappingsPage } from "./pages/TaskCriteriaMappingsPage";
 
 
 export default function App() {
@@ -91,6 +92,10 @@ export default function App() {
           <Route
             path="/admin/ai-grading-profiles"
             element={<AIGradingProfilesPage />}
+          />
+          <Route
+            path="/admin/task-criteria-mappings"
+            element={<TaskCriteriaMappingsPage />}
           />
         </Route>
 

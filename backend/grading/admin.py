@@ -2,11 +2,19 @@ from django.contrib import admin
 
 from .models import (
     AIGradingProfile,
+    CriterionResult,
+    ExtractedEvidence,
     GradingConfiguration,
+    Prompt,
     RagChunk,
     RagSource,
+    Response,
     RubricBand,
     RubricCriterion,
+    Task,
+    TaskCriteriaMapping,
+    TaskCriterionWeight,
+    TaskEvidenceMap,
 )
 
 
@@ -29,7 +37,10 @@ class GradingConfigurationAdmin(admin.ModelAdmin):
         "is_active",
     )
 
-    search_fields = ("code", "name")
+    search_fields = (
+        "grading_config_code",
+        "grading_config_name",
+    )
 
 
 @admin.register(RubricCriterion)
@@ -50,7 +61,7 @@ class RubricCriterionAdmin(admin.ModelAdmin):
     search_fields = (
         "criterion_code",
         "title",
-        "assignment_level__assignment__code",
+        "assignment_level__assignment_code",
     )
 
 
@@ -88,7 +99,7 @@ class RagSourceAdmin(admin.ModelAdmin):
     search_fields = (
         "title",
         "source_filename",
-        "assignment_level__assignment__code",
+        "assignment_level__assignment_code",
     )
 
 
@@ -124,25 +135,9 @@ class AIGradingProfileAdmin(admin.ModelAdmin):
 
     search_fields = (
         "profile_name",
-        "assignment_level__assignment__code",
+        "assignment_level__assignment_code",
     )
-    
-from .models import (
-    AIGradingProfile,
-    CriterionResult,
-    ExtractedEvidence,
-    GradingConfiguration,
-    Prompt,
-    RagChunk,
-    RagSource,
-    Response,
-    RubricBand,
-    RubricCriterion,
-    Task,
-    TaskCriteriaMapping,
-    TaskCriterionWeight,
-    TaskEvidenceMap,
-)
+
 
 
 @admin.register(Task)

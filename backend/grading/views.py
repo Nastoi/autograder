@@ -99,9 +99,8 @@ class RubricCriterionListCreateView(
     def get_queryset(self):
         queryset = RubricCriterion.objects.select_related(
             "assignment_level",
-            "assignment_level__assignment",
         ).order_by(
-            "assignment_level__assignment",
+            "assignment_level__assignment_code",
             "sequence",
         )
 
@@ -127,9 +126,8 @@ class RubricCriterionDetailView(
     def get_queryset(self):
         return RubricCriterion.objects.select_related(
             "assignment_level",
-            "assignment_level__assignment",
         ).order_by(
-            "assignment_level__assignment__code",
+            "assignment_level__assignment_code",
             "sequence",
         )
 
@@ -160,9 +158,8 @@ class RubricBandListCreateView(
         queryset = RubricBand.objects.select_related(
             "rubric_criterion",
             "rubric_criterion__assignment_level",
-            "rubric_criterion__assignment_level__assignment",
         ).order_by(
-            "rubric_criterion__assignment_level__assignment",
+            "rubric_criterion__assignment_level__assignment_code",
             "rubric_criterion__sequence",
             "sequence",
         )
@@ -200,9 +197,8 @@ class RubricBandDetailView(
         return RubricBand.objects.select_related(
             "rubric_criterion",
             "rubric_criterion__assignment_level",
-            "rubric_criterion__assignment_level__assignment",
         ).order_by(
-            "rubric_criterion__assignment_level__assignment__code",
+            "rubric_criterion__assignment_level__assignment_code",
             "rubric_criterion__sequence",
             "sequence",
         )
@@ -216,10 +212,9 @@ class AIGradingProfileListCreateView(
     def get_queryset(self):
         queryset = AIGradingProfile.objects.select_related(
             "assignment_level",
-            "assignment_level__assignment",
         ).order_by(
-            "assignment_level__assignment__code",
-            "assignment_level__level_code",
+            "assignment_level__assignment_code",
+            "assignment_level__level",
         )
 
         assignment_level_id = self.request.query_params.get(
@@ -244,10 +239,9 @@ class AIGradingProfileDetailView(
     def get_queryset(self):
         return AIGradingProfile.objects.select_related(
             "assignment_level",
-            "assignment_level__assignment",
         ).order_by(
-            "assignment_level__assignment__code",
-            "assignment_level__level_code",
+            "assignment_level__assignment_code",
+            "assignment_level__level",
         )
 
 
@@ -258,9 +252,8 @@ class TaskListCreateView(generics.ListCreateAPIView):
     def get_queryset(self):
         queryset = Task.objects.select_related(
             "assignment_level",
-            "assignment_level__assignment",
         ).order_by(
-            "assignment_level__assignment",
+            "assignment_level__assignment_code",
             "sequence",
         )
 
@@ -284,9 +277,8 @@ class TaskDetailView(generics.RetrieveUpdateDestroyAPIView):
     def get_queryset(self):
         return Task.objects.select_related(
             "assignment_level",
-            "assignment_level__assignment",
         ).order_by(
-            "assignment_level__assignment__code",
+            "assignment_level__assignment_code",
             "sequence",
         )
 
@@ -300,9 +292,8 @@ class TaskCriterionWeightListCreateView(generics.ListCreateAPIView):
             "task",
             "rubric_criterion",
             "rubric_criterion__assignment_level",
-            "rubric_criterion__assignment_level__assignment",
         ).order_by(
-            "task__assignment_level__assignment__code",
+            "task__assignment_level__assignment_code",
             "task__sequence",
             "rubric_criterion__sequence",
         )
@@ -333,7 +324,7 @@ class TaskCriterionWeightDetailView(
             "task",
             "rubric_criterion",
         ).order_by(
-            "task__assignment_level__assignment__code",
+            "task__assignment_level__assignment_code",
             "task__sequence",
             "rubric_criterion__sequence",
         )
@@ -349,7 +340,7 @@ class TaskCriteriaMappingListCreateView(generics.ListCreateAPIView):
             "task",
             "rubric_criterion",
         ).order_by(
-            "assignment_level__assignment__code",
+            "assignment_level__assignment_code",
             "task__sequence",
             "rubric_criterion__sequence",
         )
@@ -391,7 +382,7 @@ class TaskCriteriaMappingDetailView(
             "task",
             "rubric_criterion",
         ).order_by(
-            "assignment_level__assignment__code",
+            "assignment_level__assignment_code",
             "task__sequence",
             "rubric_criterion__sequence",
         )
@@ -571,6 +562,66 @@ class CriterionResultDetailView(
             "submission",
             "rubric_criterion",
         ).order_by("created_at")
+
+
+class MapTasksCriteriaView(APIView):
+    """
+    POST /api/grading/assignments/{assignment_id}/map-tasks-criteria/
+
+    Calls OpenAI to produce a Task → Criteria → Weightage mapping for the
+    given ModuleAssignment and persists the results into TaskCriteriaMapping.
+
+    The assignment must already have:
+      - At least one Task
+      - At least one RubricCriterion
+
+    Returns a 201 on success with:
+      - created / updated counts
+      - the full mapping data from AI
+      - any validation warnings
+    """
+
+    permission_classes = [IsAuthenticated, IsMappingAdmin]
+
+    def post(self, request, assignment_id):
+        from courses.models import ModuleAssignment
+        from grading.services.task_mapper import map_tasks_to_criteria
+
+        # ── 1. Resolve the assignment ──────────────────────────────────────
+        try:
+            assignment = ModuleAssignment.objects.get(id=assignment_id)
+        except ModuleAssignment.DoesNotExist:
+            return DRFResponse(
+                {"detail": f"Assignment '{assignment_id}' not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        # ── 2. Run the mapping pipeline ───────────────────────────────────
+        try:
+            result = map_tasks_to_criteria(assignment=assignment)
+        except ValueError as exc:
+            return DRFResponse(
+                {"detail": str(exc)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except RuntimeError as exc:
+            return DRFResponse(
+                {"detail": str(exc)},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+
+        # ── 3. Return summary ─────────────────────────────────────────────
+        return DRFResponse(
+            {
+                "assignment_code": result["assignment_code"],
+                "created": result["created"],
+                "updated": result["updated"],
+                "mapping_rationale": result["mapping_rationale"],
+                "validation_warnings": result["validation_warnings"],
+                "mappings": result["mappings"],
+            },
+            status=status.HTTP_201_CREATED,
+        )
 
 class TestGPT4oGradingView(APIView):
     permission_classes = [IsAuthenticated]
