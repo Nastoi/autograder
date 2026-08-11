@@ -132,12 +132,12 @@ class ModuleAssignment(models.Model):
     )
 
     grading_configuration = models.ForeignKey(
-        "grading.GradingConfiguration",
-        on_delete=models.PROTECT,
-        related_name="assignment_levels",
-        blank=True,
+        'grading.GradingConfiguration',
+        on_delete=models.SET_NULL,
         null=True,
-    )
+        blank=True,
+        related_name='module_assignments'  # <-- Add this
+    )   
 
     assignment_code = models.CharField(max_length=50)
     assignment_title = models.CharField(max_length=255)
@@ -179,80 +179,81 @@ class ModuleAssignment(models.Model):
         )
 
 
-# class AssignmentLevel(models.Model):
-#     class Level(models.TextChoices):
-#         # FOUNDATION = "foundation", "Foundation"
-#         # PROFICIENT = "proficient", "Proficient"
-#         # EXPERT = "expert", "Expert"
-#         BASIC = "basic", "BASIC"
-#         ADVANCED = "advanced", "ADVANCED"
+class AssignmentLevel(models.Model):
+    class Level(models.TextChoices):
+        # FOUNDATION = "foundation", "Foundation"
+        # PROFICIENT = "proficient", "Proficient"
+        # EXPERT = "expert", "Expert"
+        BASIC = "basic", "BASIC"
+        ADVANCED = "advanced", "ADVANCED"
 
-#     class ConfigurationStatus(models.TextChoices):
-#         DRAFT = "draft", "Draft"
-#         READY = "ready", "Ready"
-#         RETIRED = "retired", "Retired"
+    class ConfigurationStatus(models.TextChoices):
+        DRAFT = "draft", "Draft"
+        READY = "ready", "Ready"
+        RETIRED = "retired", "Retired"
 
-#     id = models.UUIDField(
-#         primary_key=True,
-#         default=uuid.uuid4,
-#         editable=False,
-#     )
+    id = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False,
+    )
 
-#     assignment = models.ForeignKey(
-#         ModuleAssignment,
-#         on_delete=models.CASCADE,
-#         related_name="levels",
-#     )
+    assignment = models.ForeignKey(
+        ModuleAssignment,
+        on_delete=models.CASCADE,
+        related_name="levels",
+    )
 
-#     grading_configuration = models.ForeignKey(
-#         "grading.GradingConfiguration",
-#         on_delete=models.PROTECT,
-#         related_name="assignment_levels",
-#     )
+    grading_configuration = models.ForeignKey(
+        'grading.GradingConfiguration',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='assignment_levels'   # <-- Add this
+    )
 
-#     level_code = models.CharField(
-#         max_length=20,
-#         choices=Level.choices,
-#     )
+    level_code = models.CharField(
+        max_length=20,
+        choices=Level.choices,
+    )
 
-#     display_name = models.CharField(max_length=100)
-#     title = models.CharField(max_length=255)
-#     instructions = models.TextField(blank=True)
+    display_name = models.CharField(max_length=100)
+    title = models.CharField(max_length=255)
+    instructions = models.TextField(blank=True)
 
-#     tasks = models.JSONField(default=list)
-#     deliverables = models.JSONField(default=list)
-#     expected_outcome = models.TextField(blank=True)
+    tasks = models.JSONField(default=list)
+    deliverables = models.JSONField(default=list)
+    expected_outcome = models.TextField(blank=True)
 
-#     source_filename = models.CharField(
-#         max_length=255,
-#         blank=True,
-#         null=True,
-#     )
+    source_filename = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+    )
 
-#     version = models.PositiveIntegerField(default=1)
+    version = models.PositiveIntegerField(default=1)
 
-#     configuration_status = models.CharField(
-#         max_length=20,
-#         choices=ConfigurationStatus.choices,
-#         default=ConfigurationStatus.DRAFT,
-#     )
+    configuration_status = models.CharField(
+        max_length=20,
+        choices=ConfigurationStatus.choices,
+        default=ConfigurationStatus.DRAFT,
+    )
 
-#     is_active = models.BooleanField(default=True)
+    is_active = models.BooleanField(default=True)
 
-#     created_at = models.DateTimeField(auto_now_add=True)
-#     updated_at = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
-#     class Meta:
-#         ordering = (
-#             "assignment__assignment_number",
-#             "level_code",
-#         )
+    class Meta:
+        ordering = (
+            "level_code",
+        )
 
-#     def __str__(self) -> str:
-#         return (
-#             f"{self.assignment.assignment_code} — "
-#             f"{self.get_level_code_display()}"
-#         )
+    def __str__(self) -> str:
+        return (
+            f"{self.assignment.assignment_code} — "
+            f"{self.get_level_code_display()}"
+        )
 
 
 class Cohort(models.Model):

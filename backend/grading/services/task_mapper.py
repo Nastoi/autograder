@@ -45,10 +45,6 @@ def _build_user_prompt(
     tasks: list[dict],
     criteria: list[dict],
 ) -> str:
-    """
-    Build a structured user prompt that gives the model everything it needs
-    to produce an accurate Task-Criteria-Weightage mapping.
-    """
     tasks_block = "\n".join(
         f"  {i + 1}. [{t['task_code']}] {t['title']}\n"
         f"     Instructions: {t['instructions'] or '(none provided)'}"
@@ -84,14 +80,6 @@ def _build_user_prompt(
 # ---------------------------------------------------------------------------
 
 def _validate_response(data: dict, tasks: list[dict], criteria: list[dict]) -> list[str]:
-    """
-    Return a list of validation error strings. Empty list means OK.
-    Checks:
-      - All task_codes appear in mappings
-      - All criterion_codes appear in at least one mapping
-      - Weights per criterion sum to ~1.00 (±0.01 tolerance)
-      - inferred_weight is in [0.01, 1.00]
-    """
     errors: list[str] = []
     valid_task_codes = {t["task_code"] for t in tasks}
     valid_criterion_codes = {c["criterion_code"] for c in criteria}
@@ -132,19 +120,16 @@ def _validate_response(data: dict, tasks: list[dict], criteria: list[dict]) -> l
                 criterion_weight_totals.get(cc, 0.0) + float(w)
             )
 
-    # All tasks must appear
     missing_tasks = valid_task_codes - mapped_task_codes
     if missing_tasks:
         errors.append(f"Tasks not mapped: {missing_tasks}")
 
-    # All criteria must appear
     missing_criteria = valid_criterion_codes - mapped_criterion_codes
     if missing_criteria:
         errors.append(f"Criteria not mapped: {missing_criteria}")
 
-    # Weight sums must be ~1.00
     for cc, total in criterion_weight_totals.items():
-        if abs(total - 1.0) > 0.02:  # 2% tolerance
+        if abs(total - 1.0) > 0.02:
             errors.append(
                 f"Criterion {cc!r} weights sum to {total:.4f} (expected 1.00)"
             )
@@ -158,16 +143,11 @@ def _validate_response(data: dict, tasks: list[dict], criteria: list[dict]) -> l
 
 def _save_mappings(
     *,
-    assignment,
+    assignment_level,
     data: dict,
     task_map: dict,
     criterion_map: dict,
 ) -> tuple[int, int]:
-    """
-    Upsert TaskCriteriaMapping rows from AI response.
-    Returns (created_count, updated_count).
-    """
-    # Import here to avoid circular imports
     from grading.models import TaskCriteriaMapping  # noqa: PLC0415
 
     created = 0
@@ -200,7 +180,7 @@ def _save_mappings(
                     continue
 
                 obj, was_created = TaskCriteriaMapping.objects.update_or_create(
-                    assignment_level=assignment,
+                    assignment_level=assignment_level,
                     task=task_obj,
                     rubric_criterion=criterion_obj,
                     defaults={
@@ -221,76 +201,75 @@ def _save_mappings(
 # ---------------------------------------------------------------------------
 
 def map_tasks_to_criteria(*, assignment) -> dict[str, Any]:
-    """
-    Run the full Task → Criteria → Weightage mapping pipeline for the given
-    ModuleAssignment instance.
-
-    Returns a summary dict:
-    {
-        "assignment_code": str,
-        "created": int,
-        "updated": int,
-        "mapping_rationale": str,
-        "validation_warnings": list[str],
-        "mappings": [
-            {
-                "task_code": str,
-                "criteria": [
-                    {"criterion_code": str, "inferred_weight": float, "explanation": str}
-                ]
-            }
-        ]
-    }
-
-    Raises:
-        ValueError  – if tasks or criteria are missing, or if AI response is invalid
-        RuntimeError – if OpenAI call fails
-    """
+    from courses.models import AssignmentLevel  # noqa: PLC0415
     from grading.models import RubricCriterion, Task  # noqa: PLC0415
     from .openai_client import request_assessment  # noqa: PLC0415
 
     # ---- 1. Fetch data from DB ----------------------------------------
-    tasks_qs = (
-        Task.objects.filter(assignment_level=assignment)
-        .order_by("sequence", "task_code")
-    )
-    criteria_qs = (
-        RubricCriterion.objects.filter(assignment_level=assignment)
-        .order_by("sequence", "criterion_code")
-    )
+    # Resolve the target AssignmentLevel from ModuleAssignment safely
+    # Try fetching levels linked to this ModuleAssignment
+    assignment_levels = list(AssignmentLevel.objects.filter(assignment=assignment))
 
-    tasks = list(tasks_qs.values(
-        "id", "task_code", "title", "instructions"
-    ))
-    criteria = list(criteria_qs.values(
-        "id", "criterion_code", "title", "description", "maximum_score"
-    ))
+    if assignment_levels:
+        primary_level = assignment_levels[0]
+        tasks_qs = Task.objects.filter(assignment_level__in=assignment_levels).order_by("sequence", "task_code")
+        criteria_qs = RubricCriterion.objects.filter(assignment_level__in=assignment_levels).order_by("sequence", "criterion_code")
+    else:
+        # Fallback if tasks/criteria point directly to ModuleAssignment
+        primary_level = None
+        tasks_qs = Task.objects.filter(assignment_level_id=assignment.id).order_by("sequence", "task_code")
+        criteria_qs = RubricCriterion.objects.filter(assignment_level_id=assignment.id).order_by("sequence", "criterion_code")
+    task_list = list(tasks_qs)
+    criteria_list = list(criteria_qs)
 
-    if not tasks:
+    if not task_list:
         raise ValueError(
             f"Assignment '{assignment.assignment_code}' has no Tasks. "
             "Add tasks before running the mapping."
         )
-    if not criteria:
+    if not criteria_list:
         raise ValueError(
             f"Assignment '{assignment.assignment_code}' has no RubricCriteria. "
             "Add criteria before running the mapping."
         )
 
-    # Build lookup dicts keyed by code
-    task_map = {t["task_code"]: tasks_qs.get(task_code=t["task_code"]) for t in tasks}
-    criterion_map = {
-        c["criterion_code"]: criteria_qs.get(criterion_code=c["criterion_code"])
-        for c in criteria
-    }
+    tasks = [
+        {
+            "id": str(t.id),
+            "task_code": t.task_code,
+            "title": t.title,
+            "instructions": getattr(t, "instructions", "") or "",
+        }
+        for t in task_list
+    ]
+    criteria = [
+        {
+            "id": str(c.id),
+            "criterion_code": c.criterion_code,
+            "title": c.title,
+            "description": getattr(c, "description", "") or "",
+            "maximum_score": str(c.maximum_score),
+        }
+        for c in criteria_list
+    ]
+
+    task_map = {t.task_code: t for t in task_list}
+    criterion_map = {c.criterion_code: c for c in criteria_list}
 
     # ---- 2. Build prompts ------------------------------------------------
     system_prompt = _load_system_prompt()
+    
+    level_display = (
+        primary_level.get_level_code_display()
+        if hasattr(primary_level, "get_level_code_display")
+        else getattr(primary_level, "display_name", assignment.assignment_title)
+    )
+
     user_prompt = _build_user_prompt(
         assignment_code=assignment.assignment_code,
         assignment_title=assignment.assignment_title,
-        assignment_level=assignment.get_level_display(),
-        objective=assignment.objective or "",
+        assignment_level=level_display,
+        objective=getattr(assignment, "objective", "") or "",
         tasks=tasks,
         criteria=criteria,
     )
@@ -307,9 +286,9 @@ def map_tasks_to_criteria(*, assignment) -> dict[str, Any]:
         raw_response = request_assessment(
             system_prompt=system_prompt,
             user_prompt=user_prompt,
-            model="gpt-4o",           # Use gpt-4o for complex structural reasoning
+            model="gpt-4o",
             max_tokens=4096,
-            temperature=0.0,           # Deterministic — accuracy over creativity
+            temperature=0.0,
             top_p=1.0,
         )
     except Exception as exc:
@@ -324,11 +303,10 @@ def map_tasks_to_criteria(*, assignment) -> dict[str, Any]:
             assignment.assignment_code,
             validation_errors,
         )
-        # Non-fatal — proceed with what we have, but surface warnings
 
     # ---- 5. Persist -------------------------------------------------------
     created, updated = _save_mappings(
-        assignment=assignment,
+        assignment_level=primary_level,
         data=raw_response,
         task_map=task_map,
         criterion_map=criterion_map,

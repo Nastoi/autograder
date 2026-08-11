@@ -3,8 +3,14 @@ from django.contrib.auth import get_user_model
 from django.db import transaction
 
 from accounts.models import UserProfile
-from courses.models import Qualification, Module, ModuleAssignment, AssignmentLevel, Cohort
-from grading.models import GradingConfiguration, RubricCriterion, RubricBand
+from courses.models import (
+    Qualification,
+    Module,
+    ModuleAssignment,
+    AssignmentLevel,
+    Cohort,
+)
+from grading.models import GradingConfiguration, RubricCriterion, RubricBand, Task
 from submissions.models import SubmissionContext
 
 User = get_user_model()
@@ -59,12 +65,12 @@ class Command(BaseCommand):
             },
         )
 
-        # 4. Module Assignment
+        # 4. Module Assignment (DMV-A3)
         assignment, _ = ModuleAssignment.objects.get_or_create(
-            assignment_code="DMV-A1",
+            assignment_code="DMV-A3",
             module=module,
             defaults={
-                "assignment_number": 1,
+                "assignment_number": 3,
                 "assignment_title": "Data Preparation and Transformation Using Power Query",
                 "skill_statement_code": "DMV-A1-S",
                 "skill_statement": "Prepare and transform raw data into analysis-ready datasets using Power Query",
@@ -105,20 +111,6 @@ class Command(BaseCommand):
                 "display_name": "Foundation Level",
                 "title": "Foundation Tier - Django Setup",
                 "instructions": "Follow standard backend patterns and build models.",
-                "tasks": [
-                    "Connect to the provided Sales, Product, and Store data files.",
-                    "Profile the datasets and identify data quality issues.",
-                    "Remove duplicate transaction records.",
-                    "Handle blank and null values appropriately.",
-                    "Correct incorrect data types.",
-                    "Standardize inconsistent date formats.",
-                    "Standardize inconsistent naming conventions.",
-                    "Rename columns using meaningful and consistent names.",
-                    "Split or merge columns where appropriate.",
-                    "Remove unnecessary columns.",
-                    "Apply appropriate basic Power Query transformations.",
-                    "Load the transformed datasets into Power BI.",
-                ],
                 "deliverables": [
                     "Power BI .pbix file.",
                     "Cleaned and transformed datasets.",
@@ -126,14 +118,41 @@ class Command(BaseCommand):
                     "Short data preparation report identifying: Data quality issues identified. Transformations performed. Rationale for key cleaning decisions.",
                 ],
                 "expected_outcome": "A clean, consistent, and analysis-ready dataset that can be used for data modelling and reporting.",
-                "source_filename": "assignment_01_spec.pdf",
+                "source_filename": "assignment_03_spec.pdf",
                 "version": 1,
                 "configuration_status": "draft",
                 "is_active": True,
             },
         )
 
-        # 7. Cohort
+        # 7. Tasks
+        raw_tasks = [
+            "Connect to the provided Sales, Product, and Store data files.",
+            "Profile the datasets and identify data quality issues.",
+            "Remove duplicate transaction records.",
+            "Handle blank and null values appropriately.",
+            "Correct incorrect data types.",
+            "Standardize inconsistent date formats.",
+            "Standardize inconsistent naming conventions.",
+            "Rename columns using meaningful and consistent names.",
+            "Split or merge columns where appropriate.",
+            "Remove unnecessary columns.",
+            "Apply appropriate basic Power Query transformations.",
+            "Load the transformed datasets into Power BI.",
+        ]
+
+        for index, task_title in enumerate(raw_tasks, start=1):
+            Task.objects.get_or_create(
+                assignment_level_id=assignment_level.id,
+                task_code=f"DMV-A3-T{index}",
+                defaults={
+                    "title": task_title,
+                    "instructions": task_title,
+                    "sequence": index,
+                },
+            )
+
+        # 8. Cohort
         cohort, _ = Cohort.objects.get_or_create(
             cohort_code="0926-DMV-101226",
             module=module,
@@ -145,7 +164,7 @@ class Command(BaseCommand):
             },
         )
 
-        # 8. Submission Context
+        # 9. Submission Context
         submission_context, _ = SubmissionContext.objects.get_or_create(
             learner=learner,
             cohort=cohort,
@@ -153,32 +172,70 @@ class Command(BaseCommand):
             defaults={"is_active": True},
         )
 
-        # 9. Rubric Criterion
-        rubric_criterion, _ = RubricCriterion.objects.get_or_create(
-            assignment_level=assignment_level,
-            criterion_code="DMV-A1-C5",
-            defaults={
-                "title": "Produce analysis-ready datasets",
-                "description": "Produces clean, consistent, reliable datasets ready for modelling and reporting",
+        # 10. Rubric Criteria & Bands
+        raw_criteria = [
+            {
+                "criterion_code": "DMV-A3-C1",
+                "title": "Connect and import data",
+                "description": "Connects to and imports external datasets accurately.",
                 "maximum_score": "3.00",
-                "sequence": 5,
-                "ai_gradable": True,
-                "deterministic": False,
-            },
-        )
-
-        # 10. Rubric Band
-        rubric_band, _ = RubricBand.objects.get_or_create(
-            rubric_criterion=rubric_criterion,
-            band_code="foundation",
-            defaults={
-                "display_name": "Foundation Structure",
-                "minimum_percentage": "0",
-                "maximum_percentage": "100",
-                "descriptor": "Code is clean, properly formatted, and functions without minor bugs.",
                 "sequence": 1,
             },
-        )
+            {
+                "criterion_code": "DMV-A3-C2",
+                "title": "Identify data quality issues",
+                "description": "Profiles data and identifies nulls, duplicates, and type mismatches.",
+                "maximum_score": "3.00",
+                "sequence": 2,
+            },
+            {
+                "criterion_code": "DMV-A3-C3",
+                "title": "Clean and transform data",
+                "description": "Cleans raw fields and applies appropriate Power Query steps.",
+                "maximum_score": "3.00",
+                "sequence": 3,
+            },
+            {
+                "criterion_code": "DMV-A3-C4",
+                "title": "Standardize and organize data",
+                "description": "Applies consistent naming, date formatting, and structure.",
+                "maximum_score": "3.00",
+                "sequence": 4,
+            },
+            {
+                "criterion_code": "DMV-A3-C5",
+                "title": "Produce analysis-ready datasets",
+                "description": "Produces clean, consistent, reliable datasets ready for modelling and reporting.",
+                "maximum_score": "3.00",
+                "sequence": 5,
+            },
+        ]
+
+        for criterion_data in raw_criteria:
+            rubric_criterion, _ = RubricCriterion.objects.get_or_create(
+                assignment_level_id=assignment_level.id,
+                criterion_code=criterion_data["criterion_code"],
+                defaults={
+                    "title": criterion_data["title"],
+                    "description": criterion_data["description"],
+                    "maximum_score": criterion_data["maximum_score"],
+                    "sequence": criterion_data["sequence"],
+                    "ai_gradable": True,
+                    "deterministic": False,
+                },
+            )
+
+            RubricBand.objects.get_or_create(
+                rubric_criterion=rubric_criterion,
+                band_code="foundation",
+                defaults={
+                    "display_name": "Foundation Structure",
+                    "minimum_percentage": "0",
+                    "maximum_percentage": "100",
+                    "descriptor": "Code is clean, properly formatted, and functions without minor bugs.",
+                    "sequence": 1,
+                },
+            )
 
         self.stdout.write(
             self.style.SUCCESS("Database seeding completed successfully!")
