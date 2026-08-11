@@ -126,3 +126,138 @@ class AIGradingProfileAdmin(admin.ModelAdmin):
         "profile_name",
         "assignment_level__assignment__code",
     )
+    
+from .models import (
+    AIGradingProfile,
+    CriterionResult,
+    ExtractedEvidence,
+    GradingConfiguration,
+    Prompt,
+    RagChunk,
+    RagSource,
+    Response,
+    RubricBand,
+    RubricCriterion,
+    Task,
+    TaskCriteriaMapping,
+    TaskCriterionWeight,
+    TaskEvidenceMap,
+)
+
+
+@admin.register(Task)
+class TaskAdmin(admin.ModelAdmin):
+    list_display = (
+        "task_code",
+        "title",
+        "assignment_level",
+        "sequence",
+    )
+    list_filter = ("assignment_level",)
+    search_fields = ("task_code", "title")
+    ordering = ("assignment_level", "sequence")
+
+
+@admin.register(TaskCriterionWeight)
+class TaskCriterionWeightAdmin(admin.ModelAdmin):
+    list_display = (
+        "task",
+        "rubric_criterion",
+        "weight_percentage",
+        "band",
+    )
+    list_filter = ("band",)
+    search_fields = (
+        "task__task_code",
+        "rubric_criterion__criterion_code",
+    )
+
+
+@admin.register(TaskCriteriaMapping)
+class TaskCriteriaMappingAdmin(admin.ModelAdmin):
+    list_display = (
+        "task",
+        "rubric_criterion",
+        "inferred_weight",
+        "created_at",
+    )
+    search_fields = (
+        "task__task_code",
+        "rubric_criterion__criterion_code",
+    )
+    readonly_fields = ("created_at",)
+
+
+@admin.register(ExtractedEvidence)
+class ExtractedEvidenceAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "submission",
+        "evidence_type",
+        "extraction_confidence",
+        "created_at",
+    )
+    list_filter = ("evidence_type",)
+    search_fields = (
+        "submission__original_filename",
+        "content_text",
+    )
+    readonly_fields = ("created_at",)
+
+
+@admin.register(TaskEvidenceMap)
+class TaskEvidenceMapAdmin(admin.ModelAdmin):
+    list_display = (
+        "task",
+        "evidence",
+        "mapping_role",
+        "confidence_score",
+    )
+    list_filter = ("mapping_role",)
+    search_fields = ("task__task_code",)
+
+
+@admin.register(Prompt)
+class PromptAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "submission",
+        "stage",
+        "created_at",
+    )
+    list_filter = ("stage",)
+    search_fields = (
+        "submission__original_filename",
+        "prompt_text",
+    )
+    readonly_fields = ("created_at",)
+
+
+@admin.register(Response)
+class ResponseAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "prompt",
+        "model_name",
+        "confidence_score",
+        "created_at",
+    )
+    search_fields = ("model_name",)
+    readonly_fields = ("created_at",)
+
+
+@admin.register(CriterionResult)
+class CriterionResultAdmin(admin.ModelAdmin):
+    list_display = (
+        "submission",
+        "rubric_criterion",
+        "awarded_marks",
+        "achievement_band",
+        "created_at",
+    )
+    list_filter = ("achievement_band",)
+    search_fields = (
+        "submission__original_filename",
+        "rubric_criterion__criterion_code",
+    )
+    readonly_fields = ("created_at",)
