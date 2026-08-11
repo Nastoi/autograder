@@ -1744,3 +1744,43 @@ export async function deleteAIGradingProfile(
 }
 
 
+export type MappingSubmissionContext = {
+    mapping_id: string;
+
+    cohort: {
+        id: number;
+        code: string;
+        name: string;
+    };
+
+    assignment: {
+        id: string;
+        code: string;
+        title: string;
+        maximum_score: string;
+    };
+};
+
+export async function getMappingSubmissionContext(
+    mappingId: string,
+): Promise<MappingSubmissionContext> {
+    const response = await fetch(
+        `${API_BASE_URL}/lms/assessment-mappings/${mappingId}/submission/`,
+        {
+            method: "GET",
+            credentials: "include",
+        },
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+        throw new Error(
+            typeof data?.detail === "string"
+                ? data.detail
+                : "Unable to load assignment.",
+        );
+    }
+
+    return data as MappingSubmissionContext;
+}

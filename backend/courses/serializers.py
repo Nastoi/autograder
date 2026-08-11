@@ -1,5 +1,10 @@
 from rest_framework import serializers
+from django.db import transaction
 
+from grading.models import (
+    AIGradingProfile,
+    GradingConfiguration,
+)
 from .models import (
     Cohort,
     Module,
@@ -37,11 +42,11 @@ class QualificationSerializer(serializers.ModelSerializer):
     ) -> bool:
         return not obj.modules.exists()
 
-    def validate_code(self, value: str) -> str:
+    def validate_qualification_code(self, value: str) -> str:
         normalized = value.strip().upper()
 
         queryset = Qualification.objects.filter(
-            code__iexact=normalized,
+            qualification_code__iexact=normalized,
         )
 
         if self.instance:
@@ -57,11 +62,11 @@ class QualificationSerializer(serializers.ModelSerializer):
 
 class ModuleSerializer(serializers.ModelSerializer):
     qualification_code = serializers.CharField(
-        source="qualification.code",
+        source="qualification.qualification_code",
         read_only=True,
     )
     qualification_name = serializers.CharField(
-        source="qualification.name",
+        source="qualification.qualification_name",
         read_only=True,
     )
     can_delete = serializers.SerializerMethodField()
@@ -391,6 +396,201 @@ class ModuleAssignmentSerializer(serializers.ModelSerializer):
 
         return attrs
 
+    @transaction.atomic
+    def create(self, validated_data):
+        assignment = super().create(validated_data)
+
+        level_definitions = (
+            (
+                AssignmentLevel.Level.FOUNDATION,
+                "Foundation",
+            ),
+            (
+                AssignmentLevel.Level.PROFICIENT,
+                "Proficient",
+            ),
+            (
+                AssignmentLevel.Level.EXPERT,
+                "Expert",
+            ),
+        )
+
+        for level_code, display_name in level_definitions:
+            configuration_code = (
+                f"{assignment.code}-{level_code.upper()}"
+            )
+
+            if GradingConfiguration.objects.filter(
+                code=configuration_code,
+            ).exists():
+                configuration_code = (
+                    f"{assignment.module.code}-"
+                    f"{assignment.code}-"
+                    f"{level_code.upper()}-"
+                    f"{str(assignment.id)[:8]}"
+                )
+
+            grading_configuration = (
+                GradingConfiguration.objects.create(
+                    code=configuration_code,
+                    name=(
+                        f"{assignment.title} - "
+                        f"{display_name}"
+                    ),
+                    grading_type=(
+                        GradingConfiguration
+                        .GradingType
+                        .HYBRID
+                    ),
+                    structural_check_enabled=True,
+                    automated_testing_enabled=False,
+                    rag_enabled=True,
+                    ai_grading_enabled=True,
+                    manual_review_required=True,
+                    confidence_review_threshold="0.700",
+                    version=1,
+                    configuration={
+                        "score_source": (
+                            "backend_calculation"
+                        ),
+                        "attempt_level": level_code,
+                        "assignment_code": (
+                            assignment.code
+                        ),
+                        "manual_review_on_mapping_mismatch": True,
+                        "ai_may_not_exceed_criterion_maximum": True,
+                    },
+                    is_active=True,
+                )
+            )
+
+            assignment_level = AssignmentLevel.objects.create(
+                assignment=assignment,
+                grading_configuration=(
+                    grading_configuration
+                ),
+                level_code=level_code,
+                display_name=display_name,
+                title=(
+                    f"{assignment.title} - "
+                    f"{display_name}"
+                ),
+                instructions="",
+                tasks=[],
+                deliverables=[],
+                expected_outcome="",
+                source_filename=None,
+                version=1,
+                configuration_status=(
+                    AssignmentLevel
+                    .ConfigurationStatus
+                    .DRAFT
+                ),
+                is_active=True,
+            )
+
+            allowed_bands = (
+                ["failed", "foundation", "proficient"]
+                if level_code in (
+                    AssignmentLevel.Level.FOUNDATION,
+                    AssignmentLevel.Level.PROFICIENT,
+                )
+                else ["failed", "proficient", "expert"]
+            )
+
+            AIGradingProfile.objects.create(
+                assignment_level=assignment_level,
+                profile_name=(
+                    f"{assignment.code} "
+                    f"{display_name} AI Grading Profile"
+                ),
+                system_prompt=(
+                    "Grade only against the supplied assignment, "
+                    "rubric, retrieved context, and learner evidence. "
+                    f"The selected grading level is {level_code}. "
+                    "Do not invent requirements. "
+                    "Score every criterion independently, cite concrete "
+                    "evidence, and never exceed its maximum. "
+                    "Return low confidence and request manual review when "
+                    "evidence is missing, ambiguous, contradictory, or "
+                    "inaccessible."
+                ),
+                output_schema={
+                    "type": "object",
+                    "required": [
+                        "criteria",
+                        "overall_feedback",
+                        "confidence",
+                        "requires_manual_review",
+                    ],
+                    "properties": {
+                        "criteria": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "required": [
+                                    "criterion_code",
+                                    "score",
+                                    "maximum_score",
+                                    "achieved_band",
+                                    "evidence",
+                                    "feedback",
+                                    "confidence",
+                                ],
+                                "properties": {
+                                    "criterion_code": {
+                                        "type": "string",
+                                    },
+                                    "score": {
+                                        "type": "number",
+                                    },
+                                    "maximum_score": {
+                                        "type": "number",
+                                    },
+                                    "achieved_band": {
+                                        "enum": allowed_bands,
+                                    },
+                                    "evidence": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string",
+                                        },
+                                    },
+                                    "feedback": {
+                                        "type": "string",
+                                    },
+                                    "confidence": {
+                                        "type": "number",
+                                        "minimum": 0,
+                                        "maximum": 1,
+                                    },
+                                },
+                            },
+                        },
+                        "overall_feedback": {
+                            "type": "string",
+                        },
+                        "confidence": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1,
+                        },
+                        "requires_manual_review": {
+                            "type": "boolean",
+                        },
+                        "review_reason": {
+                            "type": "string",
+                        },
+                    },
+                },
+                temperature="0.10",
+                model_provider="openai",
+                model_name="configure-in-environment",
+                is_active=True,
+            )
+
+        return assignment
+
 
 
 class AssignmentLevelSerializer(serializers.ModelSerializer):
@@ -415,7 +615,7 @@ class AssignmentLevelSerializer(serializers.ModelSerializer):
         read_only=True,
     )
     qualification_code = serializers.CharField(
-        source="assignment.module.qualification.code",
+        source="assignment.module.qualification.qualification_code",
         read_only=True,
     )
     grading_configuration_code = serializers.CharField(

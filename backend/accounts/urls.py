@@ -6,6 +6,7 @@ from .views import (
     LogoutView,
     LearnerRegisterView,
     LearnerListView,
+    CsrfTokenView,
 )
 
 app_name = "accounts"

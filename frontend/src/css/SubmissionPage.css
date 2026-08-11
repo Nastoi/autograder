@@ -1,17 +1,29 @@
 @import url("https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap");
 
 .submission-page {
-  min-height: calc(100vh - 70px);
-  padding: 36px 40px 60px;
-  background: #f5f7fb;
-  font-family: "Montserrat", sans-serif;
-  color: #13233f;
+    position: relative;
+    z-index: 1;
+
+    width: 100%;
+    min-height: 100vh;
+    box-sizing: border-box;
+
+    padding: 36px 40px 80px;
+
+    background: #f5f7fb;
+    font-family: "Montserrat", sans-serif;
+    color: #13233f;
+
+    overflow: visible;
 }
 
 .submission-content {
-  width: 100%;
-  max-width: 1040px;
-  margin: 0 auto;
+    position: relative;
+    width: 100%;
+    max-width: 1040px;
+    margin: 0 auto;
+    padding-bottom: 40px;
+    box-sizing: border-box;
 }
 
 .submission-header {
@@ -123,6 +135,55 @@
   font-size: 13px;
 }
 
+/* ------------------------- */
+/* Submission Track Section  */
+/* ------------------------- */
+
+.submission-track-options {
+  margin: 0 0 24px;
+  padding: 20px 22px;
+  border: 1px solid #d9e1ec;
+  border-radius: 14px;
+  background: #f8fbff;
+}
+
+.submission-track-options legend {
+  padding: 0 8px;
+  color: #13233f;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.submission-track-options label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+  color: #1a3e6b;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.submission-track-options input[type="radio"] {
+  width: 17px;
+  height: 17px;
+  margin: 0;
+  accent-color: #1a3e6b;
+  cursor: pointer;
+}
+
+.submission-track-options p {
+  margin: 5px 0 12px 27px;
+  color: #748096;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+/* ------------------------- */
+/* Upload Area               */
+/* ------------------------- */
+
 .file-upload-box {
   display: flex;
   flex-direction: column;
@@ -149,17 +210,7 @@
   border-color: #3b82f6;
   box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.12);
 }
-.file-button,
-.remove-file-button,
-.btn-primary {
-  outline: none;
-}
 
-.remove-file-button:focus-visible,
-.btn-primary:focus-visible {
-  outline: 3px solid rgba(179, 161, 36, 0.4);
-  outline-offset: 3px;
-}
 .upload-icon {
   display: grid;
   width: 48px;
@@ -281,8 +332,14 @@
 }
 
 .btn-primary:disabled {
-  cursor: not-allowed;
   opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.remove-file-button:focus-visible,
+.btn-primary:focus-visible {
+  outline: 3px solid rgba(59, 130, 246, 0.35);
+  outline-offset: 3px;
 }
 
 @media (max-width: 800px) {
@@ -313,7 +370,97 @@
   }
 
   .selected-file {
-    align-items: flex-start;
     flex-direction: column;
+    align-items: flex-start;
   }
+}
+
+.submission-attempt-card {
+  border: 1px solid #dbe2ea;
+  border-radius: 10px;
+  padding: 16px;
+  margin-top: 12px;
+  background: #fff;
+}
+
+.attempt-card-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.attempt-card-header > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.attempt-number {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.attempt-filename {
+  font-size: 15px;
+  overflow-wrap: anywhere;
+}
+
+.attempt-status {
+  text-transform: capitalize;
+  font-size: 13px;
+}
+
+.attempt-details {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.attempt-details > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.attempt-detail-label {
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+.attempt-detail-value {
+  font-size: 14px;
+}
+
+.file-upload-box-dragging {
+  border-style: solid;
+  transform: translateY(-1px);
+  box-shadow: 0 0 0 3px rgba(30, 58, 95, 0.12);
+}
+
+.selected-file-details {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.selected-file-name {
+  overflow-wrap: anywhere;
+}
+
+.selected-file-size {
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+.grading-wait-message {
+  margin-bottom: 16px;
+  padding: 14px 16px;
+  border: 1px solid #dbe2ea;
+  border-radius: 8px;
+}
+
+.grading-wait-message p {
+  margin: 4px 0 0;
 }

@@ -1,7 +1,6 @@
 import { useState, type FormEvent } from "react";
 import {
   Navigate,
-  useLocation,
   useNavigate,
 } from "react-router";
 
@@ -10,18 +9,11 @@ import "../css/LoginPage.css";
 
 import { Bot } from "lucide-react";
 
-type LocationState = {
-  from?: {
-    pathname?: string;
-  };
-};
 
 export function LoginPage() {
   const { user, login } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
 
-  const state = location.state as LocationState | null;
 
   function getDefaultDestination(
     role: string | null | undefined,
@@ -43,13 +35,13 @@ export function LoginPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (user) {
-    return (
-      <Navigate
-        to={getDefaultDestination(user.role)}
-        replace
-      />
-    );
-  }
+  return (
+    <Navigate
+      to={getDefaultDestination(user.role)}
+      replace
+    />
+  );
+}
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -60,18 +52,10 @@ export function LoginPage() {
     try {
       const loggedInUser = await login(username, password);
 
-      const requestedPath = state?.from?.pathname;
-
-      const isAdminUser =
-        loggedInUser.role === "system_admin" ||
-        loggedInUser.role === "mapping_admin" ||
-        loggedInUser.role === "faculty";
-
-      const nextDestination = isAdminUser
-        ? "/dashboard"
-        : requestedPath ?? "/";
-
-      navigate(nextDestination, { replace: true });
+      navigate(
+  getDefaultDestination(loggedInUser.role),
+  { replace: true },
+);
     } catch (error) {
       setError(
         error instanceof Error

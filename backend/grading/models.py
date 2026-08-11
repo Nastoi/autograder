@@ -86,6 +86,7 @@ class RubricCriterion(models.Model):
     deterministic = models.BooleanField(default=False)
 
     created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         ordering = (
@@ -218,6 +219,7 @@ class RagSource(models.Model):
     )
 
     created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         ordering = ("assignment_level", "title")
@@ -257,6 +259,7 @@ class RagChunk(models.Model):
         null=True,
     )
 
+    created_at = models.DateTimeField(auto_now_add=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

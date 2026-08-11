@@ -26,8 +26,6 @@ class AssessmentMapping(models.Model):
         "courses.ModuleAssignment",
         on_delete=models.PROTECT,
         related_name="assessment_mappings",
-        null=True,
-        blank=True,
     )
 
     external_platform_id = models.CharField(
@@ -91,3 +89,30 @@ class AssessmentMapping(models.Model):
 
     def __str__(self) -> str:
         return self.name
+
+
+class LtiUserIdentity(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="lti_identities",
+    )
+
+    issuer = models.CharField(max_length=500)
+    deployment_id = models.CharField(max_length=255)
+    lti_user_id = models.CharField(max_length=255)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=[
+                    "issuer",
+                    "deployment_id",
+                    "lti_user_id",
+                ],
+                name="unique_lti_user_identity",
+            ),
+        ]

@@ -17,6 +17,8 @@ from .serializers import (
     SubmissionContextSerializer,
 )
 from .services import extract_submission_pages, run_ai_grading
+from lms.models import AssessmentMapping
+from courses.models import AssignmentLevel
 
 ALLOWED_EXTENSIONS = {
     ".doc",
@@ -47,7 +49,7 @@ class SubmissionContextView(APIView):
             # Automatically assign authenticated user as the learner
             context = serializer.save(learner=request.user)
 
-            assignment = context.assignment_level.assignment
+            assignment = context.assignment
             module = assignment.module
 
             return Response(
@@ -76,11 +78,6 @@ class SubmissionContextView(APIView):
                         "title": assignment.assignment_title,
                         "maximum_score": assignment.maximum_score,
                     },
-                    "assignment_level": {
-                        "id": context.assignment_level.id,
-                        "level_code": context.assignment_level.level_code,
-                        "display_name": context.assignment_level.display_name,
-                    },
                 },
                 status=status.HTTP_201_CREATED,
             )
@@ -93,15 +90,14 @@ class SubmissionContextView(APIView):
                 "learner",
                 "cohort",
                 "cohort__module",
-                "assignment_level",
-                "assignment_level__assignment",
+                "assignment",
             ),
             id=context_id,
             learner=request.user,
             is_active=True,
         )
 
-        assignment = context.assignment_level.assignment
+        assignment = context.assignment
         module = assignment.module
 
         return Response(
@@ -129,11 +125,6 @@ class SubmissionContextView(APIView):
                     "title": assignment.title,
                     "maximum_score": assignment.maximum_score,
                 },
-                "assignment_level": {
-                    "id": context.assignment_level.id,
-                    "level_code": context.assignment_level.level_code,
-                    "display_name": context.assignment_level.display_name,
-                },
             },
             status=status.HTTP_200_OK,
         )
@@ -144,16 +135,11 @@ class SubmissionCreateView(APIView):
     parser_classes = [MultiPartParser, FormParser]
 
     def post(self, request, context_id):
-        if get_learner_role(request.user) != "learner":
-            return Response(
-                {"detail": "Only learner accounts can submit assignments."},
-                status=status.HTTP_403_FORBIDDEN,
-            )
+        
 
         context = get_object_or_404(
             SubmissionContext.objects.select_related(
-                "assignment_level",
-                "assignment_level__assignment",
+                "assignment",
             ),
             id=context_id,
             learner=request.user,
@@ -180,9 +166,14 @@ class SubmissionCreateView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        if uploaded_file is None:
+        if uploaded_file.size == 0:
             return Response(
-                {"detail": "Please select a file."},
+                {
+                    "detail": (
+                        "The selected file is empty. "
+                        "Please upload a valid file."
+                    )
+                },
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -205,17 +196,40 @@ class SubmissionCreateView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        pending_submission = LearnerSubmission.objects.filter(
+            learner=request.user,
+            assignment=context.assignment,
+            context__cohort=context.cohort,
+            status__in=[
+                LearnerSubmission.Status.UPLOADED,
+                LearnerSubmission.Status.PROCESSING,
+            ],
+        ).exists()
+
+        if pending_submission:
+            return Response(
+                {
+                    "detail": (
+                        "Your previous attempt is still being processed. "
+                        "Please wait for grading to finish before "
+                        "submitting another attempt."
+                    )
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
+
         previous_attempts = LearnerSubmission.objects.filter(
             learner=request.user,
-            context=context,
+            assignment=context.assignment,
+            context__cohort=context.cohort,
         ).count()
 
-        assignment = context.assignment_level.assignment
+        assignment = context.assignment
 
         submission = LearnerSubmission.objects.create(
             context=context,
             learner=request.user,
-            assignment_level=context.assignment_level,
+            assignment=assignment,
             submitted_file=uploaded_file,
             original_filename=uploaded_file.name,
             attempt_number=previous_attempts + 1,
@@ -239,8 +253,7 @@ class SubmissionDetailView(APIView):
         queryset = LearnerSubmission.objects.prefetch_related(
             "pages"
         ).select_related(
-            "assignment_level",
-            "assignment_level__assignment",
+            "assignment",
             "context",
         )
 
@@ -266,7 +279,7 @@ class LearnerSubmissionViewSet(ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         queryset = LearnerSubmission.objects.select_related(
-            "assignment_level__assignment__module"
+            "assignment__module"
         ).order_by("-submitted_at")
 
         if not user.is_superuser:
@@ -304,6 +317,108 @@ class PageImageView(APIView):
         return HttpResponse(
             page.image_data, 
             content_type=page.image_mime_type
+        )
+
+
+class MappingSubmissionContextView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, mapping_id):
+        
+
+        mapping = get_object_or_404(
+            AssessmentMapping.objects.select_related(
+                "cohort",
+                "cohort__module",
+                "assignment",
+            ),
+            id=mapping_id,
+            is_active=True,
+        )
+
+        context, _ = SubmissionContext.objects.get_or_create(
+            learner=request.user,
+            cohort=mapping.cohort,
+            assignment=mapping.assignment,
+            assessment_mapping=mapping,
+            defaults={
+                "is_active": True,
+            },
+        )
+
+        if not context.is_active:
+            context.is_active = True
+            context.save(
+                update_fields=[
+                    "is_active",
+                    "updated_at",
+                ]
+            )
+
+        return Response(
+            {
+                "context_id": str(context.id),
+                "mapping_id": str(mapping.id),
+                "learner": {
+                    "id": request.user.id,
+                    "username": request.user.username,
+                    "name": (
+                        request.user.get_full_name()
+                        or request.user.username
+                    ),
+                    "email": request.user.email,
+                },
+                "cohort": {
+                    "id": mapping.cohort.id,
+                    "code": mapping.cohort.cohort_code,
+                    "name": mapping.cohort.cohort_name,
+                },
+                "assignment": {
+                    "id": str(mapping.assignment.id),
+                    "code": mapping.assignment.code,
+                    "title": mapping.assignment.title,
+                    "maximum_score": str(
+                        mapping.assignment.maximum_score
+                    ),
+                },
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+
+class MappingSubmissionHistoryView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, mapping_id):
+        mapping = get_object_or_404(
+            AssessmentMapping.objects.select_related(
+                "cohort",
+                "assignment",
+            ),
+            id=mapping_id,
+            is_active=True,
+        )
+
+        submissions = (
+            LearnerSubmission.objects
+            .filter(
+                learner=request.user,
+                assignment=mapping.assignment,
+                context__cohort=mapping.cohort,
+            )
+            .select_related(
+                "assignment",
+                "context",
+            )
+            .order_by("-attempt_number")
+        )
+
+        return Response(
+            LearnerSubmissionSerializer(
+                submissions,
+                many=True,
+            ).data
         )
         
 class PageTextJsonView(APIView):

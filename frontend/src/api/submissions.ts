@@ -37,11 +37,6 @@ export type SubmissionContext = {
     maximum_score: string;
   };
 
-  assignment_level: {
-    id: string;
-    level_code: string;
-    display_name: string;
-  };
 };
 
 export type SubmissionTrack = "basic" | "advanced";
@@ -51,15 +46,16 @@ export type Submission = {
   context_id: string;
   assignment_code: string;
   assignment_title: string;
-  level: string;
   submission_track: SubmissionTrack;
   original_filename: string;
   attempt_number: number;
   status:
   | "uploaded"
   | "processing"
+  | "graded"
   | "completed"
   | "failed"
+  | "error"
   | "manual_review";
   final_score: string | null;
   maximum_score: string | null;
@@ -103,8 +99,7 @@ function isSubmissionContext(
     "learner" in data &&
     "cohort" in data &&
     "module" in data &&
-    "assignment" in data &&
-    "assignment_level" in data
+    "assignment" in data
   );
 }
 
@@ -120,7 +115,6 @@ function isSubmission(
     "context_id" in data &&
     "assignment_code" in data &&
     "assignment_title" in data &&
-    "level" in data &&
     "submission_track" in data &&
     "original_filename" in data &&
     "attempt_number" in data &&
@@ -252,4 +246,99 @@ export async function getSubmission(
   }
 
   return data;
+}
+
+
+export type MappingResolvedContext = {
+  context_id: string;
+  mapping_id: string;
+
+  learner: {
+    id: number;
+    username: string;
+    name: string;
+    email: string;
+  };
+
+  cohort: {
+    id: number;
+    code: string;
+    name: string;
+  };
+
+  assignment: {
+    id: string;
+    code: string;
+    title: string;
+    maximum_score: string;
+  };
+};
+
+export async function resolveMappingContext(
+  mappingId: string,
+): Promise<MappingResolvedContext> {
+  const csrfToken = await getCsrfToken();
+
+  const response = await fetch(
+    `${API_BASE_URL}/submissions/mapping/${mappingId}/context/`,
+    {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        "X-CSRFToken": csrfToken,
+      },
+    },
+  );
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(
+      typeof data?.detail === "string"
+        ? data.detail
+        : "Unable to prepare submission.",
+    );
+  }
+
+  return data as MappingResolvedContext;
+}
+
+
+export async function getMappingSubmissionHistory(
+  mappingId: string,
+): Promise<Submission[]> {
+  const response = await fetch(
+    `${API_BASE_URL}/submissions/mapping/${mappingId}/attempts/`,
+    {
+      method: "GET",
+      credentials: "include",
+    },
+  );
+
+  const data = await readJson<unknown>(response);
+
+  if (!response.ok) {
+    throw new Error(
+      getErrorMessage(
+        data,
+        "Unable to load previous attempts.",
+      ),
+    );
+  }
+
+  if (!Array.isArray(data)) {
+    throw new Error(
+      "The server returned invalid submission history data.",
+    );
+  }
+
+  const submissions = data.filter(isSubmission);
+
+  if (submissions.length !== data.length) {
+    throw new Error(
+      "The server returned invalid submission history data.",
+    );
+  }
+
+  return submissions;
 }

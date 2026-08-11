@@ -9,7 +9,7 @@ class SubmissionContextSerializer(serializers.ModelSerializer):
             "id",
             "learner",
             "cohort",
-            "assignment_level",
+            "assignment",
             "is_active",
             "created_at",
             "updated_at",
@@ -53,17 +53,12 @@ class LearnerSubmissionSerializer(serializers.ModelSerializer):
     )
 
     assignment_code = serializers.CharField(
-        source="assignment_level.assignment.code",
+        source="assignment.code",
         read_only=True,
     )
 
     assignment_title = serializers.CharField(
-        source="assignment_level.assignment.title",
-        read_only=True,
-    )
-
-    level = serializers.CharField(
-        source="assignment_level.level_code",
+        source="assignment.title",
         read_only=True,
     )
 
@@ -74,7 +69,7 @@ class LearnerSubmissionSerializer(serializers.ModelSerializer):
             "context",
             "context_id",
             "learner",
-            "assignment_level",
+            "assignment",
             "assignment_code",
             "assignment_title",
             "level",
@@ -111,19 +106,15 @@ class LearnerSubmissionDetailSerializer(serializers.ModelSerializer):
     )
 
     assignment_code = serializers.CharField(
-        source="assignment_level.assignment.code",
+        source="assignment.code",
         read_only=True,
     )
 
     assignment_title = serializers.CharField(
-        source="assignment_level.assignment.title",
+        source="assignment.title",
         read_only=True,
     )
 
-    level = serializers.CharField(
-        source="assignment_level.level_code",
-        read_only=True,
-    )
 
     class Meta:
         model = LearnerSubmission
@@ -132,15 +123,15 @@ class LearnerSubmissionDetailSerializer(serializers.ModelSerializer):
 
 class LearnerSubmissionListSerializer(serializers.ModelSerializer):
     assignment_code = serializers.CharField(
-        source="assignment_level.assignment.code",
+        source="assignment.code",
         read_only=True,
     )
     assignment_title = serializers.CharField(
-        source="assignment_level.assignment.title",
+        source="assignment.title",
         read_only=True,
     )
     module_id = serializers.UUIDField(
-        source="assignment_level.assignment.module.id",
+        source="assignment.module.id",
         read_only=True,
         default=None,
     )

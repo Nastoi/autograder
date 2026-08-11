@@ -8,7 +8,7 @@ class SubmissionContextAdmin(admin.ModelAdmin):
     list_display = (
         "learner",
         "cohort",
-        "assignment_level",
+        "assignment",
         "is_active",
         "created_at",
     )
@@ -16,14 +16,14 @@ class SubmissionContextAdmin(admin.ModelAdmin):
     list_filter = (
         "is_active",
         "cohort",
-        "assignment_level__level_code",
+        "assignment__code",
     )
 
     search_fields = (
         "learner__username",
         "learner__email",
         "cohort__code",
-        "assignment_level__assignment__code",
+        "assignment__assignment__code",
     )
 
 
@@ -32,7 +32,7 @@ class LearnerSubmissionAdmin(admin.ModelAdmin):
     list_display = (
         "learner",
         "original_filename",
-        "assignment_level",
+        "assignment",
         "attempt_number",
         "status",
         "submitted_at",
@@ -40,19 +40,19 @@ class LearnerSubmissionAdmin(admin.ModelAdmin):
 
     list_filter = (
         "status",
-        "assignment_level__level_code",
+        "assignment__code",
     )
 
     search_fields = (
         "learner__username",
         "learner__email",
         "original_filename",
-        "assignment_level__assignment__code",
+        "assignment__assignment__code",
     )
 
     readonly_fields = (
         "learner",
-        "assignment_level",
+        "assignment",
         "original_filename",
         "submitted_at",
     )

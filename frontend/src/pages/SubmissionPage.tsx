@@ -169,9 +169,6 @@ export function SubmissionPage() {
             </p>
           </div>
 
-          <span className="level-badge">
-            {context.assignment_level.display_name}
-          </span>
         </header>
 
         <section
