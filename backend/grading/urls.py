@@ -25,6 +25,7 @@ from .views import (
     TaskListCreateView,
     TaskEvidenceMapDetailView,
     TaskEvidenceMapListCreateView,
+    TestGPT4oGradingView,
 )
 
 urlpatterns = [
@@ -147,5 +148,10 @@ urlpatterns = [
         "criterion-results/<uuid:id>/",
         CriterionResultDetailView.as_view(),
         name="criterion-result-detail",
+    ),
+    path(
+        "test-gpt4o/", 
+        TestGPT4oGradingView.as_view(), 
+        name="test-gpt4o"
     ),
 ]

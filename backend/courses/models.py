@@ -228,7 +228,7 @@ class AssignmentLevel(models.Model):
 
     def __str__(self) -> str:
         return (
-            f"{self.assignment.code} — "
+            f"{self.assignment.module.module_code} — "
             f"{self.get_level_code_display()}"
         )
 

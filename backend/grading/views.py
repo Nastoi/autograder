@@ -1,6 +1,19 @@
+import base64
 from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response as DRFResponse
+
+from django.shortcuts import get_object_or_404
+from django.conf import settings
+from rest_framework.views import APIView
+from rest_framework.response import Response
+
+from openai import OpenAI
+from .schemas import GradingResponseSchema
+from submissions.models import LearnerSubmission, SubmissionPage
+
+from .models import ExtractedEvidence
+
 
 from lms.permissions import IsMappingAdmin
 
@@ -32,6 +45,7 @@ from .serializers import (
     TaskCriterionWeightSerializer,
     TaskEvidenceMapSerializer,
     TaskSerializer,
+    AIDispatchRequestSerializer,
 )
 
 
@@ -383,28 +397,25 @@ class TaskCriteriaMappingDetailView(
         )
 
 
-class ExtractedEvidenceListCreateView(
-    generics.ListCreateAPIView
-):
+class ExtractedEvidenceListCreateView(generics.ListCreateAPIView):
     serializer_class = ExtractedEvidenceSerializer
     permission_classes = [IsAuthenticated, IsMappingAdmin]
 
     def get_queryset(self):
         queryset = ExtractedEvidence.objects.select_related(
             "submission",
-        ).order_by("created_at")
+        ).order_by("page_number", "created_at")
 
         submission_id = self.request.query_params.get("submission_id")
-        evidence_type = self.request.query_params.get("evidence_type")
+        page_number = self.request.query_params.get("page_number")
 
         if submission_id:
             queryset = queryset.filter(submission_id=submission_id)
 
-        if evidence_type:
-            queryset = queryset.filter(evidence_type=evidence_type)
+        if page_number:
+            queryset = queryset.filter(page_number=page_number)
 
         return queryset
-
 
 class ExtractedEvidenceDetailView(
     generics.RetrieveUpdateDestroyAPIView
@@ -560,3 +571,104 @@ class CriterionResultDetailView(
             "submission",
             "rubric_criterion",
         ).order_by("created_at")
+
+class TestGPT4oGradingView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        submission_id = request.data.get("submission_id")
+        system_prompt = request.data.get(
+            "system_prompt",
+            "You are an automated academic grader. Review the provided evidence text snippets and page images, then evaluate the submission against typical assignment requirements. Add a funny quote at the end of response for test purpose.",
+        )
+
+        if not submission_id:
+            return Response(
+                {"error": "submission_id is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Ensure API key is configured
+        if not settings.OPENAI_API_KEY:
+            return Response(
+                {"error": "OPENAI_API_KEY is missing or empty in environment settings."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        submission = get_object_or_404(LearnerSubmission, id=submission_id)
+
+        evidences = ExtractedEvidence.objects.filter(
+            submission_id=submission_id
+        ).order_by("page_number", "created_at")
+
+        if not evidences.exists():
+            return Response(
+                {"error": f"No evidence objects found for submission {submission_id}"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        # Build OpenAI multimodal payload
+        user_content = [
+            {
+                "type": "text",
+                "text": f"Evaluate Submission ID: {submission_id} . Add a funny quote at the end for test purpose.",
+            }
+        ]
+
+        for ev in evidences:
+            if ev.content_text:
+                user_content.append(
+                    {
+                        "type": "text",
+                        "text": f"--- Page {ev.page_number} Extracted Text ---\n{ev.content_text}",
+                    }
+                )
+
+            if ev.page_number:
+                page = SubmissionPage.objects.filter(
+                    submission_id=submission_id, page_number=ev.page_number
+                ).first()
+
+                if page and page.image_data:
+                    b64_image = base64.b64encode(page.image_data).decode("utf-8")
+                    mime_type = getattr(page, "image_mime_type", "image/webp")
+                    user_content.append(
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:{mime_type};base64,{b64_image}"
+                            },
+                        }
+                    )
+
+        try:
+            client = OpenAI(api_key=settings.OPENAI_API_KEY)
+
+            completion = client.beta.chat.completions.parse(
+                model=settings.OPENAI_API_MODEL,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_content},
+                ],
+                response_format=GradingResponseSchema,  # Pass Pydantic schema
+                temperature=0.2,
+            )
+
+            # Define parsed_result here
+            parsed_result = completion.choices[0].message.parsed
+
+            return DRFResponse(
+                {
+                    "submission_id": submission_id,
+                    "model_used": settings.OPENAI_API_MODEL,
+                    "evidence_pages_processed": len(evidences),
+                    "ai_evaluation": parsed_result.model_dump(),  # Now parsed_result exists
+                },
+                status=status.HTTP_200_OK,
+            )
+            
+        except Exception as e:
+            return DRFResponse(
+                {"error": "OpenAI API call failed", "details": str(e)},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )

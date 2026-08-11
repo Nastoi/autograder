@@ -3,7 +3,6 @@ import uuid
 from django.db import models
 from pgvector.django import VectorField
 
-
 class GradingConfiguration(models.Model):
     class GradingType(models.TextChoices):
         RULES_ONLY = "rules_only", "Rules only"
@@ -54,7 +53,7 @@ class GradingConfiguration(models.Model):
         ordering = ("grading_config_code",)
 
     def __str__(self) -> str:
-        return f"{self.code} — {self.name}"
+        return f"{self.grading_config_code} — {self.grading_config_name}"
 
 
 class RubricCriterion(models.Model):
@@ -426,36 +425,33 @@ class TaskCriteriaMapping(models.Model):
 
 
 class ExtractedEvidence(models.Model):
-    class EvidenceType(models.TextChoices):
-        TEXT = "text", "Text"
-        IMAGE = "image", "Image"
-        TABLE = "table", "Table"
-        METADATA = "metadata", "Metadata"
-
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
 
     submission = models.ForeignKey(
         "submissions.LearnerSubmission",
         on_delete=models.CASCADE,
-        related_name="extracted_evidence",
+        related_name="extracted_evidences",
         db_column="submission_id",
-        null=True,  # Add null=True
-        blank=True, # Add blank=True
+        null=True,
+        blank=True,
     )
 
-    evidence_type = models.CharField(max_length=20, choices=EvidenceType.choices)
-    content_text = models.TextField(blank=True)
-    file_path = models.CharField(max_length=1024, blank=True)
-    extraction_confidence = models.DecimalField(max_digits=5, decimal_places=2, blank=True, null=True)
+    page_number = models.PositiveIntegerField(null=True, blank=True)
+    content_text = models.TextField(blank=True, default="")
+    image_url = models.CharField(max_length=1024, blank=True, default="")
+
+    extraction_confidence = models.DecimalField(
+        max_digits=5, decimal_places=2, blank=True, null=True
+    )
 
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         db_table = "extracted_evidence"
-        # managed = False
+        ordering = ("submission", "page_number", "created_at")
 
     def __str__(self) -> str:
-        return f"Evidence {self.id} ({self.evidence_type})"
+        return f"Evidence {self.id} — Page {self.page_number} (Submission {self.submission_id})"
 
 
 class TaskEvidenceMap(models.Model):

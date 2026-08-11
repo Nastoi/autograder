@@ -618,18 +618,13 @@ class ExtractedEvidenceSerializer(serializers.ModelSerializer):
         fields = (
             "id",
             "submission",
-            "evidence_type",
+            "page_number",
             "content_text",
-            "file_path",
+            "image_url",
             "extraction_confidence",
             "created_at",
         )
-        read_only_fields = (
-            "id",
-            "created_at",
-        )
-
-
+        read_only_fields = ("id", "created_at")
 class TaskEvidenceMapSerializer(serializers.ModelSerializer):
     class Meta:
         model = TaskEvidenceMap
@@ -695,3 +690,17 @@ class CriterionResultSerializer(serializers.ModelSerializer):
             "id",
             "created_at",
         )
+
+class AIDispatchRequestSerializer(serializers.Serializer):
+    submission_id = serializers.UUIDField(required=True)
+    ai_agent_url = serializers.URLField(
+        required=False,
+        default="https://api.your-ai-agent-service.com/v1/grade",
+        help_text="Target URL of the external AI Agent API"
+    )
+
+class AIDispatchResponseSerializer(serializers.Serializer):
+    submission_id = serializers.UUIDField()
+    status = serializers.CharField()
+    evidence_count = serializers.IntegerField()
+    ai_response = serializers.JSONField()

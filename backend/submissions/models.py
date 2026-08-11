@@ -52,7 +52,7 @@ class SubmissionContext(models.Model):
     def __str__(self) -> str:
         return (
             f"{self.learner.username} — "
-            f"{self.assignment_level.assignment.code} — "
+            f"{self.assignment_level.assignment.module.module_code} — "
             f"{self.assignment_level.level_code}"
         )
 

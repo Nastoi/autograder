@@ -188,21 +188,26 @@ class TaskCriteriaMappingAdmin(admin.ModelAdmin):
     readonly_fields = ("created_at",)
 
 
+# grading/admin.py
+
 @admin.register(ExtractedEvidence)
 class ExtractedEvidenceAdmin(admin.ModelAdmin):
     list_display = (
         "id",
         "submission",
-        "evidence_type",
+        "page_number",        # <--- Replaced evidence_type
         "extraction_confidence",
         "created_at",
     )
-    list_filter = ("evidence_type",)
+    list_filter = (
+        "page_number",        # <--- Replaced evidence_type
+        "created_at",
+    )
     search_fields = (
-        "submission__original_filename",
+        "id",
+        "submission__id",
         "content_text",
     )
-    readonly_fields = ("created_at",)
 
 
 @admin.register(TaskEvidenceMap)
