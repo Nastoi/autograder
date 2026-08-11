@@ -1,4 +1,7 @@
 import "../css/AssessmentMappings.css";
+import "../css/QualificationsPage.css";
+import { Link } from "react-router";
+import { GraduationCap, Package, ClipboardList } from "lucide-react";
 import {
   useEffect,
   useState,
@@ -530,20 +533,37 @@ export function AssignmentsPage() {
         </p>
       )}
 
-      <section>
-        <div className="status-grid assignment-status-grid">
-          <div className="status-card">
-            <span className="status-label">Qualifications</span>
-            <span className="status-value">{qualifications.length}</span>
-          </div>
-          <div className="status-card">
-            <span className="status-label">Modules</span>
-            <span className="status-value">{modules.length}</span>
-          </div>
-          <div className="status-card">
-            <span className="status-label">Assignments</span>
-            <span className="status-value">{assignments.length}</span>
-          </div>
+      <section style={{ marginBottom: '40px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px', marginBottom: '32px' }}>
+          <Link to="/admin/qualifications" className="metric-card-modern">
+            <div className="metric-icon-wrapper purple">
+              <GraduationCap size={24} />
+            </div>
+            <div className="metric-content">
+              <span className="metric-label" style={{ textTransform: 'uppercase', fontSize: '11px', fontWeight: 700 }}>Qualifications</span>
+              <span className="metric-value" style={{ marginTop: '4px' }}>{qualifications.length}</span>
+            </div>
+          </Link>
+
+          <Link to="/admin/modules" className="metric-card-modern">
+            <div className="metric-icon-wrapper blue">
+              <Package size={24} />
+            </div>
+            <div className="metric-content">
+              <span className="metric-label" style={{ textTransform: 'uppercase', fontSize: '11px', fontWeight: 700 }}>Modules</span>
+              <span className="metric-value" style={{ marginTop: '4px' }}>{modules.length}</span>
+            </div>
+          </Link>
+
+          <Link to="/admin/assignments" className="metric-card-modern">
+            <div className="metric-icon-wrapper orange">
+              <ClipboardList size={24} />
+            </div>
+            <div className="metric-content">
+              <span className="metric-label" style={{ textTransform: 'uppercase', fontSize: '11px', fontWeight: 700 }}>Assignments</span>
+              <span className="metric-value" style={{ marginTop: '4px' }}>{assignments.length}</span>
+            </div>
+          </Link>
         </div>
       </section>
 

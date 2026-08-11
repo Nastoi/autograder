@@ -4,6 +4,7 @@ import {
   type FormEvent,
 } from "react";
 import { useNavigate } from "react-router";
+import { Plus, Users, Link as LinkIcon, Copy } from "lucide-react";
 
 import {
   createCohort,
@@ -18,6 +19,7 @@ import {
 } from "../api/lms";
 
 import "../css/AssessmentMappings.css";
+import "../css/QualificationsPage.css"; // For modern UI classes
 
 export function CohortsPage() {
   const [cohorts, setCohorts] = useState<Cohort[]>([]);
@@ -33,8 +35,7 @@ export function CohortsPage() {
   const [endDate, setEndDate] = useState("");
   const [isActive, setIsActive] = useState(true);
 
-  const [selectedCohortId, setSelectedCohortId] =
-    useState<number | null>(null);
+  const [selectedCohortId, setSelectedCohortId] = useState<string | null>(null);
   const [showCreateCohort, setShowCreateCohort] = useState(false);
 
   const [isLoading, setIsLoading] = useState(true);
@@ -73,9 +74,9 @@ export function CohortsPage() {
   }
 
   useEffect(() => {
-  // eslint-disable-next-line react-hooks/set-state-in-effect
-  void loadData();
-}, []);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void loadData();
+  }, []);
 
   const filteredModules = modules.filter(
     (module) =>
@@ -150,15 +151,15 @@ export function CohortsPage() {
 
   if (isLoading) {
     return (
-      <main className="admin-container">
+      <main className="academic-main-centered">
         Loading cohorts...
       </main>
     );
   }
 
   return (
-    <main className="admin-container">
-      <div className="admin-header">
+    <main className="academic-main-centered">
+      <div className="academic-header">
         <div>
           <h1>Cohorts</h1>
           <p className="section-description">
@@ -168,12 +169,16 @@ export function CohortsPage() {
 
         <button
           type="button"
-          className="btn-primary"
+          className="btn-accent"
           onClick={() =>
             setShowCreateCohort((current) => !current)
           }
         >
-          {showCreateCohort ? "Close" : "+ New Cohort"}
+          {showCreateCohort ? (
+            "Close Form"
+          ) : (
+            <><Plus size={16} /> New Cohort</>
+          )}
         </button>
       </div>
 
@@ -184,17 +189,17 @@ export function CohortsPage() {
       )}
 
       {showCreateCohort && (
-        <section className="workspace-section">
+        <section className="workspace-section" style={{ marginBottom: '32px' }}>
           <form
             onSubmit={handleSubmit}
             className="modern-form assignment-create-form"
+            style={{ maxWidth: '100%' }}
           >
             <div className="form-grid form-grid-2">
               <div className="form-group">
                 <label htmlFor="cohort-qualification">
                   Qualification
                 </label>
-
                 <select
                   id="cohort-qualification"
                   value={qualificationId}
@@ -204,7 +209,6 @@ export function CohortsPage() {
                   required
                 >
                   <option value="">Select qualification</option>
-
                   {qualifications.map((qualification) => (
                     <option
                       key={qualification.id}
@@ -221,7 +225,6 @@ export function CohortsPage() {
                 <label htmlFor="cohort-module">
                   Module
                 </label>
-
                 <select
                   id="cohort-module"
                   value={moduleId}
@@ -232,7 +235,6 @@ export function CohortsPage() {
                   required
                 >
                   <option value="">Select module</option>
-
                   {filteredModules.map((module) => (
                     <option key={module.id} value={module.id}>
                       {module.code} - {module.name}
@@ -245,7 +247,6 @@ export function CohortsPage() {
                 <label htmlFor="cohort-code">
                   Cohort code
                 </label>
-
                 <input
                   id="cohort-code"
                   value={cohortCode}
@@ -260,7 +261,6 @@ export function CohortsPage() {
                 <label htmlFor="cohort-name">
                   Cohort name
                 </label>
-
                 <input
                   id="cohort-name"
                   value={cohortName}
@@ -275,7 +275,6 @@ export function CohortsPage() {
                 <label htmlFor="cohort-start-date">
                   Start date
                 </label>
-
                 <input
                   id="cohort-start-date"
                   type="date"
@@ -290,7 +289,6 @@ export function CohortsPage() {
                 <label htmlFor="cohort-end-date">
                   End date
                 </label>
-
                 <input
                   id="cohort-end-date"
                   type="date"
@@ -315,10 +313,10 @@ export function CohortsPage() {
               </label>
             </div>
 
-            <div className="form-actions">
+            <div className="form-actions form-actions-compact">
               <button
                 type="submit"
-                className="btn-primary"
+                className="btn-accent"
                 disabled={
                   isSubmitting ||
                   !qualificationId ||
@@ -341,173 +339,154 @@ export function CohortsPage() {
         </section>
       )}
 
-      <section className="page-section">
-        <div className="section-header">
-          <div>
-            <h2>Existing cohorts</h2>
-            <p className="section-description">
-              Select a cohort to view its mapped assessments and URLs.
-            </p>
+      {/* Cohorts Table Card */}
+      <div className="content-card">
+        <div className="content-card-header">
+          <div className="content-title-section">
+            <div className="content-icon">
+              <Users size={20} />
+            </div>
+            <div className="content-title">
+              <h2>Existing cohorts</h2>
+              <p>Select a cohort to view its mapped assessments and URLs.</p>
+            </div>
           </div>
         </div>
 
         {cohorts.length === 0 ? (
-          <p>No cohorts found.</p>
-        ) : (
-          <div className="table-container">
-            <table className="modern-table">
-              <thead>
-                <tr>
-                  <th>Qualification</th>
-                  <th>Module</th>
-                  <th>Code</th>
-                  <th>Name</th>
-                  <th>Dates</th>
-                  <th>Assessments</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {cohorts.map((cohort) => {
-                  const mappingCount = mappings.filter(
-                    (mapping) => mapping.cohort === cohort.id,
-                  ).length;
-
-                  return (
-                    <tr
-                      key={cohort.id}
-                      className={
-                        selectedCohortId === cohort.id
-                          ? "selected-row"
-                          : ""
-                      }
-                      onClick={() =>
-                        setSelectedCohortId(cohort.id)
-                      }
-                      style={{ cursor: "pointer" }}
-                    >
-                      <td>{cohort.qualification_code}</td>
-                      <td>{cohort.module_code}</td>
-                      <td>{cohort.cohort_code}</td>
-                      <td>{cohort.cohort_name}</td>
-                      <td>
-                        {cohort.start_date || "—"} to{" "}
-                        {cohort.end_date || "—"}
-                      </td>
-                      <td>{mappingCount}</td>
-                      <td>
-                        <span
-                          className={
-                            cohort.is_active
-                              ? "status-badge status-active"
-                              : "status-badge status-inactive"
-                          }
-                        >
-                          {cohort.is_active ? "Active" : "Inactive"}
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+          <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
+            No cohorts found.
           </div>
+        ) : (
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Qualification</th>
+                <th>Module</th>
+                <th>Code</th>
+                <th>Name</th>
+                <th>Dates</th>
+                <th>Assessments</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {cohorts.map((cohort) => {
+                const mappingCount = mappings.filter(
+                  (mapping) => mapping.cohort === cohort.id,
+                ).length;
+
+                return (
+                  <tr
+                    key={cohort.id}
+                    onClick={() => setSelectedCohortId(cohort.id)}
+                    style={{ 
+                      cursor: "pointer", 
+                      backgroundColor: selectedCohortId === cohort.id ? 'rgba(238, 242, 255, 0.5)' : undefined 
+                    }}
+                  >
+                    <td>{cohort.qualification_code}</td>
+                    <td>{cohort.module_code}</td>
+                    <td><span className="tag-pill">{cohort.cohort_code}</span></td>
+                    <td style={{ fontWeight: 500, color: 'var(--text-h)' }}>{cohort.cohort_name}</td>
+                    <td style={{ color: 'var(--text-muted)' }}>
+                      {cohort.start_date || "—"} to{" "}
+                      {cohort.end_date || "—"}
+                    </td>
+                    <td style={{ fontWeight: 500 }}>{mappingCount}</td>
+                    <td>
+                      <span
+                        className={`status-badge ${!cohort.is_active ? 'inactive' : ''}`}
+                      >
+                        <span className="status-dot"></span>
+                        {cohort.is_active ? "Active" : "Inactive"}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         )}
-      </section>
+      </div>
 
       {selectedCohort && (
-        <section className="assignment-workspace">
-          <div className="section-header">
-            <div>
-              <h2>
-                {selectedCohort.cohort_code} —{" "}
-                {selectedCohort.cohort_name}
-              </h2>
-
-              <p className="section-description">
-                {selectedCohort.qualification_code}
-                {" → "}
-                {selectedCohort.module_code}
-              </p>
+        <section className="content-card" style={{ marginTop: '32px' }}>
+          <div className="content-card-header">
+            <div className="content-title-section">
+              <div className="content-title">
+                <h2>
+                  {selectedCohort.cohort_code} — {selectedCohort.cohort_name}
+                </h2>
+                <p>
+                  {selectedCohort.qualification_code} {" → "} {selectedCohort.module_code}
+                </p>
+              </div>
             </div>
 
             <div className="section-actions">
               <button
                 type="button"
-                className="btn-secondary"
+                className="btn-action"
                 onClick={() =>
                   navigate(
                     `/admin/mappings/new?cohort=${selectedCohort.id}`,
                   )
                 }
               >
-                Assign assessments
+                <LinkIcon size={16} /> Assign assessments
               </button>
-
-
             </div>
           </div>
 
-          <div className="workspace-panel">
+          <div style={{ padding: '24px' }}>
             {selectedCohortMappings.length === 0 ? (
-              <p>No assignments mapped to this cohort.</p>
+              <p style={{ margin: 0, color: 'var(--text-muted)' }}>No assignments mapped to this cohort.</p>
             ) : (
-              <div className="table-container">
-                <table className="modern-table">
-                  <thead>
-                    <tr>
-                      <th>Assignment</th>
-                      <th>Status</th>
-                      <th>Submission URL</th>
-                      <th>Action</th>
+              <table className="data-table" style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
+                <thead>
+                  <tr>
+                    <th>Assignment</th>
+                    <th>Status</th>
+                    <th>Submission URL</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {selectedCohortMappings.map((mapping) => (
+                    <tr key={mapping.id}>
+                      <td style={{ fontWeight: 500, color: 'var(--text-h)' }}>
+                        {mapping.assignment_code} —{" "}
+                        {mapping.assignment_title}
+                      </td>
+
+                      <td>
+                        <span className={`status-badge ${!mapping.is_active ? 'inactive' : ''}`}>
+                          <span className="status-dot"></span>
+                          {mapping.is_active ? "Active" : "Inactive"}
+                        </span>
+                      </td>
+
+                      <td>
+                        <span style={{ fontFamily: 'monospace', color: 'var(--text-muted)', fontSize: '13px' }}>
+                          {getSubmissionUrl(mapping.id)}
+                        </span>
+                      </td>
+
+                      <td>
+                        <button
+                          type="button"
+                          className="btn-action"
+                          onClick={() => void copyUrl(mapping.id)}
+                        >
+                          <Copy size={14} /> Copy URL
+                        </button>
+                      </td>
                     </tr>
-                  </thead>
-
-                  <tbody>
-                    {selectedCohortMappings.map((mapping) => (
-                      <tr key={mapping.id}>
-                        <td>
-                          {mapping.assignment_code} —{" "}
-                          {mapping.assignment_title}
-                        </td>
-
-                        <td>
-                          <span
-                            className={
-                              mapping.is_active
-                                ? "status-badge status-active"
-                                : "status-badge status-inactive"
-                            }
-                          >
-                            {mapping.is_active
-                              ? "Active"
-                              : "Inactive"}
-                          </span>
-                        </td>
-
-                        <td>
-                          <span className="mapping-url-text">
-                            {getSubmissionUrl(mapping.id)}
-                          </span>
-                        </td>
-
-                        <td>
-                          <button
-                            type="button"
-                            className="mapping-copy-button"
-                            onClick={() =>
-                              void copyUrl(mapping.id)
-                            }
-                          >
-                            Copy URL
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                  ))}
+                </tbody>
+              </table>
             )}
           </div>
         </section>
