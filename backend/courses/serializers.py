@@ -73,8 +73,8 @@ class ModuleSerializer(serializers.ModelSerializer):
             "qualification",
             "qualification_code",
             "qualification_name",
-            "code",
-            "name",
+            "module_code",
+            "module_name",
             "description",
             "is_active",
             "can_delete",
@@ -117,11 +117,11 @@ class ModuleSerializer(serializers.ModelSerializer):
 
 class CohortSerializer(serializers.ModelSerializer):
     module_code = serializers.CharField(
-        source="module.code",
+        source="module.module_code",
         read_only=True,
     )
     module_name = serializers.CharField(
-        source="module.name",
+        source="module.module_name",
         read_only=True,
     )
     qualification_id = serializers.UUIDField(
@@ -255,8 +255,8 @@ class ModuleAssignmentSerializer(serializers.ModelSerializer):
             "qualification_code",
             "qualification_name",
             "assignment_number",
-            "code",
-            "title",
+            "assignment_code",
+            "assignment_title",
             "skill_statement_code",
             "skill_statement",
             "objective",

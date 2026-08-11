@@ -13,8 +13,8 @@ from .models import (
 @admin.register(GradingConfiguration)
 class GradingConfigurationAdmin(admin.ModelAdmin):
     list_display = (
-        "code",
-        "name",
+        "grading_config_code",
+        "grading_config_name",
         "grading_type",
         "rag_enabled",
         "ai_grading_enabled",

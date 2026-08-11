@@ -18,12 +18,12 @@ class GradingConfiguration(models.Model):
         editable=False,
     )
 
-    code = models.CharField(
+    grading_config_code = models.CharField(
         max_length=100,
         unique=True,
     )
 
-    name = models.CharField(max_length=255)
+    grading_config_name = models.CharField(max_length=255)
 
     grading_type = models.CharField(
         max_length=30,
@@ -51,7 +51,7 @@ class GradingConfiguration(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ("code",)
+        ordering = ("grading_config_code",)
 
     def __str__(self) -> str:
         return f"{self.code} — {self.name}"

@@ -49,8 +49,8 @@ class Module(models.Model):
         related_name="modules",
     )
 
-    code = models.CharField(max_length=50)
-    name = models.CharField(max_length=255)
+    module_code = models.CharField(max_length=50)
+    module_name = models.CharField(max_length=255)
     description = models.TextField(blank=True)
     is_active = models.BooleanField(default=True)
 
@@ -58,10 +58,10 @@ class Module(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ("code",)
+        ordering = ("module_code",)
 
     def __str__(self) -> str:
-        return f"{self.code} — {self.name}"
+        return f"{self.module_code} — {self.module_name}"
 
 
 class Enrolment(models.Model):
@@ -120,8 +120,8 @@ class ModuleAssignment(models.Model):
     )
 
     assignment_number = models.PositiveIntegerField()
-    code = models.CharField(max_length=50)
-    title = models.CharField(max_length=255)
+    assignment_code = models.CharField(max_length=50)
+    assignment_title = models.CharField(max_length=255)
 
     skill_statement_code = models.CharField(max_length=50)
     skill_statement = models.TextField()

@@ -27,7 +27,7 @@ class GradingConfigurationListCreateView(
 
     def get_queryset(self):
         return GradingConfiguration.objects.order_by(
-            "code",
+            "grading_config_code",
         )
 
 
@@ -39,7 +39,7 @@ class GradingConfigurationDetailView(
     lookup_field = "id"
 
     def get_queryset(self):
-        return GradingConfiguration.objects.order_by("code")
+        return GradingConfiguration.objects.order_by("grading_config_code")
 
     def destroy(self, request, *args, **kwargs):
         configuration = self.get_object()
@@ -71,7 +71,7 @@ class RubricCriterionListCreateView(
             "assignment_level",
             "assignment_level__assignment",
         ).order_by(
-            "assignment_level__assignment__code",
+            "assignment_level__assignment",
             "sequence",
         )
 
@@ -132,7 +132,7 @@ class RubricBandListCreateView(
             "rubric_criterion__assignment_level",
             "rubric_criterion__assignment_level__assignment",
         ).order_by(
-            "rubric_criterion__assignment_level__assignment__code",
+            "rubric_criterion__assignment_level__assignment",
             "rubric_criterion__sequence",
             "sequence",
         )

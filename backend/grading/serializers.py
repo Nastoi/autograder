@@ -17,8 +17,8 @@ class GradingConfigurationSerializer(
         model = GradingConfiguration
         fields = (
             "id",
-            "code",
-            "name",
+            "grading_config_code",
+            "grading_config_name",
             "grading_type",
             "structural_check_enabled",
             "automated_testing_enabled",
