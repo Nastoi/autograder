@@ -190,7 +190,6 @@ class ModuleListCreateView(
             "qualification",
         ).order_by(
             "qualification__qualification_code",
-            "code",
         )
 
         qualification_id = self.request.query_params.get(
@@ -312,7 +311,7 @@ class ModuleAssignmentListCreateView(
             "module",
             "module__qualification",
         ).order_by(
-            "module__code",
+            "module",
             "assignment_number",
         )
 

@@ -223,7 +223,7 @@ class CohortSerializer(serializers.ModelSerializer):
 
 class ModuleAssignmentSerializer(serializers.ModelSerializer):
     module_code = serializers.CharField(
-        source="module.code",
+        source="module.module_code",
         read_only=True,
     )
     module_name = serializers.CharField(
@@ -235,11 +235,11 @@ class ModuleAssignmentSerializer(serializers.ModelSerializer):
         read_only=True,
     )
     qualification_code = serializers.CharField(
-        source="module.qualification.code",
+        source="module.qualification.qualification_code",
         read_only=True,
     )
     qualification_name = serializers.CharField(
-        source="module.qualification.name",
+        source="module.qualification.qualification_name",
         read_only=True,
     )
     can_delete = serializers.SerializerMethodField()
