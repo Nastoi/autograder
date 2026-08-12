@@ -26,7 +26,8 @@ from .views import (
     TaskListCreateView,
     TaskEvidenceMapDetailView,
     TaskEvidenceMapListCreateView,
-    TestGPT4oGradingView,
+    TaskMappingProcessView,
+    Gpt4oDispatchView,
 )
 
 urlpatterns = [
@@ -152,13 +153,18 @@ urlpatterns = [
     ),
     # ── AI Task→Criteria Mapping ─────────────────────────────────────────
     path(
-        "assignments/<uuid:assignment_id>/map-tasks-criteria/",
-        MapTasksCriteriaView.as_view(),
-        name="map-tasks-criteria",
+        "map-tasks-criteria/", 
+        MapTasksCriteriaView.as_view(), 
+        name="map-tasks-criteria"
     ),
     path(
-        "test-gpt4o/", 
-        TestGPT4oGradingView.as_view(), 
-        name="test-gpt4o"
+        "map-tasks-page/",
+        TaskMappingProcessView.as_view(),
+        name="task-mapping-process",
+    ),
+    path(
+        "gpt4o-dispatch/", 
+        Gpt4oDispatchView.as_view(), 
+        name="gpt4o-dispatch"
     ),
 ]
