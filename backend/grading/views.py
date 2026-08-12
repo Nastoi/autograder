@@ -761,11 +761,11 @@ class TaskMappingProcessView(APIView):
                 status=status.HTTP_502_BAD_GATEWAY,
             )
 
-
 class Gpt4oDispatchView(APIView):
     """
     Step 2: Grades submission using TaskCriteriaMapping (weights & max_score) 
-    and task evidence mapped in Step 1. Calculates mathematical totals in Python.
+    and task evidence mapped in Step 1. Calculates mathematical totals in Python,
+    grouping by Rubric Criterion to ensure max_score is counted uniquely per criterion.
     """
     permission_classes = [IsAuthenticated]
 
@@ -893,47 +893,62 @@ class Gpt4oDispatchView(APIView):
 
             grading_result = completion.choices[0].message.parsed
 
-            # Mathematical Totaling in Python
-            total_earned_points = 0.0
-            total_max_possible_points = 0.0
-            total_weighted_grade = 0.0
-
-            evaluated_items = []
+            # Group task evaluations by RubricCriterion ID to prevent duplicate max_score addition
+            criterion_groups = {}
             for item in grading_result.criterion_evaluations:
                 key = f"{item.task_code}_{item.rubric_criterion_id}"
                 mapping_info = criteria_weight_map.get(key, {})
 
-                weight = mapping_info.get("weight", 0.0)
-                max_score = mapping_info.get("max_score", 0.0)
+                cid = item.rubric_criterion_id
+                if cid not in criterion_groups:
+                    criterion_groups[cid] = {
+                        "max_score": mapping_info.get("max_score", 0.0),
+                        "task_evaluations": [],
+                    }
 
-                # Points out of maximum_score
-                earned_points = (item.score_percentage / 100.0) * max_score
-                
-                # Weighted contribution toward final overall mark
-                weighted_contribution = earned_points * (weight / 100.0)
-
-                total_earned_points += earned_points
-                total_max_possible_points += max_score
-                total_weighted_grade += weighted_contribution
-
-                evaluated_items.append({
-                    "task_code": item.task_code,
-                    "rubric_criterion_id": item.rubric_criterion_id,
-                    "score_percentage": item.score_percentage,
-                    "maximum_score": max_score,
-                    "earned_points": round(earned_points, 2),
-                    "weight": weight,
-                    "weighted_contribution": round(weighted_contribution, 2),
-                    "passed": item.passed,
-                    "feedback": item.feedback,
+                criterion_groups[cid]["task_evaluations"].append({
+                    "item": item,
+                    "weight": mapping_info.get("weight", 0.0),
                 })
+
+            total_earned_points = 0.0
+            total_max_possible_points = 0.0
+            evaluated_items = []
+
+            # Calculate score accurately per Criterion group
+            for cid, group_data in criterion_groups.items():
+                criterion_max_score = group_data["max_score"]
+                # Add each unique criterion's max_score ONCE
+                total_max_possible_points += criterion_max_score
+
+                for task_eval in group_data["task_evaluations"]:
+                    item = task_eval["item"]
+                    weight = task_eval["weight"]
+
+                    # Task earned share = (score_% / 100) * (inferred_weight_% / 100) * criterion_max_score
+                    task_earned = (item.score_percentage / 100.0) * (weight / 100.0) * criterion_max_score
+                    total_earned_points += task_earned
+
+                    evaluated_items.append({
+                        "task_code": item.task_code,
+                        "rubric_criterion_id": item.rubric_criterion_id,
+                        "score_percentage": item.score_percentage,
+                        "inferred_weight": weight,
+                        "earned_points": round(task_earned, 2),
+                        "criterion_max_score": criterion_max_score,
+                        "passed": item.passed,
+                        "feedback": item.feedback,
+                    })
 
             return DRFResponse(
                 {
                     "submission_id": str(submission.id),
                     "total_earned_points": round(total_earned_points, 2),
                     "total_max_possible_points": round(total_max_possible_points, 2),
-                    "final_weighted_grade": round(total_weighted_grade, 2),
+                    "overall_percentage": (
+                        round((total_earned_points / total_max_possible_points) * 100.0, 2)
+                        if total_max_possible_points > 0 else 0.0
+                    ),
                     "overall_summary": grading_result.overall_summary,
                     "criterion_results": evaluated_items,
                 },
@@ -946,13 +961,23 @@ class Gpt4oDispatchView(APIView):
                 status=status.HTTP_502_BAD_GATEWAY,
             )
             
-            
 # Pydantic schema for structured output
 class TaskCriterionPair(BaseModel):
     task_code: str = Field(description="The task_code (e.g. T-F-01)")
     rubric_criterion_id: str = Field(description="UUID of the best matching rubric criterion")
     inferred_weight: float = Field(description="Proportional weight percentage for this task")
     ai_explanation: str = Field(description="Justification for mapping this task to the criterion")
+
+
+class AutoMappingResponseSchema(BaseModel):
+    mappings: list[TaskCriterionPair]
+
+# Pydantic Schemas for OpenAI Structured Outputs
+class TaskCriterionPair(BaseModel):
+    task_code: str = Field(description="The task_code (e.g., T-F-01)")
+    rubric_criterion_id: str = Field(description="UUID of the best matching rubric criterion")
+    inferred_weight: float = Field(description="Proportional weight percentage for this task under its criterion")
+    ai_explanation: str = Field(description="Justification for mapping and difficulty-based weight allocation")
 
 
 class AutoMappingResponseSchema(BaseModel):
@@ -994,21 +1019,24 @@ class MapTasksCriteriaView(APIView):
             for c in criteria
         ]
 
-        # Calculate equal default weight per task
-        default_weight = round(100.0 / len(tasks), 2)
-
-        # Prompt instructing AI to evaluate task difficulty and split criteria weights logically
+        # Fully generalized dynamic prompt requiring 100% task coverage
         user_prompt = (
-            f"Assignment Tasks:\n{json.dumps(task_data, indent=2)}\n\n"
-            f"Rubric Criteria:\n{json.dumps(criteria_data, indent=2)}\n\n"
-            "INSTRUCTIONS:\n"
-            "1. Map every task_code to the single most appropriate rubric_criterion_id.\n"
-            "2. WEIGHT ADJUSTMENT RULE:\n"
-            "   - Multiple tasks can map to the same Rubric Criterion.\n"
-            "   - Evaluate the difficulty, scope, and technical depth of each task relative to its mapped criterion.\n"
-            "   - Assign 'inferred_weight' for each task based on its difficulty (e.g., complex tasks get higher weightage, simple tasks get lower weightage).\n"
-            "   - Ensure that across ALL tasks of a particular criteria, the sum of all 'inferred_weight' values equals exactly 100.0%.\n"
-            "3. Provide a clear justification in 'ai_explanation' explaining why the task was mapped and how its difficulty influenced its assigned weight."
+            f"AVAILABLE ASSIGNMENT TASKS ({len(task_data)} total):\n{json.dumps(task_data, indent=2)}\n\n"
+            f"RUBRIC CRITERIA:\n{json.dumps(criteria_data, indent=2)}\n\n"
+            "MANDATORY MAPPING RULES:\n"
+            "1. 100% TASK COVERAGE (NO SKIPPING):\n"
+            "   - You MUST evaluate and map EVERY single task listed in 'AVAILABLE ASSIGNMENT TASKS'.\n"
+            "   - Do NOT drop, skip, or omit any task code from the final output list.\n\n"
+            "2. SEMANTIC MULTI-TASK GROUPING:\n"
+            "   - Analyze the objective and instructions of each task.\n"
+            "   - If multiple tasks contribute toward fulfilling the same Rubric Criterion, map ALL of those tasks to that same criterion ID.\n\n"
+            "3. STRICT 100% WEIGHT NORMALIZATION PER CRITERION:\n"
+            "   - For EACH Rubric Criterion, evaluate the relative effort, difficulty, and technical complexity of all tasks mapped to it.\n"
+            "   - Assign an 'inferred_weight' percentage to each task representing its relative share of effort for THAT specific criterion.\n"
+            "   - CRITICAL MATHEMATICAL CONSTRAINT: For any given Rubric Criterion, the sum of 'inferred_weight' across all tasks mapped to it MUST EQUAL EXACTLY 100.0%.\n"
+            "     (e.g., If 1 task maps to Criterion A, its weight is 100.0%. If 5 tasks map to Criterion B, their individual weights must sum to exactly 100.0%).\n\n"
+            "4. JUSTIFICATION:\n"
+            "   - Provide a clear explanation in 'ai_explanation' describing how the task's technical scope justified its relative share of the criterion's 100% weight."
         )
 
         try:
@@ -1020,7 +1048,7 @@ class MapTasksCriteriaView(APIView):
                 messages=[
                     {
                         "role": "system",
-                        "content": "You are a curriculum mapping expert. Align learning tasks to rubric criteria.",
+                        "content": "You are an expert curriculum design evaluator. Align learning tasks to rubric criteria dynamically.",
                     },
                     {"role": "user", "content": user_prompt},
                 ],
@@ -1029,6 +1057,21 @@ class MapTasksCriteriaView(APIView):
             )
 
             result = completion.choices[0].message.parsed
+
+            # 2. Python Weight Normalization Step (Guarantees sum == 100.0% per criterion)
+            criterion_groups = {}
+            for item in result.mappings:
+                cid = item.rubric_criterion_id
+                if cid not in criterion_groups:
+                    criterion_groups[cid] = []
+                criterion_groups[cid].append(item)
+
+            for cid, group in criterion_groups.items():
+                total_weight = sum(m.inferred_weight for m in group)
+                if total_weight > 0 and total_weight != 100.0:
+                    for m in group:
+                        # Scale raw AI weights proportionally so they sum to 100.0%
+                        m.inferred_weight = round((m.inferred_weight / total_weight) * 100.0, 2)
 
             # 3. Save mappings directly to PostgreSQL
             task_dict = {t.task_code: t for t in tasks}
@@ -1082,5 +1125,8 @@ class MapTasksCriteriaView(APIView):
             return DRFResponse(
                 {"error": "Auto-mapping failed", "details": str(e)},
                 status=status.HTTP_502_BAD_GATEWAY,
-            )            
+            )
+
+
+       
             
