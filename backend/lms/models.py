@@ -64,6 +64,20 @@ class AssessmentMapping(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    lti_client_id = models.CharField(
+        max_length=255,
+        blank=True,
+    )
+
+    lti_jwks_url = models.URLField(
+        blank=True,
+    )
+
+    lti_deployment_id = models.CharField(
+        max_length=255,
+        blank=True,
+    )
+
     class Meta:
         ordering = ("name",)
 

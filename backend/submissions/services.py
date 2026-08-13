@@ -223,41 +223,37 @@ def extract_submission_pages(submission: LearnerSubmission) -> LearnerSubmission
         raise
 
 
-def run_ai_grading(
-    submission: LearnerSubmission,
-) -> LearnerSubmission:
-    """
-    Full grading pipeline:
-    1. Extract submission pages
-    2. Map tasks to evidence pages
-    3. Grade mapped evidence
-    4. Save final grading result
-    """
-
+def run_ai_grading(submission):
     try:
-        # Step 1
-        submission = extract_submission_pages(
-            submission
-        )
+        submission = extract_submission_pages(submission)
 
-        # Step 2
-        map_submission_tasks(submission)
+        mapping_result = map_submission_tasks(submission)
 
-        # Step 3
+        if mapping_result.get("is_unrelated_document"):
+            submission.status = LearnerSubmission.Status.ERROR
+            submission.feedback = (
+                "We detected that the submitted file does not "
+                "appear to be related to this assignment. "
+                "Please check that you uploaded the correct "
+                "document and submit again."
+            )
+            submission.save(
+                update_fields=[
+                    "status",
+                    "feedback",
+                ]
+            )
+
+            return submission
+
         grade_submission(submission)
 
-        # Refresh values saved by grade_submission()
         submission.refresh_from_db()
-
         return submission
 
     except Exception:
-        submission.status = (
-            LearnerSubmission.Status.ERROR
-        )
-        submission.save(
-            update_fields=["status"]
-        )
+        submission.status = LearnerSubmission.Status.ERROR
+        submission.save(update_fields=["status"])
         raise
 
 def determine_overall_band(

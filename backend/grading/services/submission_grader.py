@@ -190,6 +190,12 @@ def map_submission_tasks(submission):
 
     mapping_data = completion.choices[0].message.parsed
 
+    print("SUBMISSION TASK MAPPING RESULT:", mapping_data.model_dump())
+    print(
+        "TASK MAPPINGS COUNT:",
+        len(mapping_data.task_mappings),
+    )
+
     saved_records = []
 
     for item in mapping_data.task_mappings:
@@ -229,6 +235,7 @@ def map_submission_tasks(submission):
         "total_pdf_pages": total_pages,
         "tasks_processed": len(task_definitions),
         "saved_mappings_count": len(saved_records),
+        "is_unrelated_document": mapping_data.is_unrelated_document,
         "mapping_data": mapping_data.model_dump(),
     }
 

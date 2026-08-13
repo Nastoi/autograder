@@ -139,9 +139,55 @@ def verify_lti_launch(id_token, state):
             status=400,
         )
 
+    mapping_id = state_data.get("mapping_id")
+
+    if not mapping_id:
+        return None, Response(
+            {
+                "detail": (
+                    "Missing assessment mapping "
+                    "in LTI state."
+                )
+            },
+            status=400,
+        )
+
+    try:
+        mapping = AssessmentMapping.objects.get(
+            id=mapping_id,
+            is_active=True,
+        )
+    except AssessmentMapping.DoesNotExist:
+        return None, Response(
+            {"detail": "Assessment mapping not found."},
+            status=400,
+        )
+
+    if not mapping.lti_jwks_url:
+        return None, Response(
+            {
+                "detail": (
+                    "LTI JWKS URL is not configured "
+                    "for this mapping."
+                )
+            },
+            status=400,
+        )
+
+    if not mapping.lti_client_id:
+        return None, Response(
+            {
+                "detail": (
+                    "LTI client ID is not configured "
+                    "for this mapping."
+                )
+            },
+            status=400,
+        )
+
     try:
         jwks_client = jwt.PyJWKClient(
-            settings.LTI_JWKS_URL
+            mapping.lti_jwks_url
         )
 
         signing_key = (
@@ -154,13 +200,22 @@ def verify_lti_launch(id_token, state):
             id_token,
             signing_key.key,
             algorithms=["RS256"],
-            audience=settings.LTI_CLIENT_ID,
+            audience=mapping.lti_client_id,
             issuer=settings.LTI_PLATFORM_ISSUER,
         )
 
-    except Exception:
+    except Exception as exc:
+        print(
+            "LTI TOKEN VERIFY ERROR:",
+            repr(exc),
+        )
+
         return None, Response(
-            {"detail": "LTI token verification failed."},
+            {
+                "detail": (
+                    "LTI token verification failed."
+                )
+            },
             status=400,
         )
 
@@ -181,7 +236,11 @@ def verify_lti_launch(id_token, state):
 
     if message_type != "LtiResourceLinkRequest":
         return None, Response(
-            {"detail": "Unsupported LTI message type."},
+            {
+                "detail": (
+                    "Unsupported LTI message type."
+                )
+            },
             status=400,
         )
 
@@ -191,7 +250,11 @@ def verify_lti_launch(id_token, state):
             status=400,
         )
 
-    if deployment_id != settings.LTI_DEPLOYMENT_ID:
+    if (
+        mapping.lti_deployment_id
+        and deployment_id
+        != mapping.lti_deployment_id
+    ):
         return None, Response(
             {"detail": "Invalid LTI deployment."},
             status=400,
@@ -199,16 +262,25 @@ def verify_lti_launch(id_token, state):
 
     if state_data.get("issuer") != issuer:
         return None, Response(
-            {"detail": "LTI issuer does not match state."},
+            {
+                "detail": (
+                    "LTI issuer does not match state."
+                )
+            },
             status=400,
         )
 
     if (
         state_data.get("client_id")
-        != settings.LTI_CLIENT_ID
+        != mapping.lti_client_id
     ):
         return None, Response(
-            {"detail": "LTI client ID does not match state."},
+            {
+                "detail": (
+                    "LTI client ID does not "
+                    "match state."
+                )
+            },
             status=400,
         )
 
@@ -232,7 +304,8 @@ def verify_lti_launch(id_token, state):
         return None, Response(
             {
                 "detail": (
-                    "Missing required LTI identity claims."
+                    "Missing required LTI "
+                    "identity claims."
                 )
             },
             status=400,

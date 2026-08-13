@@ -778,14 +778,31 @@ class MapTasksCriteriaView(APIView):
 
             # 3. Save mappings directly to PostgreSQL
             task_dict = {t.task_code: t for t in tasks}
-            criteria_dict = {str(c.id): c for c in criteria}
+            criteria_dict = {}
+
+            for c in criteria:
+                criteria_dict[str(c.id)] = c
+                criteria_dict[c.criterion_code] = c
 
             created_records = []
             detailed_mappings = []
 
+            print("AI MAPPINGS COUNT:", len(result.mappings))
+
+            for item in result.mappings:
+                print(
+                    "AI MAP:",
+                    repr(item.task_code),
+                    repr(item.rubric_criterion_id),
+                    repr(item.inferred_weight),
+                )
+
+            print("TASK KEYS:", list(task_dict.keys()))
+            print("CRITERIA KEYS:", list(criteria_dict.keys()))
+
             for item in result.mappings:
                 task_obj = task_dict.get(item.task_code)
-                criterion_obj = criteria_dict.get(item.rubric_criterion_id)
+                criterion_obj = criteria_dict.get(str(item.rubric_criterion_id))
 
                 if task_obj and criterion_obj:
                     record, _ = TaskCriteriaMapping.objects.update_or_create(

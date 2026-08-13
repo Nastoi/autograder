@@ -30,6 +30,7 @@ from .services import (
     verify_lti_launch,
 )
 from courses.models import AssignmentLevel
+from lms.models import AssessmentMapping
 
 logger = logging.getLogger(__name__)
 
@@ -220,6 +221,17 @@ class LtiLoginView(APIView):
         login_hint = request.query_params.get("login_hint")
         lti_message_hint = request.query_params.get("lti_message_hint")
         target_link_uri = request.query_params.get("target_link_uri")
+        try:
+            mapping_id = target_link_uri.rstrip("/").split("/")[-1]
+
+            mapping = AssessmentMapping.objects.get(
+                id=mapping_id
+            )
+        except (AssessmentMapping.DoesNotExist, ValueError, AttributeError):
+            return Response(
+                {"detail": "Invalid assessment mapping."},
+                status=400,
+            )
 
         if not all([
             issuer,
@@ -238,10 +250,16 @@ class LtiLoginView(APIView):
                 status=400,
             )
 
-        if client_id != settings.LTI_CLIENT_ID:
-            return Response(
-                {"detail": "Invalid LTI client ID."},
-                status=400,
+        if mapping.lti_client_id:
+            if client_id != mapping.lti_client_id:
+                return Response(
+                    {"detail": "Invalid LTI client ID for this mapping."},
+                    status=400,
+                )
+        else:
+            mapping.lti_client_id = client_id
+            mapping.save(
+                update_fields=["lti_client_id"]
             )
 
         expected_prefix = (
@@ -263,6 +281,7 @@ class LtiLoginView(APIView):
         state = signing.dumps({
             "issuer": issuer,
             "client_id": client_id,
+            "mapping_id": str(mapping.id),
             "target_link_uri": target_link_uri,
             "nonce": nonce,
         })
@@ -345,3 +364,89 @@ class LtiLaunchView(APIView):
             f"/submit/mapping/{mapping.id}"
         )
 
+import re
+
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+
+from .models import AssessmentMapping
+
+
+class AssessmentMappingLtiRegistrationView(APIView):
+    def post(self, request, mapping_id):
+        registration_text = request.data.get(
+            "registration_text",
+            "",
+        )
+
+        if not registration_text.strip():
+            return Response(
+                {"detail": "Registration info is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        client_match = re.search(
+            r"Client ID:\s*([^\s]+)",
+            registration_text,
+            re.IGNORECASE,
+        )
+
+        deployment_match = re.search(
+            r"Deployment ID:\s*([^\s]+)",
+            registration_text,
+            re.IGNORECASE,
+        )
+
+        jwks_match = re.search(
+            r"Keyset URL:\s*(https?://[^\s]+)",
+            registration_text,
+            re.IGNORECASE,
+        )
+
+        if not all([
+            client_match,
+            deployment_match,
+            jwks_match,
+        ]):
+            return Response(
+                {
+                    "detail": (
+                        "Could not find Client ID, "
+                        "Deployment ID, and Keyset URL."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            mapping = AssessmentMapping.objects.get(
+                id=mapping_id
+            )
+        except AssessmentMapping.DoesNotExist:
+            return Response(
+                {"detail": "Assessment mapping not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        mapping.lti_client_id = client_match.group(1)
+        mapping.lti_deployment_id = deployment_match.group(1)
+        mapping.lti_jwks_url = jwks_match.group(1)
+
+        mapping.save(
+            update_fields=[
+                "lti_client_id",
+                "lti_deployment_id",
+                "lti_jwks_url",
+                "updated_at",
+            ]
+        )
+
+        return Response(
+            {
+                "mapping_id": str(mapping.id),
+                "lti_client_id": mapping.lti_client_id,
+                "lti_deployment_id": mapping.lti_deployment_id,
+                "lti_jwks_url": mapping.lti_jwks_url,
+            }
+        )
