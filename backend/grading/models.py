@@ -384,42 +384,36 @@ class TaskCriterionWeight(models.Model):
     def __str__(self) -> str:
         return f"{self.task} — {self.rubric_criterion} ({self.weight_percentage}%)"
 
-
+# grading/models.py
 class TaskCriteriaMapping(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-
     assignment_level = models.ForeignKey(
         "courses.ModuleAssignment",
         on_delete=models.CASCADE,
+        null=True,
+        blank=True,
         related_name="task_criteria_mappings",
-        db_column="assignment_level_id",
-        null=True,  # Add null=True
-        blank=True, # Add blank=True
     )
-
     task = models.ForeignKey(
-        Task,
+        "grading.Task",
         on_delete=models.CASCADE,
         related_name="criteria_mappings",
-        db_column="task_id",
-        null=True,  # Add null=True
-        blank=True, # Add blank=True        
+        null=True,   # <--- Add this
+        blank=True,  # <--- Add this
     )
-
     rubric_criterion = models.ForeignKey(
-        RubricCriterion,
+        "grading.RubricCriterion",
         on_delete=models.CASCADE,
         related_name="task_mappings",
-        db_column="rubric_criterion_id",
-        null=True,  # Add null=True
-        blank=True, # Add blank=True
+        null=True,   # <--- Add this
+        blank=True,  # <--- Add this
     )
-
     inferred_weight = models.DecimalField(max_digits=5, decimal_places=2)
-    ai_explanation = models.TextField(blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
+    ai_explanation = models.TextField(blank=True, null=True)
+
 
     class Meta:
+        unique_together = ("task", "rubric_criterion")
         db_table = "task_criteria_mapping"
         # managed = False
 

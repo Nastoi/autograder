@@ -6,6 +6,7 @@ from .models import (
     ModuleAssignment,
     Qualification,
 )
+from grading.models import TaskCriteriaMapping
 
 class QualificationSerializer(serializers.ModelSerializer):
     can_delete = serializers.SerializerMethodField()
@@ -302,13 +303,18 @@ class ModuleAssignmentSerializer(serializers.ModelSerializer):
         )
 
     def get_can_delete(self, obj):
-        return (
-            not obj.rubric_criteria.exists()
-            and not obj.rag_sources.exists()
-            and not obj.grading_tasks.exists()
-            and not obj.task_criteria_mappings.exists()
-            and not hasattr(obj, "ai_grading_profile")
-        )
+            # Query by primary key ID instead of passing the model instance directly
+            has_task_criteria_mappings = TaskCriteriaMapping.objects.filter(
+                assignment_level_id=obj.id
+            ).exists()
+
+            return (
+                not obj.rubric_criteria.exists()
+                and not obj.rag_sources.exists()
+                and not obj.grading_tasks.exists()
+                and not has_task_criteria_mappings  # <-- Uses safe ID lookup
+                and not hasattr(obj, "ai_grading_profile")
+            )
 
     def validate_assignment_code(self, value):
         return value.strip().upper()

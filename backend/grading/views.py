@@ -765,7 +765,7 @@ class Gpt4oDispatchView(APIView):
     """
     Step 2: Grades submission using TaskCriteriaMapping (weights & max_score) 
     and task evidence mapped in Step 1. Calculates mathematical totals in Python,
-    grouping by Rubric Criterion to ensure max_score is counted uniquely per criterion.
+    deriving fixed total_max_possible_points from ALL rubric criteria assigned to the assignment level.
     """
     permission_classes = [IsAuthenticated]
 
@@ -793,8 +793,25 @@ class Gpt4oDispatchView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Fetch Task-to-Criteria mappings (Weights and Maximum Score)
         assignment_level = submission.context.assignment_level
+        
+        # ---------------------------------------------------------------------
+        # 1. Calculate FIXED total_max_possible_points across ALL Criteria 
+        # ---------------------------------------------------------------------
+        all_criteria = RubricCriterion.objects.filter(assignment_level=assignment_level)
+        
+        if not all_criteria.exists():
+            return DRFResponse(
+                {"error": f"No RubricCriteria found for AssignmentLevel {assignment_level.id}"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Base total max score on every single criterion assigned to this level
+        total_max_possible_points = sum(float(c.maximum_score) for c in all_criteria)
+
+        # ---------------------------------------------------------------------
+        # 2. Fetch Task-to-Criteria Mappings for evaluated tasks
+        # ---------------------------------------------------------------------
         criteria_mappings = TaskCriteriaMapping.objects.filter(
             assignment_level=assignment_level
         ).select_related("task", "rubric_criterion")
@@ -893,7 +910,7 @@ class Gpt4oDispatchView(APIView):
 
             grading_result = completion.choices[0].message.parsed
 
-            # Group task evaluations by RubricCriterion ID to prevent duplicate max_score addition
+            # Group task evaluations by RubricCriterion ID
             criterion_groups = {}
             for item in grading_result.criterion_evaluations:
                 key = f"{item.task_code}_{item.rubric_criterion_id}"
@@ -912,14 +929,11 @@ class Gpt4oDispatchView(APIView):
                 })
 
             total_earned_points = 0.0
-            total_max_possible_points = 0.0
             evaluated_items = []
 
-            # Calculate score accurately per Criterion group
+            # Calculate total earned points against the fixed assignment max score
             for cid, group_data in criterion_groups.items():
                 criterion_max_score = group_data["max_score"]
-                # Add each unique criterion's max_score ONCE
-                total_max_possible_points += criterion_max_score
 
                 for task_eval in group_data["task_evaluations"]:
                     item = task_eval["item"]
@@ -961,17 +975,6 @@ class Gpt4oDispatchView(APIView):
                 status=status.HTTP_502_BAD_GATEWAY,
             )
             
-# Pydantic schema for structured output
-class TaskCriterionPair(BaseModel):
-    task_code: str = Field(description="The task_code (e.g. T-F-01)")
-    rubric_criterion_id: str = Field(description="UUID of the best matching rubric criterion")
-    inferred_weight: float = Field(description="Proportional weight percentage for this task")
-    ai_explanation: str = Field(description="Justification for mapping this task to the criterion")
-
-
-class AutoMappingResponseSchema(BaseModel):
-    mappings: list[TaskCriterionPair]
-
 # Pydantic Schemas for OpenAI Structured Outputs
 class TaskCriterionPair(BaseModel):
     task_code: str = Field(description="The task_code (e.g., T-F-01)")
@@ -1024,19 +1027,26 @@ class MapTasksCriteriaView(APIView):
             f"AVAILABLE ASSIGNMENT TASKS ({len(task_data)} total):\n{json.dumps(task_data, indent=2)}\n\n"
             f"RUBRIC CRITERIA:\n{json.dumps(criteria_data, indent=2)}\n\n"
             "MANDATORY MAPPING RULES:\n"
-            "1. 100% TASK COVERAGE (NO SKIPPING):\n"
-            "   - You MUST evaluate and map EVERY single task listed in 'AVAILABLE ASSIGNMENT TASKS'.\n"
-            "   - Do NOT drop, skip, or omit any task code from the final output list.\n\n"
-            "2. SEMANTIC MULTI-TASK GROUPING:\n"
-            "   - Analyze the objective and instructions of each task.\n"
-            "   - If multiple tasks contribute toward fulfilling the same Rubric Criterion, map ALL of those tasks to that same criterion ID.\n\n"
-            "3. STRICT 100% WEIGHT NORMALIZATION PER CRITERION:\n"
-            "   - For EACH Rubric Criterion, evaluate the relative effort, difficulty, and technical complexity of all tasks mapped to it.\n"
-            "   - Assign an 'inferred_weight' percentage to each task representing its relative share of effort for THAT specific criterion.\n"
-            "   - CRITICAL MATHEMATICAL CONSTRAINT: For any given Rubric Criterion, the sum of 'inferred_weight' across all tasks mapped to it MUST EQUAL EXACTLY 100.0%.\n"
-            "     (e.g., If 1 task maps to Criterion A, its weight is 100.0%. If 5 tasks map to Criterion B, their individual weights must sum to exactly 100.0%).\n\n"
-            "4. JUSTIFICATION:\n"
-            "   - Provide a clear explanation in 'ai_explanation' describing how the task's technical scope justified its relative share of the criterion's 100% weight."
+            """1. COMPLETENESS: Every task MUST be mapped to at least one criterion. Do not leave any task unmapped.
+
+            2. COVERAGE: Every criterion MUST appear in at least one task mapping. Every criterion must be evidenced by at least one task.
+
+            3. MULTI-MAPPING: A single task MAY map to multiple criteria if the task instructions genuinely address more than one criterion. A single criterion MAY appear in mappings for multiple tasks.
+
+            4. WEIGHT MEANING: The `inferred_weight` (0.01 to 1.00) represents the proportion of a criterion's total marks that are expected to be evidenced specifically by this task. A weight of 0.60 means this task is expected to produce 60% of the evidence for that criterion.
+
+            5. WEIGHT CONSTRAINT — CRITICAL: For each criterion, the sum of `inferred_weight` values across ALL task mappings that reference that criterion MUST equal exactly 1.00. For example, if criterion C01 appears in task T01 (weight 0.60) and task T02 (weight 0.40), that sums to 1.00. This rule is non-negotiable.
+
+            6. EVIDENCE-BASED ONLY: Base your mappings ONLY on the task instructions and criterion descriptions provided in the request. Do not infer from general knowledge.
+
+            7. PRECISION: Use the exact `task_code` and `criterion_code` values provided — do not invent new codes.
+
+            8. EXPLANATIONS: For each task-criterion mapping, provide a concise `explanation` (1-2 sentences) stating WHY this task evidences this criterion. Be specific — reference wording from the task instructions and criterion description.
+
+            9. OUTPUT FORMAT: Return ONLY valid JSON conforming to the exact schema provided. Do not include markdown fences, comments, or any text outside the JSON object.
+
+            10. CONFIDENCE: In `mapping_rationale`, provide a brief summary (3-5 sentences) of the overall logic used — highlighting any tasks or criteria that were difficult to map and why.
+            """
         )
 
         try:
@@ -1088,8 +1098,8 @@ class MapTasksCriteriaView(APIView):
                     record, _ = TaskCriteriaMapping.objects.update_or_create(
                         assignment_level_id=assignment_level_id,
                         task=task_obj,
+                        rubric_criterion=criterion_obj,  # <--- Included in lookup
                         defaults={
-                            "rubric_criterion": criterion_obj,
                             "inferred_weight": Decimal(str(item.inferred_weight)),
                             "ai_explanation": item.ai_explanation,
                         },
@@ -1126,7 +1136,3 @@ class MapTasksCriteriaView(APIView):
                 {"error": "Auto-mapping failed", "details": str(e)},
                 status=status.HTTP_502_BAD_GATEWAY,
             )
-
-
-       
-            

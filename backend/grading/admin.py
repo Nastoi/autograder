@@ -171,16 +171,16 @@ class TaskCriterionWeightAdmin(admin.ModelAdmin):
 @admin.register(TaskCriteriaMapping)
 class TaskCriteriaMappingAdmin(admin.ModelAdmin):
     list_display = (
-        "task",
-        "rubric_criterion",
-        "inferred_weight",
-        "created_at",
+        "assignment_level", 
+        "task", 
+        "rubric_criterion", 
+        "inferred_weight"
     )
+    
     search_fields = (
         "task__task_code",
         "rubric_criterion__criterion_code",
     )
-    readonly_fields = ("created_at",)
 
 
 # grading/admin.py
