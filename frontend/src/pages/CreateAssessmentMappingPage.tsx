@@ -62,7 +62,7 @@ export function CreateAssessmentMappingPage() {
           if (selectedCohort) {
             const assignmentData =
               await getModuleAssignments(
-                selectedCohort.module.id,
+                selectedCohort.module,
               );
 
             setAssignments(assignmentData);
@@ -105,8 +105,8 @@ export function CreateAssessmentMappingPage() {
     }
 
     try {
-      const data = await getModuleAssignments(
-        selectedCohort.module.id,
+      await getModuleAssignments(
+        selectedCohort.module,
       );
 
       setAssignments(data);
@@ -175,7 +175,7 @@ export function CreateAssessmentMappingPage() {
       await Promise.all(
         selectedAssignmentIds.map((assignmentId) =>
           createAssessmentMapping({
-            cohort: Number(cohortId),
+            cohort: cohortId,
             assignment: assignmentId,
             is_active: true,
           }),
@@ -334,10 +334,10 @@ export function CreateAssessmentMappingPage() {
 
                           <span>
                             <strong>
-                              {assignment.code}
+                              {assignment.assignment_code}
                             </strong>
                             <small>
-                              {assignment.title}
+                              {assignment.assignment_title}
                             </small>
                           </span>
                         </label>
@@ -360,11 +360,10 @@ export function CreateAssessmentMappingPage() {
               >
                 {isSubmitting
                   ? "Assigning..."
-                  : `Assign ${selectedAssignmentIds.length} assessment${
-                      selectedAssignmentIds.length === 1
-                        ? ""
-                        : "s"
-                    }`}
+                  : `Assign ${selectedAssignmentIds.length} assessment${selectedAssignmentIds.length === 1
+                    ? ""
+                    : "s"
+                  }`}
               </button>
 
               <button

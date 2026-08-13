@@ -203,6 +203,11 @@ export function MappingSubmissionPage() {
       return;
     }
 
+    if (!context) {
+      setError("Assignment context is not available.");
+      return;
+    }
+
     if (!submissionTrack) {
       setError(
         "Please select Basic or Advanced.",
@@ -219,8 +224,21 @@ export function MappingSubmissionPage() {
     setIsSubmitting(true);
 
     try {
+      const selectedAssignmentLevel = context.assignment_levels.find(
+        (level) => level.level_code === submissionTrack,
+      );
+
+      if (!selectedAssignmentLevel) {
+        throw new Error(
+          `Unable to find the ${submissionTrack} assignment level.`,
+        );
+      }
+
       const resolvedContext =
-        await resolveMappingContext(mappingId);
+        await resolveMappingContext(
+          mappingId,
+          selectedAssignmentLevel.id,
+        );
 
       await submitAssignment(
         resolvedContext.context_id,
@@ -392,7 +410,9 @@ export function MappingSubmissionPage() {
                 </h2>
               </div>
 
-              <span className="attempt-status">
+              <span
+                className={`attempt-status status-${attempts[0].status}`}
+              >
                 {attempts[0].status}
               </span>
             </div>
@@ -447,7 +467,10 @@ export function MappingSubmissionPage() {
                     : attempts[0].status === "uploaded" ||
                       attempts[0].status === "processing"
                       ? "Processing"
-                      : attempts[0].achieved_band || "Pending"}
+                      : attempts[0].achieved_band
+                        ? attempts[0].achieved_band.charAt(0).toUpperCase() +
+                        attempts[0].achieved_band.slice(1)
+                        : "Pending"}
                 </strong>
               </div>
 
@@ -473,6 +496,7 @@ export function MappingSubmissionPage() {
                 <p>{attempts[0].feedback}</p>
               </div>
             )}
+
 
             {attempts[0].status === "error" && (
               <div className="grading-error-message">
@@ -539,7 +563,9 @@ export function MappingSubmissionPage() {
                         </strong>
                       </div>
 
-                      <span className="attempt-status">
+                      <span
+                        className={`attempt-status status-${attempt.status}`}
+                      >
                         {attempt.status}
                       </span>
                     </div>
@@ -563,10 +589,14 @@ export function MappingSubmissionPage() {
                         <span className="attempt-detail-label">Score</span>
 
                         <strong>
-                          {attempt.final_score !== null
-                            ? `${attempt.final_score} / ${attempt.maximum_score ?? "-"
-                            }`
-                            : "Pending"}
+                          {attempt.status === "error"
+                            ? "Unavailable"
+                            : attempt.status === "uploaded" ||
+                              attempt.status === "processing"
+                              ? "Processing"
+                              : attempt.final_score !== null
+                                ? `${attempt.final_score} / ${attempt.maximum_score ?? "-"}`
+                                : "Pending"}
                         </strong>
                       </div>
 
@@ -574,7 +604,12 @@ export function MappingSubmissionPage() {
                         <span className="attempt-detail-label">Band</span>
 
                         <strong>
-                          {attempt.achieved_band || "Pending"}
+                          {attempt.status === "error"
+                            ? "Not graded"
+                            : attempt.status === "uploaded" ||
+                              attempt.status === "processing"
+                              ? "Processing"
+                              : attempt.achieved_band || "Pending"}
                         </strong>
                       </div>
 

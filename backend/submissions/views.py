@@ -49,7 +49,7 @@ class SubmissionContextView(APIView):
             # Automatically assign authenticated user as the learner
             context = serializer.save(learner=request.user)
 
-            assignment = context.assignment
+            assignment = context.assignment_level.assignment
             module = assignment.module
 
             return Response(
@@ -64,19 +64,24 @@ class SubmissionContextView(APIView):
                     },
                     "cohort": {
                         "id": context.cohort.id,
-                        "code": context.cohort.code,
-                        "name": context.cohort.name,
+                        "code": context.cohort.cohort_code,
+                        "name": context.cohort.cohort_name,
                     },
                     "module": {
                         "id": module.id,
-                        "code": module.code,
-                        "name": module.name,
+                        "code": module.module_code,
+                        "name": module.module_name,
                     },
                     "assignment": {
                         "id": assignment.id,
-                        "code": assignment.code,
-                        "title": assignment.title,
+                        "code": assignment.assignment_code,
+                        "title": assignment.assignment_title,
                         "maximum_score": assignment.maximum_score,
+                    },
+                    "assignment_level": {
+                        "id": context.assignment_level.id,
+                        "level": context.assignment_level.level,
+                        "display_name": context.assignment_level.get_level_display(),
                     },
                 },
                 status=status.HTTP_201_CREATED,
@@ -90,14 +95,15 @@ class SubmissionContextView(APIView):
                 "learner",
                 "cohort",
                 "cohort__module",
-                "assignment",
+                "assignment_level__assignment",
+                "assignment_level__assignment__module",
             ),
             id=context_id,
             learner=request.user,
             is_active=True,
         )
 
-        assignment = context.assignment
+        assignment = context.assignment_level
         module = assignment.module
 
         return Response(
@@ -116,14 +122,19 @@ class SubmissionContextView(APIView):
                 },
                 "module": {
                     "id": module.id,
-                    "code": module.code,
-                    "name": module.name,
+                    "code": module.module_code,
+                    "name": module.module_name,
                 },
                 "assignment": {
                     "id": assignment.id,
-                    "code": assignment.code,
-                    "title": assignment.title,
+                    "code": assignment.assignment_code,
+                    "title": assignment.assignment_title,
                     "maximum_score": assignment.maximum_score,
+                },
+                "assignment_level": {
+                    "id": context.assignment_level.id,
+                    "level": context.assignment_level.level,
+                    "display_name": context.assignment_level.get_level_display(),
                 },
             },
             status=status.HTTP_200_OK,
@@ -139,7 +150,8 @@ class SubmissionCreateView(APIView):
 
         context = get_object_or_404(
             SubmissionContext.objects.select_related(
-                "assignment",
+                "assignment_level__assignment",
+                "assignment_level__assignment__module", 
             ),
             id=context_id,
             learner=request.user,
@@ -198,7 +210,7 @@ class SubmissionCreateView(APIView):
 
         pending_submission = LearnerSubmission.objects.filter(
             learner=request.user,
-            assignment=context.assignment,
+            assignment_level=context.assignment_level,
             context__cohort=context.cohort,
             status__in=[
                 LearnerSubmission.Status.UPLOADED,
@@ -220,16 +232,17 @@ class SubmissionCreateView(APIView):
 
         previous_attempts = LearnerSubmission.objects.filter(
             learner=request.user,
-            assignment=context.assignment,
+            assignment_level__assignment=context.assignment_level.assignment,
             context__cohort=context.cohort,
         ).count()
 
-        assignment = context.assignment
+        assignment_level = context.assignment_level
+        assignment = assignment_level.assignment
 
         submission = LearnerSubmission.objects.create(
             context=context,
             learner=request.user,
-            assignment=assignment,
+            assignment_level=assignment_level,
             submitted_file=uploaded_file,
             original_filename=uploaded_file.name,
             attempt_number=previous_attempts + 1,
@@ -252,7 +265,8 @@ class SubmissionDetailView(APIView):
         queryset = LearnerSubmission.objects.prefetch_related(
             "pages"
         ).select_related(
-            "assignment",
+            "assignment_level__assignment",
+            "assignment_level__assignment__module",
             "context",
         )
 
@@ -278,7 +292,7 @@ class LearnerSubmissionViewSet(ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         queryset = LearnerSubmission.objects.select_related(
-            "assignment__module"
+            "assignment_level__module"
         ).order_by("-submitted_at")
 
         if not user.is_superuser:
@@ -323,7 +337,19 @@ class MappingSubmissionContextView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, mapping_id):
-        
+        assignment_level_id = request.data.get(
+            "assignment_level"
+        )
+
+        if not assignment_level_id:
+            return Response(
+                {
+                    "detail": (
+                        "assignment_level is required."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         mapping = get_object_or_404(
             AssessmentMapping.objects.select_related(
@@ -335,10 +361,17 @@ class MappingSubmissionContextView(APIView):
             is_active=True,
         )
 
+        assignment_level = get_object_or_404(
+            AssignmentLevel,
+            id=assignment_level_id,
+            assignment=mapping.assignment,
+            is_active=True,
+        )
+
         context, _ = SubmissionContext.objects.get_or_create(
             learner=request.user,
             cohort=mapping.cohort,
-            assignment=mapping.assignment,
+            assignment_level=assignment_level,
             assessment_mapping=mapping,
             defaults={
                 "is_active": True,
@@ -358,6 +391,7 @@ class MappingSubmissionContextView(APIView):
             {
                 "context_id": str(context.id),
                 "mapping_id": str(mapping.id),
+
                 "learner": {
                     "id": request.user.id,
                     "username": request.user.username,
@@ -367,23 +401,38 @@ class MappingSubmissionContextView(APIView):
                     ),
                     "email": request.user.email,
                 },
+
                 "cohort": {
-                    "id": mapping.cohort.id,
+                    "id": str(mapping.cohort.id),
                     "code": mapping.cohort.cohort_code,
                     "name": mapping.cohort.cohort_name,
                 },
+
                 "assignment": {
                     "id": str(mapping.assignment.id),
-                    "code": mapping.assignment.code,
-                    "title": mapping.assignment.title,
+                    "code": (
+                        mapping.assignment.assignment_code
+                    ),
+                    "title": (
+                        mapping.assignment.assignment_title
+                    ),
                     "maximum_score": str(
                         mapping.assignment.maximum_score
+                    ),
+                },
+
+                "assignment_level": {
+                    "id": str(assignment_level.id),
+                    "level_code": (
+                        assignment_level.level_code
+                    ),
+                    "display_name": (
+                        assignment_level.display_name
                     ),
                 },
             },
             status=status.HTTP_200_OK,
         )
-
 
 
 class MappingSubmissionHistoryView(APIView):
@@ -403,11 +452,12 @@ class MappingSubmissionHistoryView(APIView):
             LearnerSubmission.objects
             .filter(
                 learner=request.user,
-                assignment=mapping.assignment,
+                assignment_level__assignment=mapping.assignment,
                 context__cohort=mapping.cohort,
             )
             .select_related(
-                "assignment",
+                "assignment_level",
+                "assignment_level__assignment",
                 "context",
             )
             .order_by("-attempt_number")

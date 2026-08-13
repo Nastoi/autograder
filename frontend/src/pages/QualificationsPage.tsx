@@ -223,8 +223,8 @@ export function QualificationsPage() {
     try {
       await createModule({
         qualification: selectedQualificationId,
-        code: moduleCode,
-        name: moduleName,
+        module_code: moduleCode,
+        module_name: moduleName,
         description: moduleDescription,
         is_active: true,
       });
@@ -247,7 +247,7 @@ export function QualificationsPage() {
   }
 
   async function removeModule(module: Module) {
-    if (!window.confirm(`Delete module ${module.code} — ${module.name}?`)) {
+    if (!window.confirm(`Delete module ${module.module_code} — ${module.module_name}?`)) {
       return;
     }
     setError("");
@@ -288,8 +288,8 @@ export function QualificationsPage() {
   );
 
   const filteredAllModules = modules.filter(m => 
-    m.code.toLowerCase().includes(moduleSearchQuery.toLowerCase()) || 
-    m.name.toLowerCase().includes(moduleSearchQuery.toLowerCase())
+    m.module_code.toLowerCase().includes(moduleSearchQuery.toLowerCase()) || 
+    m.module_name.toLowerCase().includes(moduleSearchQuery.toLowerCase())
   );
 
   return (
@@ -687,8 +687,8 @@ export function QualificationsPage() {
                   <tbody>
                     {selectedModules.map((module) => (
                       <tr key={module.id}>
-                        <td><span className="tag-pill">{module.code}</span></td>
-                        <td style={{ fontWeight: 500, color: 'var(--text-h)' }}>{module.name}</td>
+                        <td><span className="tag-pill">{module.module_code}</span></td>
+                        <td style={{ fontWeight: 500, color: 'var(--text-h)' }}>{module.module_name}</td>
                         <td>{module.description || "—"}</td>
                         <td>
                           <span className={`status-badge ${!module.is_active ? 'inactive' : ''}`}>
@@ -760,8 +760,8 @@ export function QualificationsPage() {
                     return (
                       <tr key={module.id}>
                         <td>{qName}</td>
-                        <td><span className="tag-pill">{module.code}</span></td>
-                        <td style={{ fontWeight: 500, color: 'var(--text-h)' }}>{module.name}</td>
+                        <td><span className="tag-pill">{module.module_code}</span></td>
+                        <td style={{ fontWeight: 500, color: 'var(--text-h)' }}>{module.module_name}</td>
                         <td>{module.description || "—"}</td>
                         <td>
                           <span className={`status-badge ${!module.is_active ? 'inactive' : ''}`}>

@@ -237,7 +237,7 @@ export function CohortsPage() {
                   <option value="">Select module</option>
                   {filteredModules.map((module) => (
                     <option key={module.id} value={module.id}>
-                      {module.code} - {module.name}
+                      {module.module_code} - {module.module_name}
                     </option>
                   ))}
                 </select>

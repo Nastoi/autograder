@@ -6,24 +6,50 @@ const API_BASE_URL =
     import.meta.env.VITE_API_BASE_URL ||
     "http://localhost:8000/api";
 
+type PaginatedResponse<T> = {
+    count: number;
+    next: string | null;
+    previous: string | null;
+    results: T[];
+};
+
+function extractResults<T>(
+    data: T[] | PaginatedResponse<T>,
+): T[] {
+    if (Array.isArray(data)) {
+        return data;
+    }
+
+    if (
+        data &&
+        typeof data === "object" &&
+        "results" in data &&
+        Array.isArray(data.results)
+    ) {
+        return data.results;
+    }
+
+    throw new Error("Invalid API response.");
+}
+
 export type AssessmentMapping = {
-  id: string;
-  name: string;
+    id: string;
+    name: string;
 
-  cohort: number;
-  cohort_code: string;
-  cohort_name: string;
+    cohort: string;
+    cohort_code: string;
+    cohort_name: string;
 
-  assignment: string;
-  assignment_code: string;
-  assignment_title: string;
+    assignment: string;
+    assignment_code: string;
+    assignment_title: string;
 
-  is_active: boolean;
-  has_submissions: boolean;
-  can_delete: boolean;
+    is_active: boolean;
+    has_submissions: boolean;
+    can_delete: boolean;
 
-  created_at: string;
-  updated_at: string;
+    created_at: string;
+    updated_at: string;
 };
 
 export async function getAssessmentMappings(): Promise<
@@ -37,19 +63,17 @@ export async function getAssessmentMappings(): Promise<
         },
     );
 
-    const data = (await response.json()) as
-        | AssessmentMapping[]
-        | { detail?: string };
+    const data = await response.json();
 
-    if (!response.ok || !Array.isArray(data)) {
+    if (!response.ok) {
         throw new Error(
-            !Array.isArray(data) && data.detail
+            typeof data?.detail === "string"
                 ? data.detail
                 : "Unable to load assessment mappings.",
         );
     }
 
-    return data;
+    return extractResults<AssessmentMapping>(data);
 }
 
 export type CohortOption = {
@@ -93,9 +117,9 @@ export type AssignmentLevelOption = {
 
 
 export type CreateAssessmentMappingInput = {
-  cohort: number;
-  assignment: string;
-  is_active: boolean;
+    cohort: string;
+    assignment: string;
+    is_active: boolean;
 };
 
 export async function createAssessmentMapping(
@@ -176,19 +200,17 @@ export async function getQualifications(): Promise<Qualification[]> {
         },
     );
 
-    const data = (await response.json()) as
-        | Qualification[]
-        | { detail?: string };
+    const data = await response.json();
 
-    if (!response.ok || !Array.isArray(data)) {
+    if (!response.ok) {
         throw new Error(
-            !Array.isArray(data) && data.detail
+            typeof data?.detail === "string"
                 ? data.detail
                 : "Unable to load qualifications.",
         );
     }
 
-    return data;
+    return extractResults<Qualification>(data);
 }
 
 export async function createQualification(
@@ -325,8 +347,8 @@ export type Module = {
     qualification: string;
     qualification_code: string;
     qualification_name: string;
-    code: string;
-    name: string;
+    module_code: string;
+    module_name: string;
     description: string;
     is_active: boolean;
     can_delete: boolean;
@@ -336,8 +358,8 @@ export type Module = {
 
 export type CreateModuleInput = {
     qualification: string;
-    code: string;
-    name: string;
+    module_code: string;
+    module_name: string;
     description: string;
     is_active: boolean;
 };
@@ -361,7 +383,7 @@ export async function getModules(
 
     const data = await response.json();
 
-    if (!response.ok || !Array.isArray(data)) {
+    if (!response.ok) {
         throw new Error(
             typeof data?.detail === "string"
                 ? data.detail
@@ -369,8 +391,7 @@ export async function getModules(
         );
     }
 
-        
-    return data as Module[];
+    return extractResults<Module>(data);
 }
 
 export async function createModule(
@@ -394,11 +415,29 @@ export async function createModule(
     const data = await response.json();
 
     if (!response.ok) {
-        throw new Error(
-            typeof data?.detail === "string"
-                ? data.detail
-                : "Unable to create module.",
-        );
+        console.error("Create module failed:", data);
+
+        if (typeof data?.detail === "string") {
+            throw new Error(data.detail);
+        }
+
+        if (data && typeof data === "object") {
+            const messages = Object.entries(data)
+                .map(([field, errors]) => {
+                    const message = Array.isArray(errors)
+                        ? errors.join(", ")
+                        : String(errors);
+
+                    return `${field}: ${message}`;
+                })
+                .join(" | ");
+
+            if (messages) {
+                throw new Error(messages);
+            }
+        }
+
+        throw new Error("Unable to create module.");
     }
 
     return data as Module;
@@ -475,14 +514,10 @@ export async function deleteModule(
 
 
 export type Cohort = {
-    id: number;
+    id: string;
     cohort_code: string;
-cohort_name: string;
-    module: {
-        id: string;
-        code: string;
-        name: string;
-    };
+    cohort_name: string;
+    module: string;
     module_code: string;
     module_name: string;
     qualification_id: string;
@@ -497,8 +532,8 @@ cohort_name: string;
 };
 
 export type CreateCohortInput = {
-  cohort_code: string;
-  cohort_name: string;
+    cohort_code: string;
+    cohort_name: string;
     module: string;
     start_date: string | null;
     end_date: string | null;
@@ -506,7 +541,7 @@ export type CreateCohortInput = {
 };
 
 export type UpdateCohortInput =
-  Partial<CreateCohortInput>;
+    Partial<CreateCohortInput>;
 
 
 export async function getCohorts(
@@ -526,7 +561,7 @@ export async function getCohorts(
 
     const data = await response.json();
 
-    if (!response.ok || !Array.isArray(data)) {
+    if (!response.ok) {
         throw new Error(
             typeof data?.detail === "string"
                 ? data.detail
@@ -534,7 +569,7 @@ export async function getCohorts(
         );
     }
 
-    return data as Cohort[];
+    return extractResults<Cohort>(data);
 }
 
 export async function createCohort(
@@ -650,9 +685,8 @@ export type ModuleAssignment = {
     qualification_code: string;
     qualification_name: string;
 
-    assignment_number: number;
-    code: string;
-    title: string;
+    assignment_code: string;
+    assignment_title: string;
 
     skill_statement_code: string;
     skill_statement: string;
@@ -675,8 +709,8 @@ export type ModuleAssignment = {
 export type CreateModuleAssignmentInput = {
     module: string;
     assignment_number: number;
-    code: string;
-    title: string;
+    assignment_code: string;
+    assignment_title: string;
     skill_statement_code: string;
     skill_statement: string;
     objective: string;
@@ -711,7 +745,7 @@ export async function getModuleAssignments(
 
     const data = await response.json();
 
-    if (!response.ok || !Array.isArray(data)) {
+    if (!response.ok) {
         throw new Error(
             typeof data?.detail === "string"
                 ? data.detail
@@ -719,7 +753,7 @@ export async function getModuleAssignments(
         );
     }
 
-    return data as ModuleAssignment[];
+    return extractResults<ModuleAssignment>(data);
 }
 
 export async function createModuleAssignment(
@@ -743,11 +777,29 @@ export async function createModuleAssignment(
     const data = await response.json();
 
     if (!response.ok) {
-        throw new Error(
-            typeof data?.detail === "string"
-                ? data.detail
-                : "Unable to create assignment.",
-        );
+        console.error("Create assignment failed:", data);
+
+        if (typeof data?.detail === "string") {
+            throw new Error(data.detail);
+        }
+
+        if (data && typeof data === "object") {
+            const messages = Object.entries(data)
+                .map(([field, errors]) => {
+                    const message = Array.isArray(errors)
+                        ? errors.join(", ")
+                        : String(errors);
+
+                    return `${field}: ${message}`;
+                })
+                .join(" | ");
+
+            if (messages) {
+                throw new Error(messages);
+            }
+        }
+
+        throw new Error("Unable to create assignment.");
     }
 
     return data as ModuleAssignment;
@@ -889,7 +941,7 @@ export async function getGradingConfigurations(): Promise<
 
     const data = await response.json();
 
-    if (!response.ok || !Array.isArray(data)) {
+    if (!response.ok) {
         throw new Error(
             typeof data?.detail === "string"
                 ? data.detail
@@ -897,7 +949,7 @@ export async function getGradingConfigurations(): Promise<
         );
     }
 
-    return data as GradingConfiguration[];
+    return extractResults<GradingConfiguration>(data);
 }
 
 export async function createGradingConfiguration(
@@ -1019,9 +1071,7 @@ export type AssignmentLevel = {
     grading_configuration_name: string;
 
     level_code:
-    | "foundation"
-    | "proficient"
-    | "expert";
+    "basic" | "advanced"
 
     display_name: string;
     title: string;
@@ -1101,7 +1151,7 @@ export async function getAssignmentLevels(
 
     const data = await response.json();
 
-    if (!response.ok || !Array.isArray(data)) {
+    if (!response.ok) {
         throw new Error(
             typeof data?.detail === "string"
                 ? data.detail
@@ -1109,7 +1159,8 @@ export async function getAssignmentLevels(
         );
     }
 
-    return data as AssignmentLevel[];
+    return extractResults<AssignmentLevel>(data);
+
 }
 
 export async function createAssignmentLevel(
@@ -1272,7 +1323,7 @@ export async function getRubricCriteria(
 
     const data = await response.json();
 
-    if (!response.ok || !Array.isArray(data)) {
+    if (!response.ok) {
         throw new Error(
             typeof data?.detail === "string"
                 ? data.detail
@@ -1280,7 +1331,7 @@ export async function getRubricCriteria(
         );
     }
 
-    return data as RubricCriterion[];
+    return extractResults<RubricCriterion>(data);
 }
 
 export async function createRubricCriterion(
@@ -1461,7 +1512,7 @@ export async function getRubricBands(
 
     const data = await response.json();
 
-    if (!response.ok || !Array.isArray(data)) {
+    if (!response.ok) {
         throw new Error(
             typeof data?.detail === "string"
                 ? data.detail
@@ -1469,7 +1520,7 @@ export async function getRubricBands(
         );
     }
 
-    return data as RubricBand[];
+    return extractResults<RubricBand>(data);
 }
 
 export async function createRubricBand(
@@ -1493,13 +1544,28 @@ export async function createRubricBand(
     const data = await response.json();
 
     if (!response.ok) {
-        throw new Error(
-            typeof data?.detail === "string"
-                ? data.detail
-                : "Unable to create rubric band.",
-        );
-    }
+        if (typeof data?.detail === "string") {
+            throw new Error(data.detail);
+        }
 
+        if (data && typeof data === "object") {
+            const messages = Object.entries(data)
+                .map(([field, errors]) => {
+                    const message = Array.isArray(errors)
+                        ? errors.join(", ")
+                        : String(errors);
+
+                    return `${field}: ${message}`;
+                })
+                .join(" | ");
+
+            if (messages) {
+                throw new Error(messages);
+            }
+        }
+
+        throw new Error("Unable to create rubric band.");
+    }
     return data as RubricBand;
 }
 
@@ -1572,6 +1638,158 @@ export async function deleteRubricBand(
     throw new Error(message);
 }
 
+
+
+export type Task = {
+    id: string;
+    assignment_level: string;
+    assignment_code: string;
+    level_code: string;
+    task_code: string;
+    title: string;
+    instructions: string;
+    sequence: number;
+    created_at: string;
+};
+
+export type CreateTaskInput = {
+    assignment_level: string;
+    task_code: string;
+    title: string;
+    instructions: string;
+    sequence: number;
+};
+
+export type UpdateTaskInput = Partial<CreateTaskInput>;
+
+export async function getTasks(
+    assignmentLevelId?: string,
+): Promise<Task[]> {
+    const query = assignmentLevelId
+        ? `?assignment_level_id=${encodeURIComponent(assignmentLevelId)}`
+        : "";
+
+    const response = await fetch(
+        `${API_BASE_URL}/grading/tasks/${query}`,
+        {
+            method: "GET",
+            credentials: "include",
+        },
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+        throw new Error(
+            typeof data?.detail === "string"
+                ? data.detail
+                : "Unable to load tasks.",
+        );
+    }
+
+    return extractResults<Task>(data);
+}
+
+export async function createTask(
+    input: CreateTaskInput,
+): Promise<Task> {
+    const csrfToken = await getCsrfToken();
+
+    const response = await fetch(
+        `${API_BASE_URL}/grading/tasks/`,
+        {
+            method: "POST",
+            credentials: "include",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRFToken": csrfToken,
+            },
+            body: JSON.stringify(input),
+        },
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+        const message =
+            typeof data?.detail === "string"
+                ? data.detail
+                : data && typeof data === "object"
+                    ? Object.entries(data)
+                        .map(([field, errors]) =>
+                            `${field}: ${Array.isArray(errors) ? errors.join(", ") : String(errors)}`
+                        )
+                        .join(" | ")
+                    : "Unable to create task.";
+
+        throw new Error(message || "Unable to create task.");
+    }
+
+    return data as Task;
+}
+
+export async function updateTask(
+    taskId: string,
+    input: UpdateTaskInput,
+): Promise<Task> {
+    const csrfToken = await getCsrfToken();
+
+    const response = await fetch(
+        `${API_BASE_URL}/grading/tasks/${taskId}/`,
+        {
+            method: "PATCH",
+            credentials: "include",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRFToken": csrfToken,
+            },
+            body: JSON.stringify(input),
+        },
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+        throw new Error(
+            typeof data?.detail === "string"
+                ? data.detail
+                : "Unable to update task.",
+        );
+    }
+
+    return data as Task;
+}
+
+export async function deleteTask(taskId: string): Promise<void> {
+    const csrfToken = await getCsrfToken();
+
+    const response = await fetch(
+        `${API_BASE_URL}/grading/tasks/${taskId}/`,
+        {
+            method: "DELETE",
+            credentials: "include",
+            headers: {
+                "X-CSRFToken": csrfToken,
+            },
+        },
+    );
+
+    if (response.status === 204) {
+        return;
+    }
+
+    let message = "Unable to delete task.";
+    try {
+        const data = await response.json();
+        if (typeof data?.detail === "string") {
+            message = data.detail;
+        }
+    } catch {
+        // Keep default message.
+    }
+
+    throw new Error(message);
+}
 
 export type AIGradingProfile = {
     id: string;
@@ -1740,6 +1958,7 @@ export async function deleteAIGradingProfile(
         // Keep the default message.
     }
 
+
     throw new Error(message);
 }
 
@@ -1759,6 +1978,13 @@ export type MappingSubmissionContext = {
         title: string;
         maximum_score: string;
     };
+
+    assignment_levels: {
+        id: string;
+        level_code: "basic" | "advanced";
+        display_name: string;
+        title: string;
+        }[];
 };
 
 export async function getMappingSubmissionContext(
@@ -1784,3 +2010,57 @@ export async function getMappingSubmissionContext(
 
     return data as MappingSubmissionContext;
 }
+
+
+export type AutoTaskCriteriaMappingResult = {
+  assignment_level: string;
+  tasks_mapped: number;
+  status: string;
+  mappings: {
+    task_code: string;
+    task_title: string;
+    rubric_criterion: {
+      id: string;
+      criterion_code: string | null;
+      title: string | null;
+      description: string | null;
+      maximum_score: number;
+    };
+    inferred_weight: number;
+    ai_explanation: string;
+  }[];
+};
+
+export async function generateTaskCriteriaMapping(
+  assignmentLevelId: string,
+): Promise<AutoTaskCriteriaMappingResult> {
+  const csrfToken = await getCsrfToken();
+
+  const response = await fetch(
+    `${API_BASE_URL}/grading/map-tasks-criteria/`,
+    {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRFToken": csrfToken,
+      },
+      body: JSON.stringify({
+        assignment_level: assignmentLevelId,
+      }),
+    },
+  );
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(
+      typeof data?.error === "string"
+        ? data.error
+        : "Unable to generate task criteria mapping.",
+    );
+  }
+
+  return data as AutoTaskCriteriaMappingResult;
+}
+

@@ -40,7 +40,7 @@ urlpatterns = [
         name="cohort-list-create",
     ),
     path(
-        "cohorts/<int:id>/",
+        "cohorts/<uuid:id>/",
         CohortDetailView.as_view(),
         name="cohort-detail",
     ),

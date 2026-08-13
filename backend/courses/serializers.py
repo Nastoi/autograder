@@ -6,11 +6,11 @@ from grading.models import (
     GradingConfiguration,
 )
 from .models import (
+    AssignmentLevel,
     Cohort,
     Module,
     ModuleAssignment,
     Qualification,
-    AssignmentLevel,
 )
 
 class QualificationSerializer(serializers.ModelSerializer):
@@ -78,8 +78,8 @@ class ModuleSerializer(serializers.ModelSerializer):
             "qualification",
             "qualification_code",
             "qualification_name",
-            "code",
-            "name",
+            "module_code",
+            "module_name",
             "description",
             "is_active",
             "can_delete",
@@ -101,11 +101,11 @@ class ModuleSerializer(serializers.ModelSerializer):
             and not obj.assignments.exists()
         )
 
-    def validate_code(self, value):
+    def validate_module_code(self, value):
         code = value.strip().upper()
 
         queryset = Module.objects.filter(
-            code__iexact=code,
+            module_code__iexact=code,
         )
 
         if self.instance:
@@ -122,11 +122,11 @@ class ModuleSerializer(serializers.ModelSerializer):
 
 class CohortSerializer(serializers.ModelSerializer):
     module_code = serializers.CharField(
-        source="module.code",
+        source="module.module_code",
         read_only=True,
     )
     module_name = serializers.CharField(
-        source="module.name",
+        source="module.module_name",
         read_only=True,
     )
     qualification_id = serializers.UUIDField(
@@ -178,7 +178,7 @@ class CohortSerializer(serializers.ModelSerializer):
     def get_can_delete(self, obj):
         # Check if the relation exists before calling .exists()
         if hasattr(obj, "enrolments"):
-            return not obj.enrolments.exists()
+            return not obj.assessment_mappings.exists()
         return True
 
     def validate_cohort_code(self, value):
@@ -228,11 +228,11 @@ class CohortSerializer(serializers.ModelSerializer):
 
 class ModuleAssignmentSerializer(serializers.ModelSerializer):
     module_code = serializers.CharField(
-        source="module.code",
+        source="module.module_code",
         read_only=True,
     )
     module_name = serializers.CharField(
-        source="module.name",
+        source="module.module_name",
         read_only=True,
     )
     qualification_id = serializers.UUIDField(
@@ -247,6 +247,18 @@ class ModuleAssignmentSerializer(serializers.ModelSerializer):
         source="module.qualification.qualification_name",
         read_only=True,
     )
+    grading_configuration_code = serializers.CharField(
+        source="grading_configuration.grading_config_code",
+        read_only=True,
+    )
+    grading_configuration_name = serializers.CharField(
+        source="grading_configuration.grading_config_name",
+        read_only=True,
+    )
+    level_display_name = serializers.CharField(
+        source="get_level_display",
+        read_only=True,
+    )
     can_delete = serializers.SerializerMethodField()
 
     class Meta:
@@ -259,9 +271,13 @@ class ModuleAssignmentSerializer(serializers.ModelSerializer):
             "qualification_id",
             "qualification_code",
             "qualification_name",
-            "assignment_number",
-            "code",
-            "title",
+            "grading_configuration",
+            "grading_configuration_code",
+            "grading_configuration_name",
+            "level",
+            "level_display_name",
+            "assignment_code",
+            "assignment_title",
             "skill_statement_code",
             "skill_statement",
             "objective",
@@ -283,15 +299,20 @@ class ModuleAssignmentSerializer(serializers.ModelSerializer):
             "qualification_id",
             "qualification_code",
             "qualification_name",
+            "grading_configuration_code",
+            "grading_configuration_name",
+            "level_display_name",
             "can_delete",
             "created_at",
             "updated_at",
         )
 
     def get_can_delete(self, obj):
-        return not obj.levels.exists()
+        return not obj.levels.filter(
+            rubric_criteria__isnull=False,
+        ).exists()
 
-    def validate_code(self, value):
+    def validate_assignment_code(self, value):
         return value.strip().upper()
 
     def validate(self, attrs):
@@ -299,13 +320,9 @@ class ModuleAssignmentSerializer(serializers.ModelSerializer):
             "module",
             getattr(self.instance, "module", None),
         )
-        code = attrs.get(
-            "code",
-            getattr(self.instance, "code", None),
-        )
-        assignment_number = attrs.get(
-            "assignment_number",
-            getattr(self.instance, "assignment_number", None),
+        assignment_code = attrs.get(
+            "assignment_code",
+            getattr(self.instance, "assignment_code", None),
         )
         maximum_score = attrs.get(
             "maximum_score",
@@ -328,10 +345,10 @@ class ModuleAssignmentSerializer(serializers.ModelSerializer):
             getattr(self.instance, "final_mark_weight", None),
         )
 
-        if module and code:
+        if module and assignment_code:
             queryset = ModuleAssignment.objects.filter(
                 module=module,
-                code__iexact=code,
+                assignment_code__iexact=assignment_code,
             )
 
             if self.instance:
@@ -342,30 +359,9 @@ class ModuleAssignmentSerializer(serializers.ModelSerializer):
             if queryset.exists():
                 raise serializers.ValidationError(
                     {
-                        "code": (
+                        "assignment_code": (
                             "An assignment with this code already "
                             "exists in the selected module."
-                        )
-                    }
-                )
-
-        if module and assignment_number is not None:
-            queryset = ModuleAssignment.objects.filter(
-                module=module,
-                assignment_number=assignment_number,
-            )
-
-            if self.instance:
-                queryset = queryset.exclude(
-                    id=self.instance.id,
-                )
-
-            if queryset.exists():
-                raise serializers.ValidationError(
-                    {
-                        "assignment_number": (
-                            "This assignment number already exists "
-                            "in the selected module."
                         )
                     }
                 )
@@ -402,39 +398,35 @@ class ModuleAssignmentSerializer(serializers.ModelSerializer):
 
         level_definitions = (
             (
-                AssignmentLevel.Level.FOUNDATION,
-                "Foundation",
+                AssignmentLevel.Level.BASIC,
+                "Basic",
             ),
             (
-                AssignmentLevel.Level.PROFICIENT,
-                "Proficient",
-            ),
-            (
-                AssignmentLevel.Level.EXPERT,
-                "Expert",
+                AssignmentLevel.Level.ADVANCED,
+                "Advanced",
             ),
         )
 
         for level_code, display_name in level_definitions:
             configuration_code = (
-                f"{assignment.code}-{level_code.upper()}"
+                f"{assignment.assignment_code}-{level_code.upper()}"
             )
 
             if GradingConfiguration.objects.filter(
-                code=configuration_code,
+                grading_config_code=configuration_code,
             ).exists():
                 configuration_code = (
-                    f"{assignment.module.code}-"
-                    f"{assignment.code}-"
+                    f"{assignment.module.module_code}-"
+                    f"{assignment.assignment_code}-"
                     f"{level_code.upper()}-"
                     f"{str(assignment.id)[:8]}"
                 )
 
             grading_configuration = (
                 GradingConfiguration.objects.create(
-                    code=configuration_code,
-                    name=(
-                        f"{assignment.title} - "
+                    grading_config_code=configuration_code,
+                    grading_config_name=(
+                        f"{assignment.assignment_title} - "
                         f"{display_name}"
                     ),
                     grading_type=(
@@ -455,7 +447,7 @@ class ModuleAssignmentSerializer(serializers.ModelSerializer):
                         ),
                         "attempt_level": level_code,
                         "assignment_code": (
-                            assignment.code
+                            assignment.assignment_code
                         ),
                         "manual_review_on_mapping_mismatch": True,
                         "ai_may_not_exceed_criterion_maximum": True,
@@ -472,7 +464,7 @@ class ModuleAssignmentSerializer(serializers.ModelSerializer):
                 level_code=level_code,
                 display_name=display_name,
                 title=(
-                    f"{assignment.title} - "
+                    f"{assignment.assignment_title} - "
                     f"{display_name}"
                 ),
                 instructions="",
@@ -491,17 +483,14 @@ class ModuleAssignmentSerializer(serializers.ModelSerializer):
 
             allowed_bands = (
                 ["failed", "foundation", "proficient"]
-                if level_code in (
-                    AssignmentLevel.Level.FOUNDATION,
-                    AssignmentLevel.Level.PROFICIENT,
-                )
+                if level_code == AssignmentLevel.Level.BASIC
                 else ["failed", "proficient", "expert"]
             )
 
             AIGradingProfile.objects.create(
                 assignment_level=assignment_level,
                 profile_name=(
-                    f"{assignment.code} "
+                    f"{assignment.assignment_code} "
                     f"{display_name} AI Grading Profile"
                 ),
                 system_prompt=(
@@ -595,11 +584,11 @@ class ModuleAssignmentSerializer(serializers.ModelSerializer):
 
 class AssignmentLevelSerializer(serializers.ModelSerializer):
     assignment_code = serializers.CharField(
-        source="assignment.code",
+        source="assignment.assignment_code",
         read_only=True,
     )
     assignment_title = serializers.CharField(
-        source="assignment.title",
+        source="assignment.assignment_title",
         read_only=True,
     )
     module_id = serializers.UUIDField(
@@ -607,7 +596,11 @@ class AssignmentLevelSerializer(serializers.ModelSerializer):
         read_only=True,
     )
     module_code = serializers.CharField(
-        source="assignment.module.code",
+        source="assignment.module.module_code",
+        read_only=True,
+    )
+    module_name = serializers.CharField(
+        source="assignment.module.module_name",
         read_only=True,
     )
     qualification_id = serializers.UUIDField(
@@ -619,14 +612,17 @@ class AssignmentLevelSerializer(serializers.ModelSerializer):
         read_only=True,
     )
     grading_configuration_code = serializers.CharField(
-        source="grading_configuration.code",
+        source="grading_configuration.grading_config_code",
         read_only=True,
     )
     grading_configuration_name = serializers.CharField(
-        source="grading_configuration.name",
+        source="grading_configuration.grading_config_name",
         read_only=True,
     )
+
     can_delete = serializers.SerializerMethodField()
+
+    
 
     class Meta:
         model = AssignmentLevel
@@ -637,6 +633,7 @@ class AssignmentLevelSerializer(serializers.ModelSerializer):
             "assignment_title",
             "module_id",
             "module_code",
+            "module_name",
             "qualification_id",
             "qualification_code",
             "grading_configuration",
@@ -664,6 +661,7 @@ class AssignmentLevelSerializer(serializers.ModelSerializer):
             "assignment_title",
             "module_id",
             "module_code",
+            "module_name",
             "qualification_id",
             "qualification_code",
             "grading_configuration_code",
@@ -677,6 +675,8 @@ class AssignmentLevelSerializer(serializers.ModelSerializer):
         return (
             not obj.rubric_criteria.exists()
             and not obj.rag_sources.exists()
+            and not obj.grading_tasks.exists()
+            and not obj.task_criteria_mappings.exists()
             and not hasattr(obj, "ai_grading_profile")
         )
 
@@ -685,10 +685,12 @@ class AssignmentLevelSerializer(serializers.ModelSerializer):
             "assignment",
             getattr(self.instance, "assignment", None),
         )
+
         level_code = attrs.get(
             "level_code",
             getattr(self.instance, "level_code", None),
         )
+
         version = attrs.get(
             "version",
             getattr(self.instance, "version", None),

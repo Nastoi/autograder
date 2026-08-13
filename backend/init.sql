@@ -1,3 +1,5 @@
+CREATE EXTENSION IF NOT EXISTS vector;
+
 -- Create the unmanaged tables that Django expects
 CREATE TABLE IF NOT EXISTS qualification (
     id UUID PRIMARY KEY,

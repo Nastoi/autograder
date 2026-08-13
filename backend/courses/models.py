@@ -48,11 +48,10 @@ class Module(models.Model):
         Qualification,
         on_delete=models.PROTECT,
         related_name="modules",
-        db_column="qualification_id",
     )
 
-    code = models.CharField(max_length=50)
-    name = models.CharField(max_length=255)
+    module_code = models.CharField(max_length=50)
+    module_name = models.CharField(max_length=255)
     description = models.TextField(blank=True)
     is_active = models.BooleanField(default=True)
 
@@ -62,9 +61,10 @@ class Module(models.Model):
     class Meta:
         db_table = "module"
         ordering = ("code",)
+        ordering = ("module_code",)
 
     def __str__(self) -> str:
-        return f"{self.code} — {self.name}"
+        return f"{self.module_code} — {self.module_name}"
 
 
 class Enrolment(models.Model):
@@ -93,6 +93,8 @@ class Enrolment(models.Model):
     enrolled_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
+        db_table = "enrolment"
+        managed = False
         ordering = ("module", "user")
         constraints = [
             models.UniqueConstraint(
@@ -104,12 +106,22 @@ class Enrolment(models.Model):
     def __str__(self) -> str:
         return (
             f"{self.user.username} — "
-            f"{self.module.code} — "
+            f"{self.module.module_code} — "
             f"{self.get_role_display()}"
         )
 
 
 class ModuleAssignment(models.Model):
+    class Level(models.TextChoices):
+        BASIC = "basic", "Basic"
+        ADVANCED = "advanced", "Advanced"
+
+    level = models.CharField(
+        max_length=20,
+        choices=Level.choices,
+        default=Level.BASIC,
+    )
+
     id = models.UUIDField(
         primary_key=True,
         default=uuid.uuid4,
@@ -120,12 +132,18 @@ class ModuleAssignment(models.Model):
         Module,
         on_delete=models.PROTECT,
         related_name="assignments",
-        db_column="module_id",
     )
 
-    assignment_number = models.PositiveIntegerField()
-    code = models.CharField(max_length=50)
-    title = models.CharField(max_length=255)
+    grading_configuration = models.ForeignKey(
+        'grading.GradingConfiguration',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='module_assignments'  # <-- Add this
+    )   
+
+    assignment_code = models.CharField(max_length=50)
+    assignment_title = models.CharField(max_length=255)
 
     skill_statement_code = models.CharField(max_length=50)
     skill_statement = models.TextField()
@@ -156,17 +174,22 @@ class ModuleAssignment(models.Model):
 
     class Meta:
         db_table = "module_assignment"
-        ordering = ("module", "assignment_number")
+        ordering = ("module", "level", "assignment_code")
 
     def __str__(self) -> str:
-        return f"{self.code} — {self.title}"
+        return (
+            f"{self.assignment_code} — "
+            f"{self.assignment_title}"
+        )
 
 
 class AssignmentLevel(models.Model):
     class Level(models.TextChoices):
-        FOUNDATION = "foundation", "Foundation"
-        PROFICIENT = "proficient", "Proficient"
-        EXPERT = "expert", "Expert"
+        # FOUNDATION = "foundation", "Foundation"
+        # PROFICIENT = "proficient", "Proficient"
+        # EXPERT = "expert", "Expert"
+        BASIC = "basic", "BASIC"
+        ADVANCED = "advanced", "ADVANCED"
 
     class ConfigurationStatus(models.TextChoices):
         DRAFT = "draft", "Draft"
@@ -183,14 +206,14 @@ class AssignmentLevel(models.Model):
         ModuleAssignment,
         on_delete=models.CASCADE,
         related_name="levels",
-        db_column="assignment_id",
     )
 
     grading_configuration = models.ForeignKey(
-        "grading.GradingConfiguration",
-        on_delete=models.PROTECT,
-        related_name="assignment_levels",
-        db_column="grading_configuration_id",
+        'grading.GradingConfiguration',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='assignment_levels'   # <-- Add this
     )
 
     level_code = models.CharField(
@@ -228,18 +251,23 @@ class AssignmentLevel(models.Model):
     class Meta:
         db_table = "assignment_level"
         ordering = (
-            "assignment__assignment_number",
             "level_code",
         )
 
     def __str__(self) -> str:
         return (
-            f"{self.assignment.code} — "
+            f"{self.assignment.assignment_code} — "
             f"{self.get_level_code_display()}"
         )
 
 
 class Cohort(models.Model):
+    id = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False,
+    )
+
     cohort_name = models.CharField(max_length=255)
 
     cohort_code = models.CharField(
@@ -251,6 +279,7 @@ class Cohort(models.Model):
         Module,
         on_delete=models.CASCADE,
         related_name="cohorts",
+        db_column="module_id",
     )
 
     start_date = models.DateField(
@@ -269,6 +298,8 @@ class Cohort(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
+        db_table = "cohort"
+        # managed = False
         ordering = ("cohort_code",)
 
     def __str__(self) -> str:

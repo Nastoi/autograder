@@ -30,8 +30,8 @@ class SubmissionContext(models.Model):
         related_name="submission_contexts",
     )
 
-    assignment = models.ForeignKey(
-        "courses.ModuleAssignment",
+    assignment_level = models.ForeignKey(
+        "courses.AssignmentLevel",
         on_delete=models.PROTECT,
         related_name="submission_contexts_by_assignment",
         null=True,
@@ -54,7 +54,8 @@ class SubmissionContext(models.Model):
     def __str__(self) -> str:
         return (
             f"{self.learner.username} — "
-            f"{self.assignment.code if self.assignment else 'No assignment'}"
+            f"{self.assignment_level.assignment_code} — "
+            f"{self.assignment_level.level}"
         )
 
 
@@ -88,12 +89,16 @@ class LearnerSubmission(models.Model):
         related_name="learner_submissions",
     )
 
-    assignment = models.ForeignKey(
-        "courses.ModuleAssignment",
+    assignment_level = models.ForeignKey(
+        "courses.AssignmentLevel",
         on_delete=models.PROTECT,
-        related_name="learner_submissions_by_assignment",
-        null=True,
-        blank=True,
+        related_name="learner_submissions",
+    )
+
+    submission_track = models.CharField(
+        max_length=20,
+        choices=SubmissionTrack.choices,
+        default=SubmissionTrack.BASIC,
     )
 
     submitted_file = models.FileField(
@@ -139,13 +144,6 @@ class LearnerSubmission(models.Model):
         null=True,
     )
 
-    submission_track = models.CharField(
-        max_length=20,
-        choices=SubmissionTrack.choices,
-        default=SubmissionTrack.BASIC,
-    )
-    
-
     class Meta:
         db_table = "learner_submission"
         ordering = ("-submitted_at",)
@@ -155,21 +153,22 @@ class LearnerSubmission(models.Model):
             f"{self.learner.username} — "
             f"{self.original_filename}"
         )
-        
+
+
 class SubmissionPage(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     submission = models.ForeignKey(
         LearnerSubmission, on_delete=models.CASCADE, related_name="pages"
     )
     page_number = models.PositiveIntegerField()
-    
+
     # Store page text extracted via pdfplumber
     extracted_text = models.TextField(blank=True, default="")
-    
+
     # Store binary WebP image directly in Postgres bytea column
     image_data = models.BinaryField(null=True, blank=True)
     image_mime_type = models.CharField(max_length=50, default="image/webp")
-    
+
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

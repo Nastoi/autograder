@@ -2,9 +2,17 @@ from rest_framework import serializers
 
 from .models import (
     AIGradingProfile,
+    CriterionResult,
+    ExtractedEvidence,
     GradingConfiguration,
+    Prompt,
+    Response,
     RubricBand,
     RubricCriterion,
+    Task,
+    TaskCriterionWeight,
+    TaskCriteriaMapping,
+    TaskEvidenceMap,
 )
 
 
@@ -17,8 +25,8 @@ class GradingConfigurationSerializer(
         model = GradingConfiguration
         fields = (
             "id",
-            "code",
-            "name",
+            "grading_config_code",
+            "grading_config_name",
             "grading_type",
             "structural_check_enabled",
             "automated_testing_enabled",
@@ -47,11 +55,11 @@ class GradingConfigurationSerializer(
     ) -> bool:
         return not obj.assignment_levels.exists()
 
-    def validate_code(self, value):
+    def validate_grading_config_code(self, value):
         code = value.strip().upper()
 
         queryset = GradingConfiguration.objects.filter(
-            code__iexact=code,
+            grading_config_code__iexact=code,
         )
 
         if self.instance:
@@ -101,12 +109,12 @@ class RubricCriterionSerializer(
     serializers.ModelSerializer
 ):
     assignment_code = serializers.CharField(
-        source="assignment_level.assignment.code",
+        source="assignment_level.assignment.assignment_code",
         read_only=True,
     )
 
     assignment_title = serializers.CharField(
-        source="assignment_level.assignment.title",
+        source="assignment_level.assignment.assignment_title",
         read_only=True,
     )
 
@@ -266,7 +274,7 @@ class RubricBandSerializer(serializers.ModelSerializer):
     assignment_code = serializers.CharField(
         source=(
             "rubric_criterion."
-            "assignment_level.assignment.code"
+            "assignment_level.assignment.assignment_code"
         ),
         read_only=True,
     )
@@ -425,12 +433,12 @@ class AIGradingProfileSerializer(
     serializers.ModelSerializer
 ):
     assignment_code = serializers.CharField(
-        source="assignment_level.assignment.code",
+        source="assignment_level.assignment.assignment_code",
         read_only=True,
     )
 
     assignment_title = serializers.CharField(
-        source="assignment_level.assignment.title",
+        source="assignment_level.assignment.assignment_title",
         read_only=True,
     )
 
@@ -507,10 +515,193 @@ class AIGradingProfileSerializer(
 
         return value
 
-def create(self, validated_data):
-    validated_data["ai_grading_enabled"] = True
-    return super().create(validated_data)
 
-def update(self, instance, validated_data):
-    validated_data["ai_grading_enabled"] = True
-    return super().update(instance, validated_data)
+class TaskSerializer(serializers.ModelSerializer):
+    assignment_code = serializers.CharField(
+        source="assignment_level.assignment.assignment_code",
+        read_only=True,
+    )
+
+    level_code = serializers.CharField(
+        source="assignment_level.level_code",
+        read_only=True,
+    )
+
+    class Meta:
+        model = Task
+        fields = (
+            "id",
+            "assignment_level",
+            "assignment_code",
+            "level_code",
+            "task_code",
+            "title",
+            "instructions",
+            "sequence",
+            "created_at",
+        )
+        read_only_fields = (
+            "id",
+            "assignment_code",
+            "level_code",
+            "created_at",
+        )
+
+
+class TaskCriterionWeightSerializer(serializers.ModelSerializer):
+    task_code = serializers.CharField(
+        source="task.task_code",
+        read_only=True,
+    )
+    criterion_code = serializers.CharField(
+        source="rubric_criterion.criterion_code",
+        read_only=True,
+    )
+
+    class Meta:
+        model = TaskCriterionWeight
+        fields = (
+            "id",
+            "task",
+            "task_code",
+            "rubric_criterion",
+            "criterion_code",
+            "weight_percentage",
+            "band",
+        )
+        read_only_fields = (
+            "id",
+            "task_code",
+            "criterion_code",
+        )
+
+
+class TaskCriteriaMappingSerializer(serializers.ModelSerializer):
+    task_code = serializers.CharField(
+        source="task.task_code",
+        read_only=True,
+    )
+    criterion_code = serializers.CharField(
+        source="rubric_criterion.criterion_code",
+        read_only=True,
+    )
+    assignment_level_id = serializers.UUIDField(
+        source="assignment_level.id",
+        read_only=True,
+    )
+
+    class Meta:
+        model = TaskCriteriaMapping
+        fields = (
+            "id",
+            "assignment_level",
+            "assignment_level_id",
+            "task",
+            "task_code",
+            "rubric_criterion",
+            "criterion_code",
+            "inferred_weight",
+            "ai_explanation",
+            "created_at",
+        )
+        read_only_fields = (
+            "id",
+            "task_code",
+            "criterion_code",
+            "assignment_level_id",
+            "created_at",
+        )
+
+
+class ExtractedEvidenceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ExtractedEvidence
+        fields = (
+            "id",
+            "submission",
+            "page_number",
+            "content_text",
+            "image_url",
+            "extraction_confidence",
+            "created_at",
+        )
+        read_only_fields = ("id", "created_at")
+class TaskEvidenceMapSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TaskEvidenceMap
+        fields = (
+            "id",
+            "task",
+            "evidence",
+            "mapping_role",
+            "confidence_score",
+        )
+        read_only_fields = (
+            "id",
+        )
+
+
+class PromptSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Prompt
+        fields = (
+            "id",
+            "submission",
+            "stage",
+            "prompt_text",
+            "prompt_payload",
+            "created_at",
+        )
+        read_only_fields = (
+            "id",
+            "created_at",
+        )
+
+
+class ResponseSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Response
+        fields = (
+            "id",
+            "prompt",
+            "model_name",
+            "response_payload",
+            "confidence_score",
+            "created_at",
+        )
+        read_only_fields = (
+            "id",
+            "created_at",
+        )
+
+
+class CriterionResultSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CriterionResult
+        fields = (
+            "id",
+            "submission",
+            "rubric_criterion",
+            "awarded_marks",
+            "achievement_band",
+            "feedback",
+            "created_at",
+        )
+        read_only_fields = (
+            "id",
+            "created_at",
+        )
+
+class AIDispatchRequestSerializer(serializers.Serializer):
+    submission_id = serializers.UUIDField(required=True)
+    ai_agent_url = serializers.URLField(
+        required=False,
+        default="https://api.your-ai-agent-service.com/v1/grade",
+        help_text="Target URL of the external AI Agent API"
+    )
+
+class AIDispatchResponseSerializer(serializers.Serializer):
+    submission_id = serializers.UUIDField()
+    status = serializers.CharField()
+    evidence_count = serializers.IntegerField()
+    ai_response = serializers.JSONField()

@@ -18,6 +18,15 @@ import { CreateAssessmentMappingPage } from "./pages/CreateAssessmentMappingPage
 import { QualificationsPage } from "./pages/QualificationsPage";
 import { CohortsPage } from "./pages/CohortsPage";
 import { AssignmentsPage } from "./pages/AssignmentsPage";
+// <<<<<<< HEAD
+// =======
+// import { GradingConfigurationsPage } from "./pages/GradingConfigurationsPage";
+// import { AssignmentLevelsPage } from "./pages/AssignmentLevelsPage";
+// import { RubricCriteriaPage } from "./pages/RubricCriteriaPage";
+// import { RubricBandsPage } from "./pages/RubricBandsPage";
+// import { AIGradingProfilesPage } from "./pages/AIGradingProfilesPage";
+// import { TaskCriteriaMappingsPage } from "./pages/TaskCriteriaMappingsPage";
+// >>>>>>> origin/feature/update_11Aug_8PM_MMT
 
 import { MappingSubmissionPage } from "./pages/MappingSubmissionPage";
 
@@ -81,7 +90,34 @@ export default function App() {
             path="/admin/assignments"
             element={<AssignmentsPage />}
           />
+{/* <<<<<<< HEAD
 
+=======
+          <Route
+            path="/admin/grading-configurations"
+            element={<GradingConfigurationsPage />}
+          />
+          <Route
+            path="/admin/assignment-levels"
+            element={<AssignmentLevelsPage />}
+          />
+          <Route
+            path="/admin/rubric-criteria"
+            element={<RubricCriteriaPage />}
+          />
+          <Route
+            path="/admin/rubric-bands"
+            element={<RubricBandsPage />}
+          />
+          <Route
+            path="/admin/ai-grading-profiles"
+            element={<AIGradingProfilesPage />}
+          />
+          <Route
+            path="/admin/task-criteria-mappings"
+            element={<TaskCriteriaMappingsPage />}
+          />
+>>>>>>> origin/feature/update_11Aug_8PM_MMT */}
         </Route>
 
         {/* -------------------- */}

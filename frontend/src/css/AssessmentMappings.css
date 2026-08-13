@@ -6,7 +6,7 @@
 
 .admin-container {
   width: 100%;
-  max-width: 1400px;
+  max-width: none;
   height: calc(100vh - 64px);
   margin: 0 auto;
   padding: 3rem 5%;
@@ -543,6 +543,7 @@ button:disabled {
    ========================================================= */
 
 .assignment-workspace {
+  width: 100%;
   margin-top: 28px;
   overflow: hidden;
 
@@ -594,6 +595,8 @@ button:disabled {
 }
 
 .workspace-panel {
+  width: 100%;
+  box-sizing: border-box;
   padding: 24px;
 }
 
@@ -642,12 +645,16 @@ button:disabled {
 .submission-path-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
+  gap: 24px;
+  width: 100%;
   margin-bottom: 24px;
 }
 
 .submission-path-card {
   display: flex;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
   flex-direction: column;
   gap: 6px;
 
@@ -678,11 +685,15 @@ button:disabled {
 
 .level-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+  width: 100%;
 }
 
 .level-card {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
   padding: 18px;
 
   border: 1px solid var(--border);

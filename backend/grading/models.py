@@ -3,7 +3,6 @@ import uuid
 from django.db import models
 from pgvector.django import VectorField
 
-
 class GradingConfiguration(models.Model):
     class GradingType(models.TextChoices):
         RULES_ONLY = "rules_only", "Rules only"
@@ -18,12 +17,12 @@ class GradingConfiguration(models.Model):
         editable=False,
     )
 
-    code = models.CharField(
+    grading_config_code = models.CharField(
         max_length=100,
         unique=True,
     )
 
-    name = models.CharField(max_length=255)
+    grading_config_name = models.CharField(max_length=255)
 
     grading_type = models.CharField(
         max_length=30,
@@ -51,11 +50,13 @@ class GradingConfiguration(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        db_table = "grading_configuration"
-        ordering = ("code",)
+        ordering = ("grading_config_code",)
 
     def __str__(self) -> str:
-        return f"{self.code} — {self.name}"
+        return (
+            f"{self.grading_config_code} — "
+            f"{self.grading_config_name}"
+        )
 
 
 class RubricCriterion(models.Model):
@@ -69,7 +70,6 @@ class RubricCriterion(models.Model):
         "courses.AssignmentLevel",
         on_delete=models.CASCADE,
         related_name="rubric_criteria",
-        db_column="assignment_level_id",
         null=True,
         blank=True,
     )
@@ -120,7 +120,6 @@ class RubricBand(models.Model):
         RubricCriterion,
         on_delete=models.CASCADE,
         related_name="bands",
-        db_column="rubric_criterion_id",
         null=True,
         blank=True,
     )
@@ -130,7 +129,7 @@ class RubricBand(models.Model):
         choices=Band.choices,
     )
 
-    display_name = models.CharField(max_length=100)
+    display_name = models.CharField(max_length=300)
 
     minimum_percentage = models.DecimalField(
         max_digits=5,
@@ -187,7 +186,6 @@ class RagSource(models.Model):
         "courses.AssignmentLevel",
         on_delete=models.CASCADE,
         related_name="rag_sources",
-        db_column="assignment_level_id",
         null=True,
         blank=True,
     )
@@ -244,7 +242,6 @@ class RagChunk(models.Model):
         RagSource,
         on_delete=models.CASCADE,
         related_name="chunks",
-        db_column="rag_source_id",
         null=True,
         blank=True,
     )
@@ -292,8 +289,7 @@ class AIGradingProfile(models.Model):
         "courses.AssignmentLevel",
         on_delete=models.CASCADE,
         related_name="ai_grading_profile",
-        db_column="assignment_level_id",
-        null=True,  # Allow nulls for existing/new rows during migration
+        null=True,
         blank=True,
     )
 
@@ -327,3 +323,302 @@ class AIGradingProfile(models.Model):
 
     def __str__(self) -> str:
         return self.profile_name
+
+
+class Task(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
+    assignment_level = models.ForeignKey(
+        "courses.AssignmentLevel",
+        on_delete=models.CASCADE,
+        related_name="grading_tasks",
+        db_column="assignment_level_id",
+        null=True,  # Add null=True
+        blank=True, # Add blank=True
+    )
+
+    task_code = models.CharField(max_length=80)
+    title = models.CharField(max_length=255)
+    instructions = models.TextField(blank=True)
+    sequence = models.PositiveIntegerField(default=0)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "task"
+        # managed = False
+        ordering = ("assignment_level", "sequence")
+
+    def __str__(self) -> str:
+        return f"{self.assignment_level} — {self.title}"
+
+
+class TaskCriterionWeight(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
+    task = models.ForeignKey(
+        Task,
+        on_delete=models.CASCADE,
+        related_name="criterion_weights",
+        db_column="task_id",
+        null=True,  # Add null=True
+        blank=True, # Add blank=True        
+    )
+
+    rubric_criterion = models.ForeignKey(
+        RubricCriterion,
+        on_delete=models.CASCADE,
+        related_name="task_weights",
+        db_column="rubric_criterion_id",
+        null=True,  # Add null=True
+        blank=True, # Add blank=True        
+    )
+
+    weight_percentage = models.DecimalField(max_digits=5, decimal_places=2)
+
+    class Band(models.TextChoices):
+        FAILED = "failed", "Failed"
+        FOUNDATION = "foundation", "Foundation"
+        PROFICIENT = "proficient", "Proficient"
+        EXPERT = "expert", "Expert"
+
+    band = models.CharField(max_length=30, choices=Band.choices, blank=True)
+
+    class Meta:
+        db_table = "task_criterion_weight"
+        # managed = False
+
+    def __str__(self) -> str:
+        return f"{self.task} — {self.rubric_criterion} ({self.weight_percentage}%)"
+
+
+class TaskCriteriaMapping(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
+    assignment_level = models.ForeignKey(
+        "courses.AssignmentLevel",
+        on_delete=models.CASCADE,
+        related_name="task_criteria_mappings",
+        db_column="assignment_level_id",
+        null=True,  # Add null=True
+        blank=True, # Add blank=True
+    )
+
+    task = models.ForeignKey(
+        Task,
+        on_delete=models.CASCADE,
+        related_name="criteria_mappings",
+        db_column="task_id",
+        null=True,  # Add null=True
+        blank=True, # Add blank=True        
+    )
+
+    rubric_criterion = models.ForeignKey(
+        RubricCriterion,
+        on_delete=models.CASCADE,
+        related_name="task_mappings",
+        db_column="rubric_criterion_id",
+        null=True,  # Add null=True
+        blank=True, # Add blank=True
+    )
+
+    inferred_weight = models.DecimalField(max_digits=5, decimal_places=2)
+    ai_explanation = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "task_criteria_mapping"
+        # managed = False
+
+    def __str__(self) -> str:
+        return f"AI mapping {self.task} → {self.rubric_criterion} ({self.inferred_weight}%)"
+
+
+class ExtractedEvidence(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
+    submission = models.ForeignKey(
+        "submissions.LearnerSubmission",
+        on_delete=models.CASCADE,
+        related_name="extracted_evidences",
+        db_column="submission_id",
+        null=True,
+        blank=True,
+    )
+
+    page_number = models.PositiveIntegerField(null=True, blank=True)
+    content_text = models.TextField(blank=True, default="")
+    image_url = models.CharField(max_length=1024, blank=True, default="")
+
+    extraction_confidence = models.DecimalField(
+        max_digits=5, decimal_places=2, blank=True, null=True
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "extracted_evidence"
+        ordering = ("submission", "page_number", "created_at")
+
+    def __str__(self) -> str:
+        return f"Evidence {self.id} — Page {self.page_number} (Submission {self.submission_id})"
+
+
+class TaskEvidenceMap(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
+    task = models.ForeignKey(
+        Task,
+        on_delete=models.CASCADE,
+        related_name="evidence_maps",
+        db_column="task_id",
+        null=True,  # Add null=True
+        blank=True, # Add blank=True        
+    )
+
+    evidence = models.ForeignKey(
+        ExtractedEvidence,
+        on_delete=models.CASCADE,
+        related_name="task_maps",
+        db_column="evidence_id",
+        null=True,  # Add null=True
+        blank=True, # Add blank=True        
+    )
+
+    class MappingRole(models.TextChoices):
+        PRIMARY = "primary", "Primary"
+        SUPPORTING = "supporting", "Supporting"
+
+    mapping_role = models.CharField(
+        max_length=20,
+        choices=MappingRole.choices,
+        default=MappingRole.SUPPORTING,
+    )
+    confidence_score = models.DecimalField(max_digits=5, decimal_places=2, blank=True, null=True)
+
+    class Meta:
+        db_table = "task_evidence_map"
+        # managed = False
+
+    def __str__(self) -> str:
+        return f"{self.task} ≤ {self.evidence} ({self.mapping_role})"
+
+
+class Prompt(models.Model):
+    class Stage(models.TextChoices):
+        MAP_TASKS_CRITERIA = "map_tasks_criteria", "Map tasks to criteria"
+        MAP_EVIDENCE_TASKS = "map_evidence_tasks", "Map evidence to tasks"
+        FINAL_ASSESSMENT = "final_assessment", "Final assessment"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
+    submission = models.ForeignKey(
+        "submissions.LearnerSubmission",
+        on_delete=models.CASCADE,
+        related_name="prompts",
+        db_column="submission_id",
+        null=True,  # Add null=True
+        blank=True, # Add blank=True
+    )
+
+    stage = models.CharField(max_length=50, choices=Stage.choices)
+    prompt_text = models.TextField()
+    prompt_payload = models.JSONField(default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "prompt"
+        # managed = False
+
+    def __str__(self) -> str:
+        return f"Prompt {self.stage} for {self.submission_id}"
+
+
+class Response(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
+    prompt = models.ForeignKey(
+        Prompt,
+        on_delete=models.CASCADE,
+        related_name="responses",
+        db_column="prompt_id",
+        null=True,  # Add null=True
+        blank=True, # Add blank=True
+    )
+
+    model_name = models.CharField(max_length=100)
+    response_payload = models.JSONField(default=dict)
+    confidence_score = models.DecimalField(max_digits=5, decimal_places=4, blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "response"
+        # managed = False
+
+    def __str__(self) -> str:
+        return f"Response {self.model_name} for prompt {self.prompt_id}"
+
+
+class CriterionResult(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
+    submission = models.ForeignKey(
+        "submissions.LearnerSubmission",
+        on_delete=models.CASCADE,
+        related_name="criterion_results",
+        db_column="submission_id",
+        null=True,  # Add null=True
+        blank=True, # Add blank=True
+
+    )
+
+    rubric_criterion = models.ForeignKey(
+        RubricCriterion,
+        on_delete=models.CASCADE,
+        related_name="criterion_results",
+        db_column="rubric_criterion_id",
+        null=True,  # Add null=True
+        blank=True, # Add blank=True
+    )
+
+    awarded_marks = models.DecimalField(max_digits=8, decimal_places=2)
+    class AchievementBand(models.TextChoices):
+        FAILED = "failed", "Failed"
+        FOUNDATION = "foundation", "Foundation"
+        PROFICIENT = "proficient", "Proficient"
+        EXPERT = "expert", "Expert"
+
+    achievement_band = models.CharField(
+        max_length=30,
+        choices=AchievementBand.choices,
+        blank=True,
+    )
+    feedback = models.TextField(blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "criterion_result"
+        # managed = False
+
+    def __str__(self) -> str:
+        return f"{self.rubric_criterion} — {self.awarded_marks}"
+
+
+class SubmissionTaskMapping(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    submission = models.ForeignKey(
+        "submissions.LearnerSubmission",
+        on_delete=models.CASCADE,
+        related_name="task_mappings",
+    )
+    task_id = models.CharField(max_length=100)
+    task_description = models.TextField(blank=True)
+    mapped_page_numbers = models.JSONField(default=list)  # e.g. [1, 2]
+    confidence_score = models.DecimalField(max_digits=4, decimal_places=3, default=1.0)
+    justification = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "submission_task_mapping"
+        unique_together = ("submission", "task_id")

@@ -29,6 +29,7 @@ from .services import (
     get_or_create_lti_user,
     verify_lti_launch,
 )
+from courses.models import AssignmentLevel
 
 logger = logging.getLogger(__name__)
 
@@ -76,6 +77,7 @@ class AssessmentMappingDetailView(
                 "cohort",
                 "cohort__module",
                 "assignment",
+                "assignment__module",
             )
         )
 
@@ -130,67 +132,79 @@ class AssessmentMappingSubmissionView(generics.RetrieveAPIView):
     def retrieve(self, request, *args, **kwargs):
         mapping = self.get_object()
 
+        # Find any existing context for this learner/cohort/assignment.
         contexts = SubmissionContext.objects.filter(
             learner=request.user,
             cohort=mapping.cohort,
-            assignment=mapping.assignment,
+            assignment_level__assignment=mapping.assignment,
         )
 
-        # Prefer a context already linked to this mapping.
+        # Prefer one already linked to this mapping.
         context = contexts.filter(
-            assessment_mapping=mapping
+            assessment_mapping=mapping,
         ).first()
 
-        # Otherwise reuse one of the existing contexts.
+        # Otherwise reuse an existing context if one exists.
         if context is None:
             context = contexts.first()
 
-        # Only create one if none exists at all.
-        if context is None:
-            context = SubmissionContext.objects.create(
-                learner=request.user,
-                cohort=mapping.cohort,
-                assignment=mapping.assignment,
-                assessment_mapping=mapping,
-                is_active=True,
-            )
+        # If a context exists, make sure it is linked and active.
+        if context is not None:
+            if context.assessment_mapping_id != mapping.id:
+                context.assessment_mapping = mapping
+                context.save(
+                    update_fields=[
+                        "assessment_mapping",
+                        "updated_at",
+                    ]
+                )
 
-        # Ensure the selected context is linked to this mapping.
-        if context.assessment_mapping_id != mapping.id:
-            context.assessment_mapping = mapping
-            context.save(
-                 update_fields=[
-                    "assessment_mapping",
-                    "updated_at",
-                ]
-            )
-            
-        if not context.is_active:
-            context.is_active = True
-            context.save(
-                update_fields=[
-                    "is_active",
-                    "updated_at",
-                ]
-            )
+            if not context.is_active:
+                context.is_active = True
+                context.save(
+                    update_fields=[
+                        "is_active",
+                        "updated_at",
+                    ]
+                )
+
+        # Return both Basic and Advanced options.
+        # Do NOT create a context here because the learner
+        # has not chosen the new submission level yet.
+        assignment_levels = AssignmentLevel.objects.filter(
+            assignment=mapping.assignment,
+            is_active=True,
+        ).order_by("level_code")
 
         return Response(
             {
-                "context_id": str(context.id),
+                "context_id": str(context.id) if context else None,
                 "mapping_id": str(mapping.id),
+
                 "cohort": {
-                    "id": mapping.cohort.id,
+                    "id": str(mapping.cohort.id),
                     "code": mapping.cohort.cohort_code,
                     "name": mapping.cohort.cohort_name,
                 },
+
                 "assignment": {
                     "id": str(mapping.assignment.id),
-                    "code": mapping.assignment.code,
-                    "title": mapping.assignment.title,
+                    "code": mapping.assignment.assignment_code,
+                    "title": mapping.assignment.assignment_title,
                     "maximum_score": str(
                         mapping.assignment.maximum_score
                     ),
                 },
+
+                "assignment_levels": [
+                    {
+                        "id": str(level.id),
+                        "level_code": level.level_code,
+                        "display_name": level.display_name,
+                        "title": level.title,
+                    }
+                    for level in assignment_levels
+                ],
             }
         )
 

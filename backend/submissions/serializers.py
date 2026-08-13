@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from .models import SubmissionContext, LearnerSubmission, SubmissionPage
-
+from grading.serializers import CriterionResultSerializer
 
 class SubmissionContextSerializer(serializers.ModelSerializer):
     class Meta:
@@ -9,12 +9,34 @@ class SubmissionContextSerializer(serializers.ModelSerializer):
             "id",
             "learner",
             "cohort",
-            "assignment",
+            "assignment_level"
             "is_active",
             "created_at",
             "updated_at",
         )
         read_only_fields = ("id", "learner", "created_at", "updated_at")
+
+    def validate(self, attrs):
+        """Ensure cohort and assignment level belong to the same module."""
+        cohort = attrs.get(
+            "cohort",
+            getattr(self.instance, "cohort", None),
+        )
+        assignment_level = attrs.get(
+            "assignment_level",
+            getattr(self.instance, "assignment_level", None),
+        )
+
+        if cohort and assignment_level:
+            if (
+                cohort.module_id
+                != assignment_level.assignment.module_id
+            ):
+                raise serializers.ValidationError(
+                    "Cohort and assignment level must belong to the same module."
+                )
+
+        return attrs
 
 
 class SubmissionPageSerializer(serializers.ModelSerializer):
@@ -25,6 +47,10 @@ class SubmissionPageSerializer(serializers.ModelSerializer):
         fields = ("id", "page_number", "extracted_text", "image_url")
 
     def get_image_url(self, obj):
+        """
+        Build absolute URL to the page image endpoint.
+        Falls back gracefully if request is not in context.
+        """
         request = self.context.get("request")
         url = f"/api/submissions/pages/{obj.id}/image/"
         return request.build_absolute_uri(url) if request else url
@@ -37,12 +63,22 @@ class LearnerSubmissionSerializer(serializers.ModelSerializer):
     )
 
     assignment_code = serializers.CharField(
-        source="assignment.code",
+        source="assignment_level.assignment.assignment_code",
         read_only=True,
     )
 
     assignment_title = serializers.CharField(
-        source="assignment.title",
+        source="assignment_level.assignment.assignment_title",
+        read_only=True,
+    )
+
+    level = serializers.CharField(
+        source="assignment_level.level_code",
+        read_only=True,
+    )   
+
+    criterion_results = CriterionResultSerializer(
+        many=True,
         read_only=True,
     )
 
@@ -53,9 +89,10 @@ class LearnerSubmissionSerializer(serializers.ModelSerializer):
             "context",
             "context_id",
             "learner",
-            "assignment",
+            "assignment_level",
             "assignment_code",
             "assignment_title",
+            "level",
             "submission_track",
             "submitted_file",
             "original_filename",
@@ -65,6 +102,7 @@ class LearnerSubmissionSerializer(serializers.ModelSerializer):
             "maximum_score",
             "achieved_band",
             "feedback",
+            "criterion_results",
             "submitted_at",
             "completed_at",
         )
@@ -89,15 +127,19 @@ class LearnerSubmissionDetailSerializer(serializers.ModelSerializer):
     )
 
     assignment_code = serializers.CharField(
-        source="assignment.code",
+        source="assignment_level.assignment.assignment_code",
         read_only=True,
     )
 
     assignment_title = serializers.CharField(
-        source="assignment.title",
+        source="assignment_level.assignment.assignment_title",
         read_only=True,
     )
 
+    level = serializers.CharField(
+        source="assignment_level.level_code",
+        read_only=True,
+    )
 
     class Meta:
         model = LearnerSubmission
@@ -106,20 +148,20 @@ class LearnerSubmissionDetailSerializer(serializers.ModelSerializer):
 
 class LearnerSubmissionListSerializer(serializers.ModelSerializer):
     assignment_code = serializers.CharField(
-        source="assignment.code",
+        source="assignment_level.assignment.assignment_code",
         read_only=True,
     )
     assignment_title = serializers.CharField(
-        source="assignment.title",
+        source="assignment_level.assignment.assignment_title",
         read_only=True,
     )
     module_id = serializers.UUIDField(
-        source="assignment.module.id",
+        source="assignment_level.assignment.module.id",
         read_only=True,
         default=None,
     )
     module_title = serializers.CharField(
-        source="assignment.title",
+        source="assignment_level.assignment.module.module_name",
         read_only=True,
         default="",
     )

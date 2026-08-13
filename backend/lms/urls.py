@@ -25,16 +25,16 @@ urlpatterns = [
         AssessmentMappingSubmissionView.as_view(),
         name="assessment-mapping-submission",
     ),
-    # path(
-    #     "lti/login/",
-    #     LtiLoginView.as_view(),
-    #     name="lti-login-debug",
-    # ),
-    # path(
-    #     "lti/launch/",
-    #     LtiLaunchView.as_view(),
-    #     name="lti-launch-debug",
-    # ),
+    path(
+        "lti/login/",
+        LtiLoginView.as_view(),
+        name="lti-login-debug",
+    ),
+    path(
+        "lti/launch/",
+        LtiLaunchView.as_view(),
+        name="lti-launch-debug",
+    ),
     path(
         "lti/launch/<uuid:mapping_id>/",
         LtiLaunchView.as_view(),

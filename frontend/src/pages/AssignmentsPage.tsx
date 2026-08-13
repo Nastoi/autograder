@@ -12,16 +12,19 @@ import {
   createModuleAssignment,
   createRubricBand,
   createRubricCriterion,
+  createTask,
   deleteAssignmentLevel,
   deleteModuleAssignment,
   deleteRubricBand,
   deleteRubricCriterion,
+  deleteTask,
   getAssignmentLevels,
   getModuleAssignments,
   getModules,
   getQualifications,
   getRubricBands,
   getRubricCriteria,
+  getTasks,
   updateAssignmentLevel,
   updateModuleAssignment,
   updateRubricBand,
@@ -32,14 +35,15 @@ import {
   type Qualification,
   type RubricBand,
   type RubricCriterion,
+  type Task,
+  generateTaskCriteriaMapping,
 } from "../api/lms";
 
 type WorkspaceTab = "overview" | "grading" | "rubric";
 
 const levelOrder: Record<AssignmentLevel["level_code"], number> = {
-  foundation: 1,
-  proficient: 2,
-  expert: 3,
+  basic: 1,
+  advanced: 2,
 };
 
 export function AssignmentsPage() {
@@ -49,6 +53,13 @@ export function AssignmentsPage() {
   const [levels, setLevels] = useState<AssignmentLevel[]>([]);
   const [criteria, setCriteria] = useState<RubricCriterion[]>([]);
   const [bands, setBands] = useState<RubricBand[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
+
+  const [expandedLevelIds, setExpandedLevelIds] = useState<string[]>([]);
+  const [taskDrafts, setTaskDrafts] = useState<
+    Record<string, { task_code: string; title: string; instructions: string }>
+  >({});
+  const [savingTaskLevelId, setSavingTaskLevelId] = useState("");
 
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
@@ -86,7 +97,6 @@ export function AssignmentsPage() {
   const [editingLevelId, setEditingLevelId] = useState("");
   const [levelTitle, setLevelTitle] = useState("");
   const [levelInstructions, setLevelInstructions] = useState("");
-  const [levelTasks, setLevelTasks] = useState("");
   const [levelDeliverables, setLevelDeliverables] = useState("");
   const [levelExpectedOutcome, setLevelExpectedOutcome] = useState("");
   const [isSavingLevel, setIsSavingLevel] = useState(false);
@@ -189,6 +199,10 @@ export function AssignmentsPage() {
     .filter((band) => selectedCriterionIds.includes(band.rubric_criterion))
     .sort((a, b) => a.sequence - b.sequence);
 
+  const selectedAssignmentTasks = tasks
+    .filter((task) => selectedLevelIds.includes(task.assignment_level))
+    .sort((a, b) => a.sequence - b.sequence);
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
@@ -198,8 +212,8 @@ export function AssignmentsPage() {
       const createdAssignment = await createModuleAssignment({
         module: moduleId,
         assignment_number: Number(assignmentNumber),
-        code,
-        title,
+        assignment_code: code,
+        assignment_title: title,
         skill_statement_code: skillStatementCode,
         skill_statement: skillStatement,
         objective,
@@ -241,7 +255,7 @@ export function AssignmentsPage() {
 
   function startEditingAssignment(assignment: ModuleAssignment) {
     setEditingAssignmentId(assignment.id);
-    setEditAssignmentTitle(assignment.title);
+    setEditAssignmentTitle(assignment.assignment_title);
     setEditMaximumScore(assignment.maximum_score);
     setEditMinimumPassScore(assignment.minimum_pass_score);
     setEditObjective(assignment.objective);
@@ -251,7 +265,7 @@ export function AssignmentsPage() {
     setError("");
     try {
       await updateModuleAssignment(assignment.id, {
-        title: editAssignmentTitle,
+        assignment_title: editAssignmentTitle,
         maximum_score: editMaximumScore,
         minimum_pass_score: editMinimumPassScore,
         objective: editObjective,
@@ -290,7 +304,6 @@ export function AssignmentsPage() {
     setEditingLevelId(level.id);
     setLevelTitle(level.title);
     setLevelInstructions(level.instructions);
-    setLevelTasks(Array.isArray(level.tasks) ? level.tasks.join("\n") : "");
     setLevelDeliverables(
       Array.isArray(level.deliverables) ? level.deliverables.join("\n") : "",
     );
@@ -305,10 +318,6 @@ export function AssignmentsPage() {
       await updateAssignmentLevel(level.id, {
         title: levelTitle,
         instructions: levelInstructions,
-        tasks: levelTasks
-          .split("\n")
-          .map((item) => item.trim())
-          .filter(Boolean),
         deliverables: levelDeliverables
           .split("\n")
           .map((item) => item.trim())
@@ -353,6 +362,116 @@ export function AssignmentsPage() {
         caughtError instanceof Error
           ? caughtError.message
           : "Unable to delete grading level.",
+      );
+    }
+  }
+
+  async function refreshLevelTasks(levelId: string) {
+    const levelTaskData = await getTasks(levelId);
+    setTasks((current) => [
+      ...current.filter((task) => task.assignment_level !== levelId),
+      ...levelTaskData,
+    ]);
+  }
+
+  async function toggleLevel(levelId: string) {
+    const isOpen = expandedLevelIds.includes(levelId);
+
+    setExpandedLevelIds((current) =>
+      isOpen
+        ? current.filter((id) => id !== levelId)
+        : [...current, levelId],
+    );
+
+    if (!isOpen) {
+      try {
+        await refreshLevelTasks(levelId);
+      } catch (caughtError) {
+        setError(
+          caughtError instanceof Error
+            ? caughtError.message
+            : "Unable to load tasks.",
+        );
+      }
+    }
+  }
+
+  function updateTaskDraft(
+    levelId: string,
+    field: "task_code" | "title" | "instructions",
+    value: string,
+  ) {
+    setTaskDrafts((current) => ({
+      ...current,
+      [levelId]: {
+        task_code: current[levelId]?.task_code ?? "",
+        title: current[levelId]?.title ?? "",
+        instructions: current[levelId]?.instructions ?? "",
+        [field]: value,
+      },
+    }));
+  }
+
+  async function saveNewTask(
+    event: FormEvent<HTMLFormElement>,
+    level: AssignmentLevel,
+  ) {
+    event.preventDefault();
+    const draft = taskDrafts[level.id] ?? {
+      task_code: "",
+      title: "",
+      instructions: "",
+    };
+
+    if (!draft.title.trim()) return;
+
+    const levelTasks = selectedAssignmentTasks.filter(
+      (task) => task.assignment_level === level.id,
+    );
+    const nextSequence =
+      levelTasks.reduce((max, task) => Math.max(max, task.sequence), 0) + 1;
+    const generatedCode = `T${String(nextSequence).padStart(2, "0")}`;
+
+    setError("");
+    setSavingTaskLevelId(level.id);
+
+    try {
+      await createTask({
+        assignment_level: level.id,
+        task_code: draft.task_code.trim() || generatedCode,
+        title: draft.title.trim(),
+        instructions: draft.instructions.trim(),
+        sequence: nextSequence,
+      });
+
+      await refreshLevelTasks(level.id);
+      setTaskDrafts((current) => ({
+        ...current,
+        [level.id]: { task_code: "", title: "", instructions: "" },
+      }));
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Unable to create task.",
+      );
+    } finally {
+      setSavingTaskLevelId("");
+    }
+  }
+
+  async function removeTask(task: Task) {
+    if (!window.confirm(`Delete task ${task.task_code}?`)) return;
+
+    setError("");
+    try {
+      await deleteTask(task.id);
+      await refreshLevelTasks(task.assignment_level);
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Unable to delete task.",
       );
     }
   }
@@ -451,14 +570,19 @@ export function AssignmentsPage() {
         sequence: Number(bandSequence),
       });
 
-      setBandCriterionId("");
+      const updatedBands = await getRubricBands();
+      setBands(updatedBands);
+
+      const criterionBands = updatedBands.filter(
+        (band) => band.rubric_criterion === bandCriterionId,
+      );
+
       setBandCode("foundation");
       setBandDisplayName("Foundation");
       setBandMinimumPercentage("0");
       setBandMaximumPercentage("100");
       setBandDescriptor("");
-      setBandSequence("1");
-      setBands(await getRubricBands());
+      setBandSequence(String(criterionBands.length + 1));
     } catch (caughtError) {
       setError(
         caughtError instanceof Error
@@ -514,6 +638,38 @@ export function AssignmentsPage() {
 
   if (isLoading) {
     return <main className="admin-container">Loading assignments...</main>;
+  }
+
+  const selectedBandCriterion = selectedAssignmentCriteria.find(
+    (criterion) => criterion.id === bandCriterionId,
+  );
+
+  const availableBandCodes: RubricBand["band_code"][] =
+    selectedBandCriterion?.level_code === "advanced"
+      ? ["failed", "proficient", "expert"]
+      : ["failed", "foundation", "proficient"];
+
+  async function handleGenerateTaskCriteriaMapping(
+    assignmentLevelId: string,
+  ) {
+    try {
+      setError("");
+
+      const result =
+        await generateTaskCriteriaMapping(
+          assignmentLevelId,
+        );
+
+      alert(
+        `AI mapping completed. ${result.tasks_mapped} tasks mapped.`,
+      );
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Unable to generate task criteria mapping.",
+      );
+    }
   }
 
   return (
@@ -623,7 +779,7 @@ export function AssignmentsPage() {
                   <option value="">Select module</option>
                   {filteredModules.map((module) => (
                     <option key={module.id} value={module.id}>
-                      {module.code} - {module.name}
+                      {module.module_code} - {module.module_name}
                     </option>
                   ))}
                 </select>
@@ -817,8 +973,8 @@ export function AssignmentsPage() {
                     >
                       <td>{assignment.qualification_code}</td>
                       <td>{assignment.module_code}</td>
-                      <td>{assignment.assignment_number}</td>
-                      <td>{assignment.code}</td>
+                      <td>-</td>
+                      <td>{assignment.assignment_code}</td>
                       <td>
                         {isEditing ? (
                           <input
@@ -829,7 +985,7 @@ export function AssignmentsPage() {
                             }
                           />
                         ) : (
-                          assignment.title
+                          assignment.assignment_title
                         )}
                       </td>
                       <td>
@@ -868,9 +1024,8 @@ export function AssignmentsPage() {
                       </td>
                       <td>
                         <span
-                          className={`status-badge ${
-                            assignment.is_active ? "status-active" : "status-inactive"
-                          }`}
+                          className={`status-badge ${assignment.is_active ? "status-active" : "status-inactive"
+                            }`}
                         >
                           {assignment.is_active ? "Active" : "Inactive"}
                         </span>
@@ -930,7 +1085,7 @@ export function AssignmentsPage() {
             <div className="section-header assignment-workspace-header">
               <div>
                 <h2>
-                  {selectedAssignment.code} — {selectedAssignment.title}
+                  {selectedAssignment.assignment_code} — {selectedAssignment.assignment_title}
                 </h2>
                 <p className="section-description">
                   {selectedAssignment.qualification_code} → {selectedAssignment.module_code}
@@ -979,12 +1134,12 @@ export function AssignmentsPage() {
                 <div className="overview-grid">
                   <div>
                     <span className="detail-label">Assignment code</span>
-                    <strong>{selectedAssignment.code}</strong>
+                    <strong>{selectedAssignment.assignment_code}</strong>
                   </div>
 
                   <div>
                     <span className="detail-label">Assignment number</span>
-                    <strong>{selectedAssignment.assignment_number}</strong>
+                    <strong>-</strong>
                   </div>
 
                   <div>
@@ -1073,144 +1228,318 @@ export function AssignmentsPage() {
 
             {activeWorkspaceTab === "grading" && (
               <div className="workspace-panel">
-                <div className="submission-path-grid">
-                  <div className="submission-path-card">
-                    <span className="path-label">Basic submission</span>
-                    <strong>Foundation + Proficient</strong>
-                  </div>
-                  <div className="submission-path-card">
-                    <span className="path-label">Advanced submission</span>
-                    <strong>Proficient + Expert</strong>
-                  </div>
-                </div>
-
                 <div className="section-header compact-section-header">
                   <div>
                     <h3>Grading levels</h3>
                     <p className="section-description">
-                      Foundation, Proficient and Expert are created automatically.
-                      Unused test levels can be deleted when the backend allows it.
+                      Basic and Advanced submission levels are created automatically.
+                      Open either level to configure its requirements and tasks.
                     </p>
                   </div>
                 </div>
 
-                {selectedAssignmentLevels.length === 0 ? (
-                  <div className="empty-state">No grading levels found.</div>
-                ) : (
-                  <div className="level-grid">
-                    {selectedAssignmentLevels.map((level) => (
-                      <article key={level.id} className="level-card">
-                        <div className="level-card-header">
-                          <div>
-                            <span className="path-label">{level.level_code}</span>
-                            <h3>{level.display_name}</h3>
+                <div className="level-grid">
+                  {(["basic", "advanced"] as const).map((levelCode) => {
+                    const level = selectedAssignmentLevels.find(
+                      (item) => item.level_code === levelCode,
+                    );
+
+                    if (!level) {
+                      return (
+                        <div key={levelCode}>
+                          <div className="submission-path-card">
+                            <span className="path-label">
+                              {levelCode === "basic"
+                                ? "Basic submission"
+                                : "Advanced submission"}
+                            </span>
+                            <strong>
+                              {levelCode === "basic"
+                                ? "Foundation + Proficient"
+                                : "Proficient + Expert"}
+                            </strong>
+                            <small className="table-subtext">
+                              Grading level data is not available yet.
+                            </small>
                           </div>
-                          <span
-                            className={`status-badge ${
-                              level.configuration_status === "ready"
-                                ? "status-active"
-                                : "status-inactive"
-                            }`}
-                          >
-                            {level.configuration_status}
+                        </div>
+                      );
+                    }
+
+                    const isExpanded = expandedLevelIds.includes(level.id);
+                    const levelTaskItems = selectedAssignmentTasks.filter(
+                      (task) => task.assignment_level === level.id,
+                    );
+                    const taskDraft = taskDrafts[level.id] ?? {
+                      task_code: "",
+                      title: "",
+                      instructions: "",
+                    };
+                    const nextTaskNumber =
+                      levelTaskItems.reduce(
+                        (max, task) => Math.max(max, task.sequence),
+                        0,
+                      ) + 1;
+                    const suggestedTaskCode = `T${String(nextTaskNumber).padStart(2, "0")}`;
+
+                    return (
+                      <div key={level.id}>
+                        <div
+                          className="submission-path-card"
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => void toggleLevel(level.id)}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter" || event.key === " ") {
+                              event.preventDefault();
+                              void toggleLevel(level.id);
+                            }
+                          }}
+                          style={{ cursor: "pointer" }}
+                        >
+                          <span className="path-label">
+                            {level.level_code === "basic"
+                              ? "Basic submission"
+                              : "Advanced submission"}
                           </span>
+                          <strong>
+                            {level.level_code === "basic"
+                              ? "Foundation + Proficient"
+                              : "Proficient + Expert"}
+                          </strong>
+                          <small className="table-subtext">
+                            {isExpanded ? "Click to collapse" : "Click to configure"}
+                          </small>
                         </div>
 
-                        {editingLevelId === level.id ? (
-                          <div className="level-edit-form">
-                            <div className="form-group">
-                              <label>Title</label>
-                              <input
-                                value={levelTitle}
-                                onChange={(event) => setLevelTitle(event.target.value)}
-                              />
-                            </div>
-                            <div className="form-group">
-                              <label>Instructions</label>
-                              <textarea
-                                value={levelInstructions}
-                                onChange={(event) =>
-                                  setLevelInstructions(event.target.value)
-                                }
-                              />
-                            </div>
-                            <div className="form-group">
-                              <label>Tasks</label>
-                              <textarea
-                                value={levelTasks}
-                                onChange={(event) => setLevelTasks(event.target.value)}
-                                placeholder="One task per line"
-                              />
-                            </div>
-                            <div className="form-group">
-                              <label>Deliverables</label>
-                              <textarea
-                                value={levelDeliverables}
-                                onChange={(event) =>
-                                  setLevelDeliverables(event.target.value)
-                                }
-                                placeholder="One deliverable per line"
-                              />
-                            </div>
-                            <div className="form-group">
-                              <label>Expected outcome</label>
-                              <textarea
-                                value={levelExpectedOutcome}
-                                onChange={(event) =>
-                                  setLevelExpectedOutcome(event.target.value)
-                                }
-                              />
-                            </div>
-                            <div className="form-actions form-actions-compact">
-                              <button
-                                type="button"
-                                className="btn-primary"
-                                disabled={isSavingLevel}
-                                onClick={() => void saveLevel(level)}
+                        {isExpanded && (
+                          <article className="level-card" style={{ marginTop: "16px" }}>
+                            <div className="level-card-header">
+                              <div>
+                                <span className="path-label">{level.level_code}</span>
+                                <h3>{level.display_name}</h3>
+                              </div>
+                              <span
+                                className={`status-badge ${level.configuration_status === "ready"
+                                  ? "status-active"
+                                  : "status-inactive"
+                                  }`}
                               >
-                                {isSavingLevel ? "Saving..." : "Save Level"}
-                              </button>
-                              <button
-                                type="button"
-                                className="btn-secondary"
-                                disabled={isSavingLevel}
-                                onClick={() => setEditingLevelId("")}
-                              >
-                                Cancel
-                              </button>
+                                {level.configuration_status}
+                              </span>
                             </div>
-                          </div>
-                        ) : (
-                          <>
-                            <p className="level-title">
-                              {level.title || "No title set"}
-                            </p>
 
+                            {editingLevelId === level.id ? (
+                              <div className="level-edit-form">
+                                <div className="form-group">
+                                  <label>Title</label>
+                                  <input
+                                    value={levelTitle}
+                                    onChange={(event) => setLevelTitle(event.target.value)}
+                                  />
+                                </div>
+                                <div className="form-group">
+                                  <label>Instructions</label>
+                                  <textarea
+                                    value={levelInstructions}
+                                    onChange={(event) =>
+                                      setLevelInstructions(event.target.value)
+                                    }
+                                  />
+                                </div>
+                                <div className="form-group">
+                                  <label>Deliverables</label>
+                                  <textarea
+                                    value={levelDeliverables}
+                                    onChange={(event) =>
+                                      setLevelDeliverables(event.target.value)
+                                    }
+                                    placeholder="One deliverable per line"
+                                  />
+                                </div>
+                                <div className="form-group">
+                                  <label>Expected outcome</label>
+                                  <textarea
+                                    value={levelExpectedOutcome}
+                                    onChange={(event) =>
+                                      setLevelExpectedOutcome(event.target.value)
+                                    }
+                                  />
+                                </div>
+                                <div className="form-actions form-actions-compact">
+                                  <button
+                                    type="button"
+                                    className="btn-primary"
+                                    disabled={isSavingLevel}
+                                    onClick={() => void saveLevel(level)}
+                                  >
+                                    {isSavingLevel ? "Saving..." : "Save Level"}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="btn-secondary"
+                                    disabled={isSavingLevel}
+                                    onClick={() => setEditingLevelId("")}
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <>
+                                <p className="level-title">
+                                  {level.title || "No title set"}
+                                </p>
+                                <div className="section-actions">
+                                  <button
+                                    type="button"
+                                    className="btn-secondary"
+                                    onClick={() => startEditingLevel(level)}
+                                  >
+                                    Edit Level Details
+                                  </button>
+                                  {level.can_delete && (
+                                    <button
+                                      type="button"
+                                      className="btn-danger"
+                                      onClick={() => void removeLevel(level)}
+                                    >
+                                      Delete Level
+                                    </button>
+                                  )}
+                                </div>
+                              </>
+                            )}
+
+                            <div className="section-header compact-section-header">
+                              <div>
+                                <h3>Assignment tasks</h3>
+                                <p className="section-description">
+                                  Add each requirement the learner must complete for this submission level.
+                                </p>
+                              </div>
+                            </div>
+
+                            {levelTaskItems.length === 0 ? (
+                              <div className="empty-state">No tasks added yet.</div>
+                            ) : (
+                              <div className="table-container rubric-table-container">
+                                <table className="modern-table">
+                                  <thead>
+                                    <tr>
+                                      <th>Code</th>
+                                      <th>Task</th>
+                                      <th>Seq.</th>
+                                      <th>Actions</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {levelTaskItems.map((task) => (
+                                      <tr key={task.id}>
+                                        <td>{task.task_code}</td>
+                                        <td>
+                                          <strong>{task.title}</strong>
+                                          {task.instructions && (
+                                            <small className="table-subtext">
+                                              {task.instructions}
+                                            </small>
+                                          )}
+                                        </td>
+                                        <td>{task.sequence}</td>
+                                        <td className="table-actions">
+                                          <button
+                                            type="button"
+                                            className="btn-table btn-table-danger"
+                                            onClick={() => void removeTask(task)}
+                                          >
+                                            Delete
+                                          </button>
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            )}
+
+                            <form
+                              className="modern-form embedded-form"
+                              onSubmit={(event) => void saveNewTask(event, level)}
+                            >
+                              <div className="form-grid form-grid-2">
+                                <div className="form-group">
+                                  <label>Task code</label>
+                                  <input
+                                    value={taskDraft.task_code}
+                                    placeholder={suggestedTaskCode}
+                                    onChange={(event) =>
+                                      updateTaskDraft(
+                                        level.id,
+                                        "task_code",
+                                        event.target.value,
+                                      )
+                                    }
+                                  />
+                                </div>
+                                <div className="form-group">
+                                  <label>Task</label>
+                                  <input
+                                    value={taskDraft.title}
+                                    onChange={(event) =>
+                                      updateTaskDraft(
+                                        level.id,
+                                        "title",
+                                        event.target.value,
+                                      )
+                                    }
+                                    placeholder="e.g. Remove duplicate transaction records"
+                                    required
+                                  />
+                                </div>
+                              </div>
+                              <div className="form-group">
+                                <label>Instructions / notes</label>
+                                <textarea
+                                  value={taskDraft.instructions}
+                                  onChange={(event) =>
+                                    updateTaskDraft(
+                                      level.id,
+                                      "instructions",
+                                      event.target.value,
+                                    )
+                                  }
+                                  placeholder="Optional extra instructions for the learner or grader"
+                                />
+                              </div>
+                              <div className="form-actions form-actions-compact">
+                                <button
+                                  type="submit"
+                                  className="btn-primary"
+                                  disabled={savingTaskLevelId === level.id}
+                                >
+                                  {savingTaskLevelId === level.id
+                                    ? "Adding..."
+                                    : "+ Add Task"}
+                                </button>
+                              </div>
+                            </form>
                             <div className="section-actions">
                               <button
                                 type="button"
                                 className="btn-secondary"
-                                onClick={() => startEditingLevel(level)}
+                                onClick={() =>
+                                  void handleGenerateTaskCriteriaMapping(level.id)
+                                }
                               >
-                                Edit Level
+                                Generate AI Task Mapping
                               </button>
-
-                              {level.can_delete && (
-                                <button
-                                  type="button"
-                                  className="btn-danger"
-                                  onClick={() => void removeLevel(level)}
-                                >
-                                  Delete Level
-                                </button>
-                              )}
                             </div>
-                          </>
+                          </article>
                         )}
-                      </article>
-                    ))}
-                  </div>
-                )}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             )}
 
@@ -1430,8 +1759,23 @@ export function AssignmentsPage() {
                           <label>Criterion</label>
                           <select
                             value={bandCriterionId}
-                            onChange={(event) => setBandCriterionId(event.target.value)}
-                            required
+                            onChange={(event) => {
+                              const criterionId = event.target.value;
+                              setBandCriterionId(criterionId);
+
+                              const criterion = selectedAssignmentCriteria.find(
+                                (item) => item.id === criterionId,
+                              );
+
+                              setBandCode("failed");
+                              setBandDisplayName("Failed");
+
+                              const existingBands = bands.filter(
+                                (band) => band.rubric_criterion === criterionId,
+                              );
+
+                              setBandSequence(String(existingBands.length + 1));
+                            }}
                           >
                             <option value="">Select criterion</option>
                             {selectedAssignmentCriteria.map((criterion) => (
@@ -1453,10 +1797,11 @@ export function AssignmentsPage() {
                               );
                             }}
                           >
-                            <option value="failed">Failed</option>
-                            <option value="foundation">Foundation</option>
-                            <option value="proficient">Proficient</option>
-                            <option value="expert">Expert</option>
+                            {availableBandCodes.map((code) => (
+                              <option key={code} value={code}>
+                                {code.charAt(0).toUpperCase() + code.slice(1)}
+                              </option>
+                            ))}
                           </select>
                         </div>
                         <div className="form-group">

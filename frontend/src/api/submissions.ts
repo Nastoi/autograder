@@ -39,6 +39,20 @@ export type SubmissionContext = {
 
 };
 
+export type CriterionResult = {
+  id: string;
+  rubric_criterion: string;
+  awarded_marks: string;
+  achievement_band:
+    | "failed"
+    | "foundation"
+    | "proficient"
+    | "expert"
+    | "";
+  feedback: string;
+  created_at: string;
+};
+
 export type SubmissionTrack = "basic" | "advanced";
 
 export type Submission = {
@@ -61,6 +75,7 @@ export type Submission = {
   maximum_score: string | null;
   achieved_band: string;
   feedback: string;
+  criterion_results: CriterionResult[];
   submitted_at: string;
   completed_at: string | null;
 };
@@ -123,6 +138,7 @@ function isSubmission(
     "maximum_score" in data &&
     "achieved_band" in data &&
     "feedback" in data &&
+    "criterion_results" in data &&
     "submitted_at" in data &&
     "completed_at" in data
   );
@@ -272,10 +288,16 @@ export type MappingResolvedContext = {
     title: string;
     maximum_score: string;
   };
+  assignment_level: {
+    id: string;
+    level_code: "basic" | "advanced";
+    display_name: string;
+  };
 };
 
 export async function resolveMappingContext(
   mappingId: string,
+  assignmentLevelId: string,
 ): Promise<MappingResolvedContext> {
   const csrfToken = await getCsrfToken();
 
@@ -285,8 +307,12 @@ export async function resolveMappingContext(
       method: "POST",
       credentials: "include",
       headers: {
+        "Content-Type": "application/json",
         "X-CSRFToken": csrfToken,
       },
+      body: JSON.stringify({
+        assignment_level: assignmentLevelId,
+      }),
     },
   );
 
