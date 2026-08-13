@@ -177,15 +177,13 @@ X_FRAME_OPTIONS = "ALLOWALL"
 
 
 
-LTI_PLATFORM_ISSUER = os.environ["LTI_PLATFORM_ISSUER"]
-LTI_CLIENT_ID = os.environ["LTI_CLIENT_ID"]
-LTI_JWKS_URL = os.environ["LTI_JWKS_URL"]
-LTI_LOGIN_URL = os.environ["LTI_LOGIN_URL"]
-LTI_DEPLOYMENT_ID = os.environ["LTI_DEPLOYMENT_ID"]
+LTI_PLATFORM_ISSUER = os.environ.get("LTI_PLATFORM_ISSUER", "")
+LTI_CLIENT_ID = os.environ.get("LTI_CLIENT_ID", "")
+LTI_JWKS_URL = os.environ.get("LTI_JWKS_URL", "")
+LTI_LOGIN_URL = os.environ.get("LTI_LOGIN_URL", "")
+LTI_DEPLOYMENT_ID = os.environ.get("LTI_DEPLOYMENT_ID", "")
 
-AUTOGRADER_PUBLIC_URL = os.environ[
-    "AUTOGRADER_PUBLIC_URL"
-]
+AUTOGRADER_PUBLIC_URL = os.environ.get("AUTOGRADER_PUBLIC_URL", "")
 
 CACHES = {
     "default": {

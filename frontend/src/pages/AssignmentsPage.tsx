@@ -1,7 +1,7 @@
 import "../css/AssessmentMappings.css";
 import "../css/QualificationsPage.css";
 import { Link } from "react-router";
-import { GraduationCap, Package, ClipboardList } from "lucide-react";
+import { GraduationCap, Package, ClipboardList, Search, X } from "lucide-react";
 import {
   useEffect,
   useState,
@@ -54,6 +54,7 @@ export function AssignmentsPage() {
   const [error, setError] = useState("");
 
   const [showCreateAssignment, setShowCreateAssignment] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
   const [selectedAssignmentId, setSelectedAssignmentId] = useState("");
   const [activeWorkspaceTab, setActiveWorkspaceTab] =
     useState<WorkspaceTab>("overview");
@@ -166,6 +167,16 @@ export function AssignmentsPage() {
     (module) =>
       !qualificationId || module.qualification === qualificationId,
   );
+
+  const filteredAssignments = assignments.filter((assignment) => {
+    const term = searchTerm.toLowerCase();
+    return (
+      assignment.code.toLowerCase().includes(term) ||
+      assignment.title.toLowerCase().includes(term) ||
+      assignment.qualification_code.toLowerCase().includes(term) ||
+      assignment.module_code.toLowerCase().includes(term)
+    );
+  });
 
   const selectedAssignment = assignments.find(
     (assignment) => assignment.id === selectedAssignmentId,
@@ -576,13 +587,41 @@ export function AssignmentsPage() {
             </p>
           </div>
 
-          <button
-            type="button"
-            className="btn-primary"
-            onClick={() => setShowCreateAssignment((current) => !current)}
-          >
-            {showCreateAssignment ? "Close" : "+ New Assignment"}
-          </button>
+          <div style={{ display: "flex", gap: "16px", alignItems: "center" }}>
+            <div style={{ position: "relative" }}>
+              <Search
+                size={16}
+                style={{
+                  position: "absolute",
+                  left: "10px",
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  color: "var(--text-muted)",
+                }}
+              />
+              <input
+                type="text"
+                placeholder="Search assignments..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                style={{
+                  paddingLeft: "32px",
+                  height: "36px",
+                  borderRadius: "var(--radius-md)",
+                  border: "1px solid var(--border)",
+                  width: "250px",
+                  fontSize: "14px",
+                }}
+              />
+            </div>
+            <button
+              type="button"
+              className="btn-primary"
+              onClick={() => setShowCreateAssignment((current) => !current)}
+            >
+              {showCreateAssignment ? "Close" : "+ New Assignment"}
+            </button>
+          </div>
         </div>
 
         {showCreateAssignment && (
@@ -783,7 +822,7 @@ export function AssignmentsPage() {
           </form>
         )}
 
-        {assignments.length === 0 ? (
+        {filteredAssignments.length === 0 ? (
           <div className="empty-state">No assignments found.</div>
         ) : (
           <div className="table-container assignment-table-container">
@@ -802,7 +841,7 @@ export function AssignmentsPage() {
                 </tr>
               </thead>
               <tbody>
-                {assignments.map((assignment) => {
+                {filteredAssignments.map((assignment) => {
                   const isEditing = editingAssignmentId === assignment.id;
                   const isSelected = selectedAssignmentId === assignment.id;
 
@@ -926,19 +965,57 @@ export function AssignmentsPage() {
         )}
 
         {selectedAssignment && (
-          <section className="assignment-workspace">
-            <div className="section-header assignment-workspace-header">
-              <div>
-                <h2>
-                  {selectedAssignment.code} — {selectedAssignment.title}
-                </h2>
-                <p className="section-description">
-                  {selectedAssignment.qualification_code} → {selectedAssignment.module_code}
-                </p>
+          <>
+            <div 
+              style={{
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                backgroundColor: 'rgba(0, 0, 0, 0.4)',
+                zIndex: 9998,
+              }}
+              onClick={() => setSelectedAssignmentId("")}
+            />
+            <section 
+              className="assignment-workspace content-card"
+              style={{ 
+                position: 'fixed',
+                top: 0,
+                right: 0,
+                bottom: 0,
+                width: '70%',
+                margin: 0,
+                zIndex: 9999,
+                borderRadius: '16px 0 0 16px',
+                boxShadow: '-4px 0 24px rgba(0, 0, 0, 0.15)',
+                overflowY: 'auto',
+                display: 'flex',
+                flexDirection: 'column',
+                backgroundColor: 'white'
+              }}
+            >
+              <div className="section-header assignment-workspace-header" style={{ position: 'sticky', top: 0, backgroundColor: 'white', zIndex: 10, padding: '24px 24px 0', borderBottom: '1px solid var(--border)', margin: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div>
+                  <h2 style={{ margin: '0 0 8px 0' }}>
+                    {selectedAssignment.code} — {selectedAssignment.title}
+                  </h2>
+                  <p className="section-description" style={{ margin: 0, paddingBottom: '16px' }}>
+                    {selectedAssignment.qualification_code} → {selectedAssignment.module_code}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedAssignmentId("")}
+                  style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: '4px', display: 'flex' }}
+                  aria-label="Close panel"
+                >
+                  <X size={20} color="var(--text-muted)" />
+                </button>
               </div>
-            </div>
 
-            <div className="workspace-tabs">
+            <div className="workspace-tabs" style={{ padding: '0 24px', borderBottom: '1px solid var(--border)', position: 'sticky', top: '90px', backgroundColor: 'white', zIndex: 9 }}>
               <button
                 type="button"
                 className={
@@ -1622,6 +1699,7 @@ export function AssignmentsPage() {
               </div>
             )}
           </section>
+          </>
         )}
       </section>
     </main>
