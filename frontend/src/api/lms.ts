@@ -44,6 +44,11 @@ export type AssessmentMapping = {
     assignment_code: string;
     assignment_title: string;
 
+    lti_client_id: string;
+    lti_deployment_id: string;
+    lti_jwks_url: string;
+    lti_access_token_url: string;
+
     is_active: boolean;
     has_submissions: boolean;
     can_delete: boolean;
@@ -119,6 +124,12 @@ export type AssignmentLevelOption = {
 export type CreateAssessmentMappingInput = {
     cohort: string;
     assignment: string;
+
+    lti_client_id: string;
+    lti_deployment_id: string;
+    lti_jwks_url: string;
+    lti_access_token_url: string;
+
     is_active: boolean;
 };
 

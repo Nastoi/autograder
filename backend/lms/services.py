@@ -72,9 +72,8 @@ def get_lti_assessment_mapping(
     # First launch from this LMS activity:
     # automatically bind it to the mapping.
     if not mapping.external_resource_link_id:
-        mapping.external_resource_link_id = (
-            resource_link_id
-        )
+        mapping.external_resource_link_id = resource_link_id
+        
         mapping.save(
             update_fields=[
                 "external_resource_link_id",
@@ -250,11 +249,18 @@ def verify_lti_launch(id_token, state):
             status=400,
         )
 
-    if (
-        mapping.lti_deployment_id
-        and deployment_id
-        != mapping.lti_deployment_id
-    ):
+    if not mapping.lti_deployment_id:
+        return None, Response(
+            {
+                "detail": (
+                    "LTI deployment ID is not configured "
+                    "for this mapping."
+                )
+            },
+            status=400,
+        )
+
+    if deployment_id != mapping.lti_deployment_id:
         return None, Response(
             {"detail": "Invalid LTI deployment."},
             status=400,

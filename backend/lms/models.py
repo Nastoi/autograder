@@ -78,6 +78,10 @@ class AssessmentMapping(models.Model):
         blank=True,
     )
 
+    lti_access_token_url = models.URLField(
+        blank=True,
+    )
+    
     class Meta:
         ordering = ("name",)
 

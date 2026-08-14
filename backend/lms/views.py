@@ -250,16 +250,31 @@ class LtiLoginView(APIView):
                 status=400,
             )
 
-        if mapping.lti_client_id:
-            if client_id != mapping.lti_client_id:
-                return Response(
-                    {"detail": "Invalid LTI client ID for this mapping."},
-                    status=400,
-                )
-        else:
-            mapping.lti_client_id = client_id
-            mapping.save(
-                update_fields=["lti_client_id"]
+        if not all([
+            mapping.lti_client_id,
+            mapping.lti_deployment_id,
+            mapping.lti_jwks_url,
+            mapping.lti_access_token_url,
+        ]):
+            return Response(
+                {
+                    "detail": (
+                        "LTI configuration is incomplete "
+                        "for this assessment mapping."
+                    )
+                },
+                status=400,
+            )
+
+        if client_id != mapping.lti_client_id:
+            return Response(
+                {
+                    "detail": (
+                        "Invalid LTI client ID "
+                        "for this mapping."
+                    )
+                },
+                status=400,
             )
 
         expected_prefix = (
@@ -404,10 +419,17 @@ class AssessmentMappingLtiRegistrationView(APIView):
             re.IGNORECASE,
         )
 
+        access_token_match = re.search(
+            r"Access Token URL:\s*(https?://[^\s]+)",
+            registration_text,
+            re.IGNORECASE,
+        )
+        
         if not all([
             client_match,
             deployment_match,
             jwks_match,
+            access_token_match,
         ]):
             return Response(
                 {
@@ -433,11 +455,16 @@ class AssessmentMappingLtiRegistrationView(APIView):
         mapping.lti_deployment_id = deployment_match.group(1)
         mapping.lti_jwks_url = jwks_match.group(1)
 
+        mapping.lti_access_token_url = (
+            access_token_match.group(1)
+        )
+        
         mapping.save(
             update_fields=[
                 "lti_client_id",
                 "lti_deployment_id",
                 "lti_jwks_url",
+                "lti_access_token_url",
                 "updated_at",
             ]
         )
@@ -448,5 +475,6 @@ class AssessmentMappingLtiRegistrationView(APIView):
                 "lti_client_id": mapping.lti_client_id,
                 "lti_deployment_id": mapping.lti_deployment_id,
                 "lti_jwks_url": mapping.lti_jwks_url,
+                "lti_access_token_url": mapping.lti_access_token_url,
             }
         )

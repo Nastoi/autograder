@@ -43,6 +43,7 @@ class AssessmentMappingSerializer(
             "lti_client_id",
             "lti_jwks_url",
             "lti_deployment_id",
+            "lti_access_token_url",
             "is_active",
             "has_submissions",
             "can_delete",

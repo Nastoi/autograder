@@ -33,6 +33,15 @@ export function CreateAssessmentMappingPage() {
   const [cohortId, setCohortId] = useState("");
   const [selectedAssignmentIds, setSelectedAssignmentIds] =
     useState<string[]>([]);
+  type LtiConfiguration = {
+    clientId: string;
+    deploymentId: string;
+    jwksUrl: string;
+    accessTokenUrl: string;
+  };
+
+  const [ltiConfigurations, setLtiConfigurations] =
+    useState<Record<string, LtiConfiguration>>({});
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -105,12 +114,13 @@ export function CreateAssessmentMappingPage() {
     }
 
     try {
-      await getModuleAssignments(
+      const data = await getModuleAssignments(
         selectedCohort.module,
       );
 
       setAssignments(data);
-    } catch (caughtError) {
+    }
+    catch (caughtError) {
       setError(
         caughtError instanceof Error
           ? caughtError.message
@@ -168,18 +178,49 @@ export function CreateAssessmentMappingPage() {
       return;
     }
 
+    const incompleteLtiAssignment =
+      selectedAssignmentIds.find((assignmentId) => {
+        const lti = ltiConfigurations[assignmentId];
+
+        return (
+          !lti?.clientId.trim() ||
+          !lti?.deploymentId.trim() ||
+          !lti?.jwksUrl.trim() ||
+          !lti?.accessTokenUrl.trim()
+        );
+      });
+
+    if (incompleteLtiAssignment) {
+      const assignment = assignments.find(
+        (item) => item.id === incompleteLtiAssignment,
+      );
+
+      setError(
+        `Please complete all LTI fields for ${assignment?.assignment_code ?? "the selected assignment"
+        }.`,
+      );
+
+      return;
+    }
+
     setError("");
     setIsSubmitting(true);
 
     try {
       await Promise.all(
-        selectedAssignmentIds.map((assignmentId) =>
-          createAssessmentMapping({
+        selectedAssignmentIds.map((assignmentId) => {
+          const lti = ltiConfigurations[assignmentId];
+
+          return createAssessmentMapping({
             cohort: cohortId,
             assignment: assignmentId,
+            lti_client_id: lti?.clientId ?? "",
+            lti_deployment_id: lti?.deploymentId ?? "",
+            lti_jwks_url: lti?.jwksUrl ?? "",
+            lti_access_token_url: lti?.accessTokenUrl ?? "",
             is_active: true,
-          }),
-        ),
+          });
+        }),
       );
 
       navigate("/admin/cohorts", {
@@ -315,38 +356,179 @@ export function CreateAssessmentMappingPage() {
                 ) : (
                   <div className="assignment-checkbox-list">
                     {availableAssignments.map(
-                      (assignment) => (
-                        <label
+                      (assignment: ModuleAssignment) => (
+                        <div
                           key={assignment.id}
                           className="assignment-checkbox-card"
                         >
-                          <input
-                            type="checkbox"
-                            checked={selectedAssignmentIds.includes(
-                              assignment.id,
-                            )}
-                            onChange={() =>
-                              toggleAssignment(
+                          <label>
+                            <input
+                              type="checkbox"
+                              checked={selectedAssignmentIds.includes(
                                 assignment.id,
-                              )
-                            }
-                          />
+                              )}
+                              onChange={() =>
+                                toggleAssignment(assignment.id)
+                              }
+                            />
 
-                          <span>
-                            <strong>
-                              {assignment.assignment_code}
-                            </strong>
-                            <small>
-                              {assignment.assignment_title}
-                            </small>
-                          </span>
-                        </label>
+                            <span>
+                              <strong>
+                                {assignment.assignment_code}
+                              </strong>
+
+                              <small>
+                                {assignment.assignment_title}
+                              </small>
+                            </span>
+                          </label>
+
+                          {selectedAssignmentIds.includes(
+                            assignment.id,
+                          ) && (
+                              <div className="modern-form">
+                                <div className="form-grid form-grid-2">
+                                  <div className="form-group">
+                                    <label>Client ID</label>
+
+                                    <input
+                                      value={
+                                        ltiConfigurations[assignment.id]
+                                          ?.clientId ?? ""
+                                      }
+                                      onChange={(event) =>
+                                        setLtiConfigurations(
+                                          (current) => ({
+                                            ...current,
+                                            [assignment.id]: {
+                                              clientId:
+                                                event.target.value,
+                                              deploymentId:
+                                                current[assignment.id]
+                                                  ?.deploymentId ?? "",
+                                              jwksUrl:
+                                                current[assignment.id]
+                                                  ?.jwksUrl ?? "",
+                                              accessTokenUrl:
+                                                current[assignment.id]
+                                                  ?.accessTokenUrl ?? "",
+                                            },
+                                          }),
+                                        )
+                                      }
+                                      required
+                                    />
+                                  </div>
+
+                                  <div className="form-group">
+                                    <label>Deployment ID</label>
+
+                                    <input
+                                      value={
+                                        ltiConfigurations[assignment.id]
+                                          ?.deploymentId ?? ""
+                                      }
+                                      onChange={(event) =>
+                                        setLtiConfigurations(
+                                          (current) => ({
+                                            ...current,
+                                            [assignment.id]: {
+                                              clientId:
+                                                current[assignment.id]
+                                                  ?.clientId ?? "",
+                                              deploymentId:
+                                                event.target.value,
+                                              jwksUrl:
+                                                current[assignment.id]
+                                                  ?.jwksUrl ?? "",
+                                              accessTokenUrl:
+                                                current[assignment.id]
+                                                  ?.accessTokenUrl ?? "",
+                                            },
+                                          }),
+                                        )
+                                      }
+                                      required
+                                    />
+                                  </div>
+
+                                  <div className="form-group">
+                                    <label>Keyset URL</label>
+
+                                    <input
+                                      type="url"
+                                      value={
+                                        ltiConfigurations[assignment.id]
+                                          ?.jwksUrl ?? ""
+                                      }
+                                      onChange={(event) =>
+                                        setLtiConfigurations(
+                                          (current) => ({
+                                            ...current,
+                                            [assignment.id]: {
+                                              clientId:
+                                                current[assignment.id]
+                                                  ?.clientId ?? "",
+                                              deploymentId:
+                                                current[assignment.id]
+                                                  ?.deploymentId ?? "",
+                                              jwksUrl:
+                                                event.target.value,
+                                              accessTokenUrl:
+                                                current[assignment.id]
+                                                  ?.accessTokenUrl ?? "",
+                                            },
+                                          }),
+                                        )
+                                      }
+                                      required
+                                    />
+                                  </div>
+
+                                  <div className="form-group">
+                                    <label>Access Token URL</label>
+
+                                    <input
+                                      type="url"
+                                      value={
+                                        ltiConfigurations[assignment.id]
+                                          ?.accessTokenUrl ?? ""
+                                      }
+                                      onChange={(event) =>
+                                        setLtiConfigurations(
+                                          (current) => ({
+                                            ...current,
+                                            [assignment.id]: {
+                                              clientId:
+                                                current[assignment.id]
+                                                  ?.clientId ?? "",
+                                              deploymentId:
+                                                current[assignment.id]
+                                                  ?.deploymentId ?? "",
+                                              jwksUrl:
+                                                current[assignment.id]
+                                                  ?.jwksUrl ?? "",
+                                              accessTokenUrl:
+                                                event.target.value,
+                                            },
+                                          }),
+                                        )
+                                      }
+                                      required
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                        </div>
                       ),
                     )}
                   </div>
                 )}
               </>
             )}
+
+
 
             <div className="form-actions">
               <button
