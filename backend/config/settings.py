@@ -30,10 +30,12 @@ SECRET_KEY = os.environ.get(
 DEBUG = os.environ.get('DJANGO_DEBUG', 'False').lower() in ('true', '1', 'yes')
 
 ALLOWED_HOSTS = [
-    "localhost",
-    "127.0.0.1",
-    "backend",
-    "refill-blot-unnamed.ngrok-free.dev",
+    host.strip()
+    for host in os.environ.get(
+        "DJANGO_ALLOWED_HOSTS",
+        "localhost,127.0.0.1,backend",
+    ).split(",")
+    if host.strip()
 ]
 
 
@@ -189,20 +191,31 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+STATIC_ROOT = BASE_DIR / "staticfiles"
 
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:5173",
+    origin.strip()
+    for origin in os.environ.get(
+        "CORS_ALLOWED_ORIGINS",
+        "http://localhost:5173",
+    ).split(",")
+    if origin.strip()
 ]
 
 CORS_ALLOW_CREDENTIALS = True
 
 CSRF_TRUSTED_ORIGINS = [
-    "http://localhost:5173",
-    "https://refill-blot-unnamed.ngrok-free.dev",
-    "https://claaslms.educlaas.com",
-    "https://apps.claaslms.educlaas.com",
+    origin.strip()
+    for origin in os.environ.get(
+        "CSRF_TRUSTED_ORIGINS",
+        (
+            "http://localhost:5173,"
+            "https://claaslms.educlaas.com,"
+            "https://apps.claaslms.educlaas.com"
+        ),
+    ).split(",")
+    if origin.strip()
 ]
-
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = "None"
 SESSION_COOKIE_SECURE = True
@@ -210,6 +223,8 @@ SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_HTTPONLY = False
 CSRF_COOKIE_SAMESITE = "None"
 CSRF_COOKIE_SECURE = True
+
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"

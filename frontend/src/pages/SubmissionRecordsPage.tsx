@@ -6,7 +6,6 @@ import "../css/SubmissionRecordsPage.css";
 
 import {
   getAdminSubmissionRecords,
-  type AdminSubmissionCohort,
   type AdminSubmissionRecordsResponse,
 } from "../api/adminSubmissionRecords";
 

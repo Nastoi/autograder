@@ -4,7 +4,7 @@ import { useNavigate } from "react-router";
 import "../css/GlobalLayout.css";
 
 export function GlobalHeader() {
-  const { user, logout } = useAuth();
+  const { logout } = useAuth();
   const navigate = useNavigate();
 
   async function handleLogout() {
