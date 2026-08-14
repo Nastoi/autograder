@@ -85,11 +85,7 @@ jobs:
         run: python manage.py check
         env:
           LTI_PLATFORM_ISSUER: "https://claaslms.educlaas.com"
-          LTI_CLIENT_ID: "b1975e1b-c3db-4170-8a42-129b1745553b"
-          LTI_JWKS_URL: "https://claaslms.educlaas.com/api/lti_consumer/v1/public_keysets/6f12ea60-b36c-47ef-a1c8-78894bf8d73a"
           LTI_LOGIN_URL: "https://claaslms.educlaas.com/api/lti_consumer/v1/launch/"
-          LTI_DEPLOYMENT_ID: "1"
-          AUTOGRADER_PUBLIC_URL=https: "https://refill-blot-unnamed.ngrok-free.dev"
 
 
       - name: Check for missing migrations
