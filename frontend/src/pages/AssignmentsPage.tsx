@@ -1015,7 +1015,7 @@ export function AssignmentsPage() {
                 </button>
               </div>
 
-            <div className="workspace-tabs" style={{ padding: '0 24px', borderBottom: '1px solid var(--border)', position: 'sticky', top: '90px', backgroundColor: 'white', zIndex: 9 }}>
+            <div className="workspace-tabs">
               <button
                 type="button"
                 className={
