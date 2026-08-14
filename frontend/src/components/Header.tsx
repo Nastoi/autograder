@@ -39,7 +39,6 @@ export function Header() {
     <header className="global-header">
       <div className="logo-container">
         <Link to="/" className="logo-link">
-          <span className="logo-icon">🤖</span>
           <span className="logo-text">AutoGrader</span>
         </Link>
       </div>
