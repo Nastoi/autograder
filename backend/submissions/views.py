@@ -80,8 +80,8 @@ class SubmissionContextView(APIView):
                     },
                     "assignment_level": {
                         "id": context.assignment_level.id,
-                        "level": context.assignment_level.level,
-                        "display_name": context.assignment_level.get_level_display(),
+                        "level_code": context.assignment_level.level_code,
+                        "display_name": context.assignment_level.display_name,
                     },
                 },
                 status=status.HTTP_201_CREATED,
@@ -103,7 +103,8 @@ class SubmissionContextView(APIView):
             is_active=True,
         )
 
-        assignment = context.assignment_level
+        assignment_level = context.assignment_level
+        assignment = assignment_level.assignment
         module = assignment.module
 
         return Response(
@@ -133,8 +134,8 @@ class SubmissionContextView(APIView):
                 },
                 "assignment_level": {
                     "id": context.assignment_level.id,
-                    "level": context.assignment_level.level,
-                    "display_name": context.assignment_level.get_level_display(),
+                    "level_code": context.assignment_level.level_code,
+                    "display_name": context.assignment_level.display_name,
                 },
             },
             status=status.HTTP_200_OK,
@@ -160,19 +161,18 @@ class SubmissionCreateView(APIView):
 
         uploaded_file = request.FILES.get("submitted_file")
 
-        submission_track = request.data.get("submission_track")
+        # AssignmentLevel is the single source of truth for Basic/Advanced.
+        # The frontend may still send submission_track for compatibility, but
+        # it must match the level selected when the context was created.
+        selected_track = context.assignment_level.level_code
+        requested_track = request.data.get("submission_track")
 
-        valid_tracks = {
-            LearnerSubmission.SubmissionTrack.BASIC,
-            LearnerSubmission.SubmissionTrack.ADVANCED,
-        }
-
-        if submission_track not in valid_tracks:
+        if requested_track and requested_track != selected_track:
             return Response(
                 {
                     "detail": (
-                        "Please select a valid submission track: "
-                        "basic or advanced."
+                        "The selected submission track does not match "
+                        "the assignment level for this submission context."
                     )
                 },
                 status=status.HTTP_400_BAD_REQUEST,
@@ -243,6 +243,7 @@ class SubmissionCreateView(APIView):
             context=context,
             learner=request.user,
             assignment_level=assignment_level,
+            submission_track=selected_track,
             submitted_file=uploaded_file,
             original_filename=uploaded_file.name,
             attempt_number=previous_attempts + 1,
@@ -292,7 +293,7 @@ class LearnerSubmissionViewSet(ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         queryset = LearnerSubmission.objects.select_related(
-            "assignment_level__module"
+            "assignment_level__assignment__module"
         ).order_by("-submitted_at")
 
         if not user.is_superuser:

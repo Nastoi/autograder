@@ -1,6 +1,8 @@
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
+from .admin_records import AdminSubmissionRecordsView
+
 from .views import (
     LearnerSubmissionViewSet,
     PageImageView,
@@ -37,6 +39,11 @@ urlpatterns = [
         "context/<uuid:context_id>/submit/",
         SubmissionCreateView.as_view(),
         name="create",
+    ),
+    path(
+        "admin-records/",
+        AdminSubmissionRecordsView.as_view(),
+        name="admin-submission-records",
     ),
     path(
         "<uuid:submission_id>/",

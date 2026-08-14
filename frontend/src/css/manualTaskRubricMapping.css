@@ -1,0 +1,40 @@
+/* Manual task → rubric assignment */
+.criterion-task-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.task-mapping-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 420px;
+  overflow-y: auto;
+  margin-bottom: 20px;
+}
+
+.task-mapping-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.task-mapping-option.selected {
+  border-width: 2px;
+  background: #f8fafc;
+}
+
+.task-mapping-option input {
+  margin-top: 3px;
+}
+
+.task-mapping-option > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}

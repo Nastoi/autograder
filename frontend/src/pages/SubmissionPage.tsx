@@ -150,79 +150,46 @@ export function SubmissionPage() {
 
   return (
     <main className="admin-container submission-page">
-      <div className="admin-header">
-        <h1>Submit Assignment</h1>
-      </div>
-
-      <div className="submission-content">
-        <header className="submission-header">
+      <div className="submission-content submission-content-redesign">
+        <header className="submission-header submission-header-compact">
           <div>
             <p className="submission-eyebrow">
               Learner Submission
             </p>
 
-            <h1>Submit Assignment</h1>
+            <h1>{context.assignment.title}</h1>
 
             <p className="submission-intro">
-              Review your assignment details and upload the
-              required document.
+              Select a submission type and upload your completed
+              assignment document.
             </p>
           </div>
-
         </header>
 
-        <section
-          className="assignment-summary"
-          aria-label="Assignment details"
-        >
-          <div className="summary-item">
-            <span className="summary-label">
-              Learner
-            </span>
-            <strong>{context.learner.name}</strong>
-          </div>
-
-          <div className="summary-item">
-            <span className="summary-label">
-              Module
-            </span>
-            <strong>
-              {context.module.code} — {context.module.name}
-            </strong>
-          </div>
-
-          <div className="summary-item">
-            <span className="summary-label">
-              Cohort
-            </span>
-            <strong>{context.cohort.name}</strong>
-          </div>
-
-          <div className="summary-item summary-item-wide">
-            <span className="summary-label">
-              Assignment
-            </span>
-            <strong>{context.assignment.title}</strong>
-          </div>
-        </section>
-
+        {/* Submission action first */}
         <form
           onSubmit={handleSubmit}
-          className="submission-form"
+          className="submission-form submission-form-primary"
         >
-          <div className="upload-heading">
+          <div className="submission-form-top">
             <div>
-              <h2>Upload your document</h2>
+              <h2>Submit your assignment</h2>
               <p>
                 Accepted formats: DOC, DOCX, PDF, PBIX and ZIP.
               </p>
             </div>
           </div>
 
-          <fieldset className="submission-track-options">
+          <fieldset className="submission-track-options submission-track-grid">
             <legend>Select submission type</legend>
 
-            <label>
+            <label
+              className={
+                submissionTrack === "basic"
+                  ? "submission-track-card selected"
+                  : "submission-track-card"
+              }
+            >
               <input
                 type="radio"
                 name="submission_track"
@@ -234,15 +201,22 @@ export function SubmissionPage() {
                 disabled={isSubmitting}
                 required
               />
-              Basic
+
+              <span>
+                <strong>Basic</strong>
+                <small>
+                  Failed, Foundation or Proficient
+                </small>
+              </span>
             </label>
 
-            <p>
-              Grading outcome can be Failed, Foundation, or
-              Proficient.
-            </p>
-
-            <label>
+            <label
+              className={
+                submissionTrack === "advanced"
+                  ? "submission-track-card selected"
+                  : "submission-track-card"
+              }
+            >
               <input
                 type="radio"
                 name="submission_track"
@@ -254,57 +228,56 @@ export function SubmissionPage() {
                 disabled={isSubmitting}
                 required
               />
-              Advanced
-            </label>
 
-            <p>
-              Grading outcome can be Failed, Proficient, or
-              Expert.
-            </p>
+              <span>
+                <strong>Advanced</strong>
+                <small>
+                  Failed, Proficient or Expert
+                </small>
+              </span>
+            </label>
           </fieldset>
 
-          <label
-            htmlFor="submitted-file"
-            className="file-upload-box"
-          >
-            <span className="upload-icon" aria-hidden="true">
-              ↑
-            </span>
+          <div className="submission-upload-row">
+            <label
+              htmlFor="submitted-file"
+              className="file-upload-box file-upload-box-compact"
+            >
+              <span className="upload-icon" aria-hidden="true">
+                ↑
+              </span>
 
-            <span className="upload-title">
-              Choose a file to upload
-            </span>
+              <span className="upload-copy">
+                <strong className="upload-title">
+                  {selectedFile
+                    ? selectedFile.name
+                    : "Choose a file to upload"}
+                </strong>
 
-            <span className="upload-help">
-              Select the completed assignment from your computer.
-            </span>
-
-            <span className="file-button">
-              Browse files
-            </span>
-          </label>
-
-          <input
-            id="submitted-file"
-            name="submitted_file"
-            className="file-input"
-            type="file"
-            accept=".doc,.docx,.pdf,.pbix,.zip"
-            onChange={handleFileChange}
-            disabled={isSubmitting}
-            required
-          />
-
-          {selectedFile && (
-            <div className="selected-file">
-              <div>
-                <span className="selected-file-label">
-                  Selected file
+                <span className="upload-help">
+                  {selectedFile
+                    ? "File ready to submit"
+                    : "Select the completed assignment from your computer."}
                 </span>
+              </span>
 
-                <strong>{selectedFile.name}</strong>
-              </div>
+              <span className="file-button">
+                {selectedFile ? "Change file" : "Browse files"}
+              </span>
+            </label>
 
+            <input
+              id="submitted-file"
+              name="submitted_file"
+              className="file-input"
+              type="file"
+              accept=".doc,.docx,.pdf,.pbix,.zip"
+              onChange={handleFileChange}
+              disabled={isSubmitting}
+              required
+            />
+
+            {selectedFile && (
               <button
                 type="button"
                 className="remove-file-button"
@@ -313,8 +286,8 @@ export function SubmissionPage() {
               >
                 Remove
               </button>
-            </div>
-          )}
+            )}
+          </div>
 
           {error && (
             <p role="alert" className="error-message">
@@ -322,7 +295,7 @@ export function SubmissionPage() {
             </p>
           )}
 
-          <div className="form-actions">
+          <div className="form-actions submission-actions">
             <button
               type="submit"
               className="btn-primary"
@@ -338,6 +311,39 @@ export function SubmissionPage() {
             </button>
           </div>
         </form>
+
+        {/* Compact context summary below the submission action */}
+        <section
+          className="assignment-summary assignment-summary-compact"
+          aria-label="Assignment details"
+        >
+          <div className="summary-item">
+            <span className="summary-label">Learner</span>
+            <strong>{context.learner.name}</strong>
+          </div>
+
+          <div className="summary-item">
+            <span className="summary-label">Cohort</span>
+            <strong>{context.cohort.name}</strong>
+          </div>
+
+          <div className="summary-item">
+            <span className="summary-label">Module</span>
+            <strong>
+              {context.module.code} — {context.module.name}
+            </strong>
+          </div>
+
+          <div className="summary-item">
+            <span className="summary-label">Assignment</span>
+            <strong>{context.assignment.title}</strong>
+          </div>
+
+          <div className="summary-item">
+            <span className="summary-label">Maximum score</span>
+            <strong>{context.assignment.maximum_score}</strong>
+          </div>
+        </section>
       </div>
     </main>
   );

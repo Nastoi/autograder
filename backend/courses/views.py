@@ -20,6 +20,16 @@ from .serializers import (
     QualificationSerializer,
 )
 
+from django.db.models import Q
+
+from lms.models import AssessmentMapping
+from submissions.models import (
+    LearnerSubmission,
+    SubmissionContext,
+)
+from django.db import transaction
+from django.db.models.deletion import ProtectedError
+
 
 class CohortListView(generics.ListAPIView):
     permission_classes = [
@@ -158,21 +168,257 @@ class QualificationDetailView(
     def destroy(self, request, *args, **kwargs):
         qualification = self.get_object()
 
-        if qualification.modules.exists():
+        active_cohorts = Cohort.objects.filter(
+            module__qualification=qualification,
+            is_active=True,
+        )
+
+        mappings = AssessmentMapping.objects.filter(
+            Q(
+                cohort__module__qualification=qualification,
+            )
+            | Q(
+                assignment__module__qualification=qualification,
+            )
+        ).distinct()
+
+        submissions = LearnerSubmission.objects.filter(
+            Q(
+                context__cohort__module__qualification=qualification,
+            )
+            | Q(
+                assignment_level__assignment__module__qualification=(
+                    qualification
+                ),
+            )
+        ).distinct()
+
+        # --------------------------------------------------
+        # Strict blocker 1: active cohorts
+        # --------------------------------------------------
+        if active_cohorts.exists():
             return Response(
                 {
                     "detail": (
-                        "This qualification cannot be deleted "
-                        "because it already contains modules. "
-                        "Deactivate it instead."
-                    )
+                        "This qualification cannot be deleted because "
+                        "it contains one or more active cohorts. "
+                        "Deactivate those cohorts first."
+                    ),
+                    "blocker": "active_cohorts",
+                    "active_cohorts": [
+                        {
+                            "id": str(cohort.id),
+                            "code": cohort.cohort_code,
+                            "name": cohort.cohort_name,
+                        }
+                        for cohort in active_cohorts
+                    ],
                 },
                 status=status.HTTP_409_CONFLICT,
             )
 
-        return super().destroy(request, *args, **kwargs)
+        # --------------------------------------------------
+        # Strict blocker 2: assessment mappings
+        # --------------------------------------------------
+        if mappings.exists():
+            return Response(
+                {
+                    "detail": (
+                        "This qualification cannot be deleted because "
+                        "one or more assignments or cohorts are used in "
+                        "assessment mappings. Remove those mappings first."
+                    ),
+                    "blocker": "assessment_mappings",
+                    "assessment_mappings": [
+                        {
+                            "id": str(mapping.id),
+                            "name": mapping.name,
+                            "cohort": mapping.cohort.cohort_code,
+                            "assignment": (
+                                mapping.assignment.assignment_code
+                            ),
+                        }
+                        for mapping in mappings.select_related(
+                            "cohort",
+                            "assignment",
+                        )
+                    ],
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
 
+        # --------------------------------------------------
+        # Strict blocker 3: learner submissions
+        # --------------------------------------------------
+        if submissions.exists():
+            return Response(
+                {
+                    "detail": (
+                        "This qualification cannot be deleted because "
+                        "learner submissions exist for assignments under "
+                        "this qualification. Remove those submissions first."
+                    ),
+                    "blocker": "submissions",
+                    "submission_count": submissions.count(),
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
 
+        # --------------------------------------------------
+        # No strict blockers: remove children bottom-up
+        # --------------------------------------------------
+        try:
+            with transaction.atomic():
+                SubmissionContext.objects.filter(
+                    Q(
+                        cohort__module__qualification=qualification,
+                    )
+                    | Q(
+                        assignment_level__assignment__module__qualification=(
+                            qualification
+                        ),
+                    )
+                ).distinct().delete()
+
+                ModuleAssignment.objects.filter(
+                    module__qualification=qualification,
+                ).delete()
+
+                Cohort.objects.filter(
+                    module__qualification=qualification,
+                ).delete()
+
+                Module.objects.filter(
+                    qualification=qualification,
+                ).delete()
+
+                qualification.delete()
+
+        except ProtectedError:
+            return Response(
+                {
+                    "detail": (
+                        "This qualification still has protected related "
+                        "records and cannot be deleted. Remove the related "
+                        "records first."
+                    ),
+                    "blocker": "protected_related_data",
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        return Response(
+            status=status.HTTP_204_NO_CONTENT,
+        )
+
+class QualificationDeleteImpactView(generics.RetrieveAPIView):
+    permission_classes = [IsAuthenticated, IsMappingAdmin]
+    lookup_field = "id"
+
+    def get_queryset(self):
+        return Qualification.objects.order_by(
+            "qualification_code",
+        )
+
+    def retrieve(self, request, *args, **kwargs):
+        qualification = self.get_object()
+
+        modules = Module.objects.filter(
+            qualification=qualification,
+        )
+
+        cohorts = Cohort.objects.filter(
+            module__qualification=qualification,
+        )
+
+        active_cohorts = cohorts.filter(
+            is_active=True,
+        )
+
+        assignments = ModuleAssignment.objects.filter(
+            module__qualification=qualification,
+        )
+
+        levels = AssignmentLevel.objects.filter(
+            assignment__module__qualification=qualification,
+        )
+
+        mappings = AssessmentMapping.objects.filter(
+            Q(
+                cohort__module__qualification=qualification,
+            )
+            | Q(
+                assignment__module__qualification=qualification,
+            )
+        ).distinct()
+
+        submissions = LearnerSubmission.objects.filter(
+            assignment_level__assignment__module__qualification=(
+                qualification
+            ),
+        ).distinct()
+
+        submission_contexts = SubmissionContext.objects.filter(
+            Q(
+                cohort__module__qualification=qualification,
+            )
+            | Q(
+                assignment_level__assignment__module__qualification=(
+                    qualification
+                ),
+            )
+        ).distinct()
+
+        blockers = {
+            "active_cohorts": [
+                {
+                    "id": str(cohort.id),
+                    "code": cohort.cohort_code,
+                    "name": cohort.cohort_name,
+                }
+                for cohort in active_cohorts
+            ],
+            "assessment_mappings": [
+                {
+                    "id": str(mapping.id),
+                    "name": mapping.name,
+                    "cohort": mapping.cohort.cohort_code,
+                    "assignment": (
+                        mapping.assignment.assignment_code
+                    ),
+                }
+                for mapping in mappings.select_related(
+                    "cohort",
+                    "assignment",
+                )
+            ],
+            "submissions": submissions.count(),
+        }
+
+        can_delete = (
+            not active_cohorts.exists()
+            and not mappings.exists()
+            and not submissions.exists()
+        )
+
+        return Response(
+            {
+                "can_delete": can_delete,
+                "blockers": blockers,
+                "affected": {
+                    "modules": modules.count(),
+                    "inactive_cohorts": cohorts.filter(
+                        is_active=False,
+                    ).count(),
+                    "assignments": assignments.count(),
+                    "assignment_levels": levels.count(),
+                    "submission_contexts": (
+                        submission_contexts.count()
+                    ),
+                },
+            }
+        )
+    
 class ModuleListCreateView(
     generics.ListCreateAPIView
 ):
@@ -209,7 +455,6 @@ class ModuleDetailView(
 
         ).order_by(
             "qualification__qualification_code",
-            "code",
             "module_code"
         )
 
@@ -217,23 +462,192 @@ class ModuleDetailView(
     def destroy(self, request, *args, **kwargs):
         module = self.get_object()
 
-        if (
-            module.cohorts.exists()
-            or module.assignments.exists()
-        ):
+        active_cohorts = Cohort.objects.filter(
+            module=module,
+            is_active=True,
+        )
+
+        mappings = AssessmentMapping.objects.filter(
+            Q(cohort__module=module)
+            | Q(assignment__module=module)
+        ).distinct()
+
+        submissions = LearnerSubmission.objects.filter(
+            Q(context__cohort__module=module)
+            | Q(assignment_level__assignment__module=module)
+        ).distinct()
+
+        if active_cohorts.exists():
             return Response(
                 {
                     "detail": (
                         "This module cannot be deleted because "
-                        "it already contains cohorts or assignments. "
-                        "Deactivate it instead."
+                        "it contains active cohorts. "
+                        "Deactivate those cohorts first."
+                    ),
+                    "blocker": "active_cohorts",
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        if mappings.exists():
+            return Response(
+                {
+                    "detail": (
+                        "This module cannot be deleted because "
+                        "it has assessment mappings. "
+                        "Remove those mappings first."
+                    ),
+                    "blocker": "assessment_mappings",
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        if submissions.exists():
+            return Response(
+                {
+                    "detail": (
+                        "This module cannot be deleted because "
+                        "learner submissions exist under it. "
+                        "Remove those submissions first."
+                    ),
+                    "blocker": "submissions",
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        try:
+            with transaction.atomic():
+                SubmissionContext.objects.filter(
+                    Q(cohort__module=module)
+                    | Q(
+                        assignment_level__assignment__module=module
+                    )
+                ).distinct().delete()
+
+                ModuleAssignment.objects.filter(
+                    module=module,
+                ).delete()
+
+                Cohort.objects.filter(
+                    module=module,
+                ).delete()
+
+                module.delete()
+
+        except ProtectedError:
+            return Response(
+                {
+                    "detail": (
+                        "This module still has protected related data "
+                        "and cannot be deleted."
                     )
                 },
                 status=status.HTTP_409_CONFLICT,
             )
 
-        return super().destroy(request, *args, **kwargs)
+        return Response(
+            status=status.HTTP_204_NO_CONTENT,
+        )
 
+
+class ModuleDeleteImpactView(generics.RetrieveAPIView):
+    permission_classes = [IsAuthenticated, IsMappingAdmin]
+    lookup_field = "id"
+
+    def get_queryset(self):
+        return Module.objects.select_related(
+            "qualification",
+        )
+
+    def retrieve(self, request, *args, **kwargs):
+        module = self.get_object()
+
+        cohorts = Cohort.objects.filter(
+            module=module,
+        )
+
+        active_cohorts = cohorts.filter(
+            is_active=True,
+        )
+
+        assignments = ModuleAssignment.objects.filter(
+            module=module,
+        )
+
+        levels = AssignmentLevel.objects.filter(
+            assignment__module=module,
+        )
+
+        mappings = AssessmentMapping.objects.filter(
+            Q(cohort__module=module)
+            | Q(assignment__module=module)
+        ).distinct()
+
+        submissions = LearnerSubmission.objects.filter(
+            Q(context__cohort__module=module)
+            | Q(assignment_level__assignment__module=module)
+        ).distinct()
+
+        submission_contexts = SubmissionContext.objects.filter(
+            Q(cohort__module=module)
+            | Q(assignment_level__assignment__module=module)
+        ).distinct()
+
+        can_delete = (
+            not active_cohorts.exists()
+            and not mappings.exists()
+            and not submissions.exists()
+        )
+
+        return Response(
+            {
+                "can_delete": can_delete,
+
+                "blockers": {
+                    "active_cohorts": [
+                        {
+                            "id": str(cohort.id),
+                            "code": cohort.cohort_code,
+                            "name": cohort.cohort_name,
+                        }
+                        for cohort in active_cohorts
+                    ],
+
+                    "assessment_mappings": [
+                        {
+                            "id": str(mapping.id),
+                            "name": mapping.name,
+                            "cohort": mapping.cohort.cohort_code,
+                            "assignment": (
+                                mapping.assignment.assignment_code
+                            ),
+                        }
+                        for mapping in mappings.select_related(
+                            "cohort",
+                            "assignment",
+                        )
+                    ],
+
+                    "submissions": submissions.count(),
+                },
+
+                "affected": {
+                    "inactive_cohorts": cohorts.filter(
+                        is_active=False,
+                    ).count(),
+
+                    "assignments": assignments.count(),
+
+                    "assignment_levels": levels.count(),
+
+                    "submission_contexts": (
+                        submission_contexts.count()
+                    ),
+                },
+            }
+        )
+    
 class CohortListCreateView(
     generics.ListCreateAPIView
 ):
@@ -283,21 +697,133 @@ class CohortDetailView(
     def destroy(self, request, *args, **kwargs):
         cohort = self.get_object()
 
-        if cohort.enrolments.exists():
+        mappings = AssessmentMapping.objects.filter(
+            cohort=cohort,
+        )
+
+        submissions = LearnerSubmission.objects.filter(
+            context__cohort=cohort,
+        ).distinct()
+
+        if mappings.exists():
             return Response(
                 {
                     "detail": (
                         "This cohort cannot be deleted because "
-                        "it already has learner enrolments. "
-                        "Deactivate it instead."
-                    )
+                        "it is used in one or more assessment mappings. "
+                        "Remove those mappings first."
+                    ),
+                    "blocker": "assessment_mappings",
+                    "assessment_mappings": [
+                        {
+                            "id": str(mapping.id),
+                            "name": mapping.name,
+                            "assignment": (
+                                mapping.assignment.assignment_code
+                            ),
+                        }
+                        for mapping in mappings.select_related(
+                            "assignment",
+                        )
+                    ],
                 },
                 status=status.HTTP_409_CONFLICT,
             )
 
-        return super().destroy(request, *args, **kwargs)
+        if submissions.exists():
+            return Response(
+                {
+                    "detail": (
+                        "This cohort cannot be deleted because "
+                        "learner submissions exist for it. "
+                        "Remove those submissions first."
+                    ),
+                    "blocker": "submissions",
+                    "submission_count": submissions.count(),
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
 
+        try:
+            with transaction.atomic():
+                SubmissionContext.objects.filter(
+                    cohort=cohort,
+                    submissions__isnull=True,
+                ).distinct().delete()
 
+                cohort.delete()
+
+        except ProtectedError:
+            return Response(
+                {
+                    "detail": (
+                        "This cohort still has protected related data "
+                        "and cannot be deleted."
+                    ),
+                    "blocker": "protected_related_data",
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        return Response(
+            status=status.HTTP_204_NO_CONTENT,
+        )
+
+class CohortDeleteImpactView(generics.RetrieveAPIView):
+    permission_classes = [IsAuthenticated, IsMappingAdmin]
+    lookup_field = "id"
+
+    def get_queryset(self):
+        return Cohort.objects.select_related(
+            "module",
+            "module__qualification",
+        )
+
+    def retrieve(self, request, *args, **kwargs):
+        cohort = self.get_object()
+
+        mappings = AssessmentMapping.objects.filter(
+            cohort=cohort,
+        )
+
+        submissions = LearnerSubmission.objects.filter(
+            context__cohort=cohort,
+        ).distinct()
+
+        empty_contexts = SubmissionContext.objects.filter(
+            cohort=cohort,
+            submissions__isnull=True,
+        ).distinct()
+
+        can_delete = (
+            not mappings.exists()
+            and not submissions.exists()
+        )
+
+        return Response(
+            {
+                "can_delete": can_delete,
+                "blockers": {
+                    "assessment_mappings": [
+                        {
+                            "id": str(mapping.id),
+                            "name": mapping.name,
+                            "assignment": (
+                                mapping.assignment.assignment_code
+                            ),
+                        }
+                        for mapping in mappings.select_related(
+                            "assignment",
+                        )
+                    ],
+                    "submissions": submissions.count(),
+                },
+                "affected": {
+                    "submission_contexts": empty_contexts.count(),
+                },
+            }
+        )
+    
 class ModuleAssignmentListCreateView(
     generics.ListCreateAPIView
 ):

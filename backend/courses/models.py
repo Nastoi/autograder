@@ -80,7 +80,7 @@ class Enrolment(models.Model):
 
     module = models.ForeignKey(
         Module,
-        on_delete=models.CASCADE,
+        on_delete=models.DO_NOTHING,
         related_name="enrolments",
     )
 
@@ -145,9 +145,11 @@ class ModuleAssignment(models.Model):
     assignment_code = models.CharField(max_length=50)
     assignment_title = models.CharField(max_length=255)
 
-    skill_statement_code = models.CharField(max_length=50)
-    skill_statement = models.TextField()
-    objective = models.TextField(blank=True)
+    # Legacy assignment-wide fields kept temporarily for backward compatibility.
+    # New Basic/Advanced-specific values live on AssignmentLevel.
+    skill_statement_code = models.CharField(max_length=50, blank=True, default="")
+    skill_statement = models.TextField(blank=True, default="")
+    objective = models.TextField(blank=True, default="")
 
     maximum_score = models.DecimalField(
         max_digits=7,
@@ -223,6 +225,22 @@ class AssignmentLevel(models.Model):
 
     display_name = models.CharField(max_length=100)
     title = models.CharField(max_length=255)
+
+    # Submission-level requirements. Basic and Advanced may differ.
+    skill_statement_code = models.CharField(
+        max_length=50,
+        blank=True,
+        default="",
+    )
+    skill_statement = models.TextField(
+        blank=True,
+        default="",
+    )
+    objective = models.TextField(
+        blank=True,
+        default="",
+    )
+
     instructions = models.TextField(blank=True)
 
     tasks = models.JSONField(default=list)

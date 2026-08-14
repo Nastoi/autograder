@@ -1,5 +1,5 @@
 from rest_framework import serializers
-
+from django.db import transaction
 from .models import (
     AIGradingProfile,
     CriterionResult,
@@ -178,6 +178,78 @@ class RubricCriterionSerializer(
                 None,
             ),
         )
+
+    @transaction.atomic
+    def create(self, validated_data):
+        criterion = super().create(validated_data)
+
+        assignment_level = criterion.assignment_level
+
+        if not assignment_level:
+            return criterion
+
+        if assignment_level.level_code == "advanced":
+            default_bands = [
+                {
+                    "band_code": "failed",
+                    "display_name": "Failed",
+                    "minimum_percentage": 0,
+                    "maximum_percentage": 49.99,
+                    "sequence": 1,
+                },
+                {
+                    "band_code": "proficient",
+                    "display_name": "Proficient",
+                    "minimum_percentage": 50,
+                    "maximum_percentage": 79.99,
+                    "sequence": 2,
+                },
+                {
+                    "band_code": "expert",
+                    "display_name": "Expert",
+                    "minimum_percentage": 80,
+                    "maximum_percentage": 100,
+                    "sequence": 3,
+                },
+            ]
+        else:
+            default_bands = [
+                {
+                    "band_code": "failed",
+                    "display_name": "Failed",
+                    "minimum_percentage": 0,
+                    "maximum_percentage": 49.99,
+                    "sequence": 1,
+                },
+                {
+                    "band_code": "foundation",
+                    "display_name": "Foundation",
+                    "minimum_percentage": 50,
+                    "maximum_percentage": 69.99,
+                    "sequence": 2,
+                },
+                {
+                    "band_code": "proficient",
+                    "display_name": "Proficient",
+                    "minimum_percentage": 70,
+                    "maximum_percentage": 100,
+                    "sequence": 3,
+                },
+            ]
+
+        for band in default_bands:
+            RubricBand.objects.create(
+                rubric_criterion=criterion,
+                band_code=band["band_code"],
+                display_name=band["display_name"],
+                minimum_percentage=band["minimum_percentage"],
+                maximum_percentage=band["maximum_percentage"],
+                descriptor="",
+                sequence=band["sequence"],
+            )
+
+        return criterion
+    
 
         criterion_code = attrs.get(
             "criterion_code",

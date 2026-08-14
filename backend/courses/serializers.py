@@ -40,7 +40,7 @@ class QualificationSerializer(serializers.ModelSerializer):
         self,
         obj: Qualification,
     ) -> bool:
-        return not obj.modules.exists()
+        return True
 
     def validate_qualification_code(self, value: str) -> str:
         normalized = value.strip().upper()
@@ -96,10 +96,7 @@ class ModuleSerializer(serializers.ModelSerializer):
         )
 
     def get_can_delete(self, obj):
-        return (
-            not obj.cohorts.exists()
-            and not obj.assignments.exists()
-        )
+        return True
 
     def validate_module_code(self, value):
         code = value.strip().upper()
@@ -176,9 +173,6 @@ class CohortSerializer(serializers.ModelSerializer):
         )
 
     def get_can_delete(self, obj):
-        # Check if the relation exists before calling .exists()
-        if hasattr(obj, "enrolments"):
-            return not obj.assessment_mappings.exists()
         return True
 
     def validate_cohort_code(self, value):
@@ -467,6 +461,11 @@ class ModuleAssignmentSerializer(serializers.ModelSerializer):
                     f"{assignment.assignment_title} - "
                     f"{display_name}"
                 ),
+                # Seed the new per-level fields from legacy assignment-wide
+                # values so existing create calls remain backward compatible.
+                skill_statement_code=assignment.skill_statement_code,
+                skill_statement=assignment.skill_statement,
+                objective=assignment.objective,
                 instructions="",
                 tasks=[],
                 deliverables=[],
@@ -642,6 +641,9 @@ class AssignmentLevelSerializer(serializers.ModelSerializer):
             "level_code",
             "display_name",
             "title",
+            "skill_statement_code",
+            "skill_statement",
+            "objective",
             "instructions",
             "tasks",
             "deliverables",

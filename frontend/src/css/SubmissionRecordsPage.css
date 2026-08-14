@@ -1,0 +1,341 @@
+.submission-record-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.submission-record-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 16px 18px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface);
+}
+
+.submission-record-metric span {
+  font-size: 12px;
+  color: var(--text-muted, var(--text));
+}
+
+.submission-record-metric strong {
+  font-size: 24px;
+  color: var(--text-h);
+}
+
+.submission-record-filters {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) 240px 300px;
+  gap: 12px;
+  margin-bottom: 18px;
+  padding: 16px;
+}
+
+.submission-record-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+}
+
+.submission-record-search input {
+  width: 100%;
+  min-width: 0;
+  padding: 10px 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  font: inherit;
+  color: var(--text);
+}
+
+.submission-record-filters select {
+  width: 100%;
+}
+
+.submission-record-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.submission-cohort-card {
+  padding: 0;
+  overflow: hidden;
+}
+
+.submission-group-heading,
+.submission-assignment-heading,
+.submission-learner-heading {
+  width: 100%;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.submission-group-heading {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 18px;
+  background: var(--bg-surface);
+}
+
+.submission-group-heading > span:nth-child(2),
+.submission-assignment-title {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.submission-group-heading small,
+.submission-assignment-title small {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--text-muted, var(--text));
+}
+
+.submission-heading-count {
+  font-size: 12px;
+  color: var(--text-muted, var(--text));
+}
+
+.submission-heading-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.submission-assignment-list {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--border);
+}
+
+.submission-assignment-card + .submission-assignment-card {
+  border-top: 1px solid var(--border);
+}
+
+.submission-assignment-heading {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 18px 14px 32px;
+  background: #f8fafc;
+}
+
+.submission-assignment-stats {
+  display: flex;
+  gap: 18px;
+}
+
+.submission-assignment-stats > span {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--text-muted, var(--text));
+}
+
+.submission-assignment-stats strong {
+  color: var(--text-h);
+}
+
+.submission-learner-list {
+  padding: 10px 18px 16px 58px;
+  background: var(--bg-surface);
+}
+
+.submission-learner-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.submission-learner-card + .submission-learner-card {
+  margin-top: 8px;
+}
+
+.submission-learner-heading {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 11px 13px;
+  background: var(--bg-surface);
+}
+
+.submission-learner-identity {
+  display: grid;
+  grid-template-columns: minmax(90px, auto) minmax(160px, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.submission-learner-identity small {
+  color: var(--text-muted, var(--text));
+}
+
+.submission-attempt-count {
+  font-size: 12px;
+  color: var(--text-muted, var(--text));
+}
+
+.submission-attempt-table-wrap {
+  width: 100%;
+  overflow-x: visible;
+  border-top: 1px solid var(--border);
+}
+
+.submission-attempt-table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+}
+
+.submission-attempt-table th,
+.submission-attempt-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.submission-attempt-table th {
+  background: #f8fafc;
+  font-size: 11px;
+  text-transform: uppercase;
+  color: var(--text-muted, var(--text));
+}
+
+.submission-attempt-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.submission-level-pill {
+  display: inline-flex;
+  padding: 3px 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: #f8fafc;
+  font-size: 12px;
+}
+
+@media (max-width: 1000px) {
+  .submission-record-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .submission-record-filters {
+    grid-template-columns: 1fr;
+  }
+
+  .submission-assignment-heading {
+    grid-template-columns: 28px minmax(0, 1fr);
+  }
+
+  .submission-assignment-stats {
+    grid-column: 2;
+  }
+}
+
+@media (max-width: 700px) {
+  .submission-record-metrics {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .submission-group-heading {
+    grid-template-columns: 24px minmax(0, 1fr);
+  }
+
+  .submission-heading-count {
+    grid-column: 2;
+  }
+
+  .submission-learner-list {
+    padding-left: 18px;
+  }
+
+  .submission-learner-heading {
+    grid-template-columns: 22px minmax(0, 1fr);
+  }
+
+  .submission-attempt-count {
+    grid-column: 2;
+  }
+
+  .submission-learner-identity {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+}
+
+.submission-feedback-row td {
+  padding: 0 12px 12px;
+  background: #fafcff;
+}
+
+.submission-feedback {
+  padding: 12px 14px;
+  background: #f8fafc;
+}
+
+.submission-feedback span {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--text-muted, #64748b);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.submission-feedback p {
+  margin: 0;
+  color: var(--text, #334155);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.submission-feedback-row td {
+  padding: 0 12px 12px;
+  background: #fafcff;
+}
+
+.submission-feedback {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 12px 14px;
+  background: #f8fafc;
+}
+
+.submission-feedback span {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--text-muted, #64748b);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.submission-feedback p {
+  margin: 0;
+  color: var(--text, #334155);
+  font-size: 13px;
+  line-height: 1.6;
+
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}

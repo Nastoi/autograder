@@ -18,6 +18,7 @@ import { CreateAssessmentMappingPage } from "./pages/CreateAssessmentMappingPage
 import { QualificationsPage } from "./pages/QualificationsPage";
 import { CohortsPage } from "./pages/CohortsPage";
 import { AssignmentsPage } from "./pages/AssignmentsPage";
+import { SubmissionRecordsPage } from "./pages/SubmissionRecordsPage";
 // <<<<<<< HEAD
 // =======
 // import { GradingConfigurationsPage } from "./pages/GradingConfigurationsPage";
@@ -90,6 +91,12 @@ export default function App() {
             path="/admin/assignments"
             element={<AssignmentsPage />}
           />
+
+          <Route
+            path="/admin/submission-records"
+            element={<SubmissionRecordsPage />}
+          />
+
 {/* <<<<<<< HEAD
 
 =======

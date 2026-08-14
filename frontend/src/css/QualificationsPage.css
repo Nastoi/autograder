@@ -259,7 +259,7 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
-  overflow: hidden;
+  overflow: visible;
 }
 
 .content-card-header {
@@ -634,4 +634,338 @@
 
 .dashboard-actions-modern .btn-secondary:hover {
   background-color: var(--bg-surface-hover);
+}
+
+
+/* Qualification Delete Modal */
+
+.delete-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 24px;
+
+  background: rgba(15, 23, 42, 0.55);
+}
+
+.delete-modal {
+  width: 100%;
+  max-width: 620px;
+  max-height: 85vh;
+  overflow-y: auto;
+
+  padding: 24px;
+
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+
+  background: var(--bg-surface);
+  box-shadow: var(--shadow-dropdown);
+}
+
+.delete-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+
+  margin-bottom: 24px;
+}
+
+.delete-modal-header h2 {
+  margin: 0 0 4px;
+  font-size: 20px;
+}
+
+.delete-modal-header p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.delete-modal-close {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.delete-modal-close:hover {
+  color: var(--text-h);
+}
+
+.delete-blocked-section h3 {
+  margin: 0 0 16px;
+  color: var(--danger);
+  font-size: 16px;
+}
+
+.delete-blocker {
+  margin-bottom: 16px;
+  padding: 16px;
+
+  border: 1px solid var(--danger);
+  border-radius: var(--radius-md);
+
+  background: var(--danger-bg);
+}
+
+.delete-blocker strong {
+  color: var(--danger);
+}
+
+.delete-blocker p {
+  margin: 6px 0 0;
+  font-size: 13px;
+}
+
+.delete-blocker ul {
+  margin: 10px 0 0;
+  padding-left: 20px;
+}
+
+.delete-blocker li {
+  margin-bottom: 4px;
+  font-size: 13px;
+}
+
+.delete-warning {
+  margin-bottom: 20px;
+}
+
+.delete-warning strong {
+  color: var(--danger);
+}
+
+.delete-warning p {
+  margin: 6px 0 0;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.delete-impact-list {
+  display: grid;
+  gap: 10px;
+
+  margin-bottom: 24px;
+}
+
+.delete-impact-list > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  padding: 12px 14px;
+
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+
+  background: var(--bg);
+}
+
+.delete-impact-list span {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.delete-impact-list strong {
+  color: var(--text-h);
+}
+
+.delete-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+
+  margin-top: 24px;
+}
+
+/* Cohorts table adjustments */
+
+.cohort-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  min-width: 110px;
+}
+
+.cohort-actions .btn-action {
+  width: 100%;
+  justify-content: flex-start;
+  padding: 6px 10px;
+  white-space: nowrap;
+}
+
+.cohort-dates {
+  min-width: 115px;
+}
+
+.cohort-date-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  white-space: nowrap;
+  line-height: 1.35;
+}
+
+.cohort-date-separator {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.cohort-code-cell {
+  max-width: 170px;
+}
+
+.cohort-code-cell .tag-pill {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.4;
+}
+
+.cohort-date-edit-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cohort-date-edit-stack input {
+  width: 135px;
+}
+
+/* Submission configuration: clear non-sticky editing context */
+.level-editing-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+  padding: 12px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: #f8fafc;
+}
+
+.level-editing-banner > div {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.level-editing-eyebrow {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.level-editing-banner strong {
+  font-size: 16px;
+}
+
+.level-editing-track {
+  font-size: 13px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.level-config-item.expanded > .submission-path-card {
+  border-width: 2px;
+}
+
+@media (max-width: 700px) {
+  .level-editing-banner {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .level-editing-track {
+    white-space: normal;
+  }
+}
+
+/* Assignment Overview: compact Task → Rubric visual */
+.overview-mapping-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.overview-mapping-row {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) 28px minmax(220px, 1fr);
+  gap: 12px;
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: #fff;
+}
+
+.overview-mapping-criterion {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.overview-mapping-criterion small {
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.overview-mapping-arrow {
+  text-align: center;
+  color: var(--text-muted);
+  font-weight: 700;
+}
+
+.overview-mapping-tasks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.overview-unmapped-tasks {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-md);
+}
+
+@media (max-width: 900px) {
+  .overview-mapping-row {
+    grid-template-columns: 1fr;
+  }
+
+  .overview-mapping-arrow {
+    text-align: left;
+  }
+
+  .overview-mapping-criterion {
+    grid-template-columns: auto 1fr;
+  }
+
+  .overview-mapping-criterion small {
+    grid-column: 1 / -1;
+  }
+
+  .overview-unmapped-tasks {
+    align-items: flex-start;
+    flex-direction: column;
+  }
 }

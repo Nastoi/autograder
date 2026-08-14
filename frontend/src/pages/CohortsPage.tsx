@@ -4,7 +4,18 @@ import {
   type FormEvent,
 } from "react";
 import { useNavigate } from "react-router";
-import { Plus, Users, Link as LinkIcon, Copy, Search, X } from "lucide-react";
+import {
+  Plus,
+  Users,
+  Link as LinkIcon,
+  Copy,
+  Search,
+  X,
+  Pencil,
+  PauseCircle,
+  PlayCircle,
+  Trash2,
+} from "lucide-react";
 
 import {
   createCohort,
@@ -13,6 +24,11 @@ import {
   getModules,
   getQualifications,
   type AssessmentMapping,
+  deleteCohort,
+  getCohortDeleteImpact,
+  updateCohort,
+  deleteAssessmentMapping,
+  type CohortDeleteImpact,
   type Cohort,
   type Module,
   type Qualification,
@@ -35,8 +51,7 @@ export function CohortsPage() {
   const [endDate, setEndDate] = useState("");
   const [isActive, setIsActive] = useState(true);
 
-const [selectedCohortId, setSelectedCohortId] =
-  useState<string | null>(null);
+  const [selectedCohortId, setSelectedCohortId] = useState<string | null>(null);
   const [showCreateCohort, setShowCreateCohort] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -45,6 +60,27 @@ const [selectedCohortId, setSelectedCohortId] =
   const [error, setError] = useState("");
 
   const navigate = useNavigate();
+
+  const [editingCohortId, setEditingCohortId] =
+    useState<string | null>(null);
+
+  const [editCohortCode, setEditCohortCode] = useState("");
+  const [editCohortName, setEditCohortName] = useState("");
+  const [editStartDate, setEditStartDate] = useState("");
+  const [editEndDate, setEditEndDate] = useState("");
+
+  const [cohortToDelete, setCohortToDelete] =
+    useState<Cohort | null>(null);
+
+  const [cohortDeleteImpact, setCohortDeleteImpact] =
+    useState<CohortDeleteImpact | null>(null);
+
+  const [isSavingCohort, setIsSavingCohort] = useState(false);
+  const [isCheckingCohortDelete, setIsCheckingCohortDelete] =
+    useState(false);
+
+  const [isDeletingCohort, setIsDeletingCohort] =
+    useState(false);
 
   async function loadData() {
     try {
@@ -160,6 +196,157 @@ const [selectedCohortId, setSelectedCohortId] =
     void navigator.clipboard.writeText(ltiUrl);
   }
 
+  function beginEditingCohort(cohort: Cohort) {
+    setEditingCohortId(cohort.id);
+    setEditCohortCode(cohort.cohort_code);
+    setEditCohortName(cohort.cohort_name);
+    setEditStartDate(cohort.start_date ?? "");
+    setEditEndDate(cohort.end_date ?? "");
+    setError("");
+  }
+
+  function cancelEditingCohort() {
+    setEditingCohortId(null);
+    setEditCohortCode("");
+    setEditCohortName("");
+    setEditStartDate("");
+    setEditEndDate("");
+  }
+
+  async function saveCohort(cohortId: string) {
+    setError("");
+    setIsSavingCohort(true);
+
+    try {
+      await updateCohort(cohortId, {
+        cohort_code: editCohortCode,
+        cohort_name: editCohortName,
+        start_date: editStartDate || null,
+        end_date: editEndDate || null,
+      });
+
+      cancelEditingCohort();
+      await loadData();
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Unable to update cohort.",
+      );
+    } finally {
+      setIsSavingCohort(false);
+    }
+  }
+
+  async function toggleCohortStatus(cohort: Cohort) {
+    setError("");
+
+    try {
+      await updateCohort(cohort.id, {
+        is_active: !cohort.is_active,
+      });
+
+      await loadData();
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Unable to update cohort status.",
+      );
+    }
+  }
+
+  async function removeCohort(cohort: Cohort) {
+    setError("");
+    setIsCheckingCohortDelete(true);
+
+    try {
+      const impact = await getCohortDeleteImpact(cohort.id);
+
+      setCohortToDelete(cohort);
+      setCohortDeleteImpact(impact);
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Unable to check cohort dependencies.",
+      );
+    } finally {
+      setIsCheckingCohortDelete(false);
+    }
+  }
+
+  async function confirmCohortDelete() {
+    if (!cohortToDelete || !cohortDeleteImpact?.can_delete) {
+      return;
+    }
+
+    setError("");
+    setIsDeletingCohort(true);
+
+    try {
+      await deleteCohort(cohortToDelete.id);
+
+      if (selectedCohortId === cohortToDelete.id) {
+        setSelectedCohortId(null);
+      }
+
+      setCohortToDelete(null);
+      setCohortDeleteImpact(null);
+
+      await loadData();
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Unable to delete cohort.",
+      );
+    } finally {
+      setIsDeletingCohort(false);
+    }
+  }
+
+  function closeCohortDeleteDialog() {
+    if (isDeletingCohort) {
+      return;
+    }
+
+    setCohortToDelete(null);
+    setCohortDeleteImpact(null);
+  }
+
+
+  async function unassignAssessment(
+    mapping: AssessmentMapping,
+  ) {
+    setError("");
+
+    if (mapping.has_submissions) {
+      setError(
+        `${mapping.assignment_code} — ${mapping.assignment_title} cannot be unassigned because learner submissions already exist for this assessment. Remove the submissions first before removing the assessment mapping.`,
+      );
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Unassign ${mapping.assignment_code} — ${mapping.assignment_title} from ${selectedCohort?.cohort_code ?? "this cohort"}?\n\nThis removes only the assessment mapping. The assignment itself will not be deleted.`,
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      await deleteAssessmentMapping(mapping.id);
+      await loadData();
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Unable to unassign assessment.",
+      );
+    }
+  }
 
   if (isLoading) {
     return (
@@ -408,6 +595,7 @@ const [selectedCohortId, setSelectedCohortId] =
                 <th>Dates</th>
                 <th>Assessments</th>
                 <th>Status</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -427,11 +615,56 @@ const [selectedCohortId, setSelectedCohortId] =
                   >
                     <td>{cohort.qualification_code}</td>
                     <td>{cohort.module_code}</td>
-                    <td><span className="tag-pill">{cohort.cohort_code}</span></td>
-                    <td style={{ fontWeight: 500, color: 'var(--text-h)' }}>{cohort.cohort_name}</td>
-                    <td style={{ color: 'var(--text-muted)' }}>
-                      {cohort.start_date || "—"} to{" "}
-                      {cohort.end_date || "—"}
+                    <td className="cohort-code-cell">
+                      {editingCohortId === cohort.id ? (
+                        <input
+                          value={editCohortCode}
+                          onClick={(e) => e.stopPropagation()}
+                          onChange={(e) => setEditCohortCode(e.target.value)}
+                          style={{ width: "120px", padding: "4px" }}
+                        />
+                      ) : (
+                        <span className="tag-pill">
+                          {cohort.cohort_code}
+                        </span>
+                      )}
+                    </td>
+                    <td style={{ fontWeight: 500, color: "var(--text-h)" }}>
+                      {editingCohortId === cohort.id ? (
+                        <input
+                          value={editCohortName}
+                          onClick={(e) => e.stopPropagation()}
+                          onChange={(e) => setEditCohortName(e.target.value)}
+                          style={{ width: "100%", padding: "4px" }}
+                        />
+                      ) : (
+                        cohort.cohort_name
+                      )}
+                    </td>
+                    <td className="cohort-dates">
+                      {editingCohortId === cohort.id ? (
+                        <div className="cohort-date-edit-stack">
+                          <input
+                            type="date"
+                            value={editStartDate}
+                            onClick={(e) => e.stopPropagation()}
+                            onChange={(e) => setEditStartDate(e.target.value)}
+                          />
+
+                          <input
+                            type="date"
+                            value={editEndDate}
+                            onClick={(e) => e.stopPropagation()}
+                            onChange={(e) => setEditEndDate(e.target.value)}
+                          />
+                        </div>
+                      ) : (
+                        <div className="cohort-date-stack">
+                          <span>{cohort.start_date || "—"}</span>
+                          <span className="cohort-date-separator">to</span>
+                          <span>{cohort.end_date || "—"}</span>
+                        </div>
+                      )}
                     </td>
                     <td style={{ fontWeight: 500 }}>{mappingCount}</td>
                     <td>
@@ -441,6 +674,70 @@ const [selectedCohortId, setSelectedCohortId] =
                         <span className="status-dot"></span>
                         {cohort.is_active ? "Active" : "Inactive"}
                       </span>
+                    </td>
+                    <td onClick={(e) => e.stopPropagation()}>
+                      {editingCohortId === cohort.id ? (
+                        <div className="cohort-actions">
+                          <button
+                            type="button"
+                            className="btn-action"
+                            style={{ color: "var(--success)" }}
+                            disabled={isSavingCohort}
+                            onClick={() => void saveCohort(cohort.id)}
+                          >
+                            {isSavingCohort ? "Saving..." : "Save"}
+                          </button>
+
+                          <button
+                            type="button"
+                            className="btn-action"
+                            disabled={isSavingCohort}
+                            onClick={cancelEditingCohort}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="cohort-actions">
+                          <button
+                            type="button"
+                            className="btn-action"
+                            onClick={() => beginEditingCohort(cohort)}
+                          >
+                            <Pencil size={14} />
+                            Edit
+                          </button>
+
+                          <button
+                            type="button"
+                            className="btn-action"
+                            onClick={() => void toggleCohortStatus(cohort)}
+                          >
+                            {cohort.is_active ? (
+                              <>
+                                <PauseCircle size={14} />
+                                Deactivate
+                              </>
+                            ) : (
+                              <>
+                                <PlayCircle size={14} />
+                                Activate
+                              </>
+                            )}
+                          </button>
+
+                          <button
+                            type="button"
+                            className="btn-action"
+                            style={{ color: "var(--danger)" }}
+                            disabled={isCheckingCohortDelete}
+                            onClick={() => void removeCohort(cohort)}
+                          >
+                            <Trash2 size={14} />
+                            {isCheckingCohortDelete ? "Checking..." : "Delete"}
+                          </button>
+                        </div>
+                      )}
                     </td>
                   </tr>
                 );
@@ -452,7 +749,7 @@ const [selectedCohortId, setSelectedCohortId] =
 
       {selectedCohort && (
         <>
-          <div 
+          <div
             style={{
               position: 'fixed',
               top: 0,
@@ -464,9 +761,9 @@ const [selectedCohortId, setSelectedCohortId] =
             }}
             onClick={() => setSelectedCohortId(null)}
           />
-          <section 
-            className="content-card" 
-            style={{ 
+          <section
+            className="content-card"
+            style={{
               position: 'fixed',
               top: 0,
               right: 0,
@@ -518,71 +815,232 @@ const [selectedCohortId, setSelectedCohortId] =
             </div>
 
             <div style={{ padding: '24px', flex: 1 }}>
-            {selectedCohortMappings.length === 0 ? (
-              <p style={{ margin: 0, color: 'var(--text-muted)' }}>No assignments mapped to this cohort.</p>
-            ) : (
-              <table className="data-table" style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
-                <thead>
-                  <tr>
-                    <th>Assignment</th>
-                    <th>Status</th>
-                    <th>Submission URL</th>
-                    <th>Action</th>
-                  </tr>
-                </thead>
+              {selectedCohortMappings.length === 0 ? (
+                <p style={{ margin: 0, color: 'var(--text-muted)' }}>No assignments mapped to this cohort.</p>
+              ) : (
+                <table className="data-table" style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
+                  <thead>
+                    <tr>
+                      <th>Assignment</th>
+                      <th>Status</th>
+                      <th>Submission URL</th>
+                      <th>Action</th>
+                    </tr>
+                  </thead>
 
-                <tbody>
-                  {selectedCohortMappings.map((mapping) => (
-                    <tr key={mapping.id}>
-                      <td
-                        style={{
-                          fontWeight: 500,
-                          color: "var(--text-h)",
-                        }}
-                      >
-                        {mapping.assignment_code} —{" "}
-                        {mapping.assignment_title}
-                      </td>
-
-                      <td>
-                        <span
-                          className={`status-badge ${!mapping.is_active ? "inactive" : ""
-                            }`}
-                        >
-                          <span className="status-dot"></span>
-                          {mapping.is_active ? "Active" : "Inactive"}
-                        </span>
-                      </td>
-
-                      <td>
-                        <span
+                  <tbody>
+                    {selectedCohortMappings.map((mapping) => (
+                      <tr key={mapping.id}>
+                        <td
                           style={{
-                            fontFamily: "monospace",
-                            color: "var(--text-muted)",
-                            fontSize: "13px",
+                            fontWeight: 500,
+                            color: "var(--text-h)",
                           }}
                         >
-                          {`${import.meta.env.VITE_AUTOGRADER_PUBLIC_URL}/api/lms/lti/launch/${mapping.id}/`}
-                        </span>
-                      </td>
+                          {mapping.assignment_code} —{" "}
+                          {mapping.assignment_title}
+                        </td>
 
-                      <td>
-                        <button
-                          type="button"
-                          className="btn-action"
-                          onClick={() => copyLtiUrl(mapping.id)}
-                        >
-                          <Copy size={14} /> Copy LTI URL
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
+                        <td>
+                          <span
+                            className={`status-badge ${!mapping.is_active ? "inactive" : ""
+                              }`}
+                          >
+                            <span className="status-dot"></span>
+                            {mapping.is_active ? "Active" : "Inactive"}
+                          </span>
+                        </td>
+
+                        <td>
+                          <span
+                            style={{
+                              fontFamily: "monospace",
+                              color: "var(--text-muted)",
+                              fontSize: "13px",
+                            }}
+                          >
+                            {`${import.meta.env.VITE_AUTOGRADER_PUBLIC_URL}/api/lms/lti/launch/${mapping.id}/`}
+                          </span>
+                        </td>
+
+                        <td>
+                          <div
+                            style={{
+                              display: "flex",
+                              flexDirection: "column",
+                              gap: "8px",
+                              alignItems: "flex-start",
+                            }}
+                          >
+                            <button
+                              type="button"
+                              className="btn-action"
+                              onClick={() => copyLtiUrl(mapping.id)}
+                            >
+                              <Copy size={14} />
+                              Copy LTI URL
+                            </button>
+
+                            <button
+                              type="button"
+                              className="btn-action"
+                              style={{
+                                color: mapping.has_submissions
+                                  ? "var(--text-muted)"
+                                  : "var(--danger)",
+                              }}
+                              onClick={() => void unassignAssessment(mapping)}
+                              title={
+                                mapping.has_submissions
+                                  ? "Cannot unassign because learner submissions exist."
+                                  : "Remove this assessment from the cohort."
+                              }
+                            >
+                              <Trash2 size={14} />
+                              {mapping.has_submissions
+                                ? "Cannot Unassign"
+                                : "Unassign"}
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
           </section>
         </>
+      )}
+      {cohortToDelete && cohortDeleteImpact && (
+        <div className="delete-modal-backdrop">
+          <div className="delete-modal">
+            <div className="delete-modal-header">
+              <div>
+                <h2>Delete Cohort</h2>
+                <p>
+                  {cohortToDelete.cohort_code} —{" "}
+                  {cohortToDelete.cohort_name}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                className="delete-modal-close"
+                onClick={closeCohortDeleteDialog}
+                disabled={isDeletingCohort}
+              >
+                ×
+              </button>
+            </div>
+
+            {!cohortDeleteImpact.can_delete ? (
+              <div className="delete-blocked-section">
+                <h3>This cohort cannot be deleted</h3>
+
+                {cohortDeleteImpact.blockers.assessment_mappings.length > 0 && (
+                  <div className="delete-blocker">
+                    <strong>Assessment mappings</strong>
+                    <p>
+                      Remove these assessment mappings before deleting
+                      the cohort.
+                    </p>
+
+                    <ul>
+                      {cohortDeleteImpact.blockers.assessment_mappings.map(
+                        (mapping) => (
+                          <li key={mapping.id}>
+                            {mapping.name} — {mapping.assignment}
+                          </li>
+                        ),
+                      )}
+                    </ul>
+                  </div>
+                )}
+
+                {cohortDeleteImpact.blockers.submissions > 0 && (
+                  <div className="delete-blocker">
+                    <strong>Learner submissions</strong>
+
+                    <p>
+                      {cohortDeleteImpact.blockers.submissions} learner
+                      submission
+                      {cohortDeleteImpact.blockers.submissions === 1
+                        ? ""
+                        : "s"}{" "}
+                      exist for this cohort.
+                    </p>
+
+                    <p>
+                      Remove the relevant submissions first before
+                      deleting this cohort.
+                    </p>
+                  </div>
+                )}
+
+                <div className="delete-modal-actions">
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={closeCohortDeleteDialog}
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div>
+                <div className="delete-warning">
+                  <strong>
+                    This will permanently delete this cohort.
+                  </strong>
+
+                  <p>
+                    Its module, qualification and assignments will not be
+                    deleted.
+                  </p>
+
+                  {cohortDeleteImpact.affected.submission_contexts > 0 && (
+                    <p>
+                      {
+                        cohortDeleteImpact.affected
+                          .submission_contexts
+                      }{" "}
+                      empty submission context
+                      {cohortDeleteImpact.affected.submission_contexts === 1
+                        ? ""
+                        : "s"}{" "}
+                      will also be removed.
+                    </p>
+                  )}
+                </div>
+
+                <div className="delete-modal-actions">
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={closeCohortDeleteDialog}
+                    disabled={isDeletingCohort}
+                  >
+                    Cancel
+                  </button>
+
+                  <button
+                    type="button"
+                    className="btn-danger"
+                    onClick={() => void confirmCohortDelete()}
+                    disabled={isDeletingCohort}
+                  >
+                    <Trash2 size={14} />
+                    {isDeletingCohort
+                      ? "Deleting..."
+                      : "Delete Cohort"}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
       )}
     </main>
   );

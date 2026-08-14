@@ -1,11 +1,14 @@
 from django.urls import path
 
+from .assignment_delete import (
+    ModuleAssignmentDeleteImpactView,
+    ModuleAssignmentSafeDetailView,
+)
 from .views import (
     AssignmentLevelDetailView,
     AssignmentLevelListCreateView,
     CohortDetailView,
     CohortListCreateView,
-    ModuleAssignmentDetailView,
     ModuleAssignmentListCreateView,
     ModuleDetailView,
     ModuleListCreateView,
@@ -51,8 +54,13 @@ urlpatterns = [
     ),
     path(
         "assignments/<uuid:id>/",
-        ModuleAssignmentDetailView.as_view(),
+        ModuleAssignmentSafeDetailView.as_view(),
         name="assignment-detail",
+    ),
+    path(
+        "assignments/<uuid:id>/delete-impact/",
+        ModuleAssignmentDeleteImpactView.as_view(),
+        name="assignment-delete-impact",
     ),
     path(
         "assignment-levels/",

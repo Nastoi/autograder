@@ -352,6 +352,59 @@ export async function deleteQualification(
     throw new Error(message);
 }
 
+export type QualificationDeleteImpact = {
+    can_delete: boolean;
+
+    blockers: {
+        active_cohorts: Array<{
+            id: string;
+            code: string;
+            name: string;
+        }>;
+
+        assessment_mappings: Array<{
+            id: string;
+            name: string;
+            cohort: string;
+            assignment: string;
+        }>;
+
+        submissions: number;
+    };
+
+    affected: {
+        modules: number;
+        inactive_cohorts: number;
+        assignments: number;
+        assignment_levels: number;
+        submission_contexts: number;
+    };
+};
+
+export async function getQualificationDeleteImpact(
+    qualificationId: string,
+): Promise<QualificationDeleteImpact> {
+    const response = await fetch(
+        `${API_BASE_URL}/courses/qualifications/${qualificationId}/delete-impact/`,
+        {
+            method: "GET",
+            credentials: "include",
+        },
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+        throw new Error(
+            typeof data?.detail === "string"
+                ? data.detail
+                : "Unable to check qualification dependencies.",
+        );
+    }
+
+    return data as QualificationDeleteImpact;
+}
+
 
 export type Module = {
     id: string;
@@ -454,37 +507,6 @@ export async function createModule(
     return data as Module;
 }
 
-export async function updateModule(
-    moduleId: string,
-    input: UpdateModuleInput,
-): Promise<Module> {
-    const csrfToken = await getCsrfToken();
-
-    const response = await fetch(
-        `${API_BASE_URL}/courses/modules/${moduleId}/`,
-        {
-            method: "PATCH",
-            credentials: "include",
-            headers: {
-                "Content-Type": "application/json",
-                "X-CSRFToken": csrfToken,
-            },
-            body: JSON.stringify(input),
-        },
-    );
-
-    const data = await response.json();
-
-    if (!response.ok) {
-        throw new Error(
-            typeof data?.detail === "string"
-                ? data.detail
-                : "Unable to update module.",
-        );
-    }
-
-    return data as Module;
-}
 
 export async function deleteModule(
     moduleId: string,
@@ -615,7 +637,7 @@ export async function createCohort(
 }
 
 export async function updateCohort(
-    cohortId: number,
+    cohortId: string,
     input: UpdateCohortInput,
 ): Promise<Cohort> {
     const csrfToken = await getCsrfToken();
@@ -647,7 +669,7 @@ export async function updateCohort(
 }
 
 export async function deleteCohort(
-    cohortId: number,
+    cohortId: string,
 ): Promise<void> {
     const csrfToken = await getCsrfToken();
 
@@ -683,6 +705,47 @@ export async function deleteCohort(
     throw new Error(message);
 }
 
+export type CohortDeleteImpact = {
+    can_delete: boolean;
+
+    blockers: {
+        assessment_mappings: Array<{
+            id: string;
+            name: string;
+            assignment: string;
+        }>;
+
+        submissions: number;
+    };
+
+    affected: {
+        submission_contexts: number;
+    };
+};
+
+export async function getCohortDeleteImpact(
+    cohortId: string,
+): Promise<CohortDeleteImpact> {
+    const response = await fetch(
+        `${API_BASE_URL}/courses/cohorts/${cohortId}/delete-impact/`,
+        {
+            method: "GET",
+            credentials: "include",
+        },
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+        throw new Error(
+            typeof data?.detail === "string"
+                ? data.detail
+                : "Unable to check cohort dependencies.",
+        );
+    }
+
+    return data as CohortDeleteImpact;
+}
 
 
 export type ModuleAssignment = {
@@ -719,12 +782,8 @@ export type ModuleAssignment = {
 
 export type CreateModuleAssignmentInput = {
     module: string;
-    assignment_number: number;
     assignment_code: string;
     assignment_title: string;
-    skill_statement_code: string;
-    skill_statement: string;
-    objective: string;
     maximum_score: string;
     minimum_pass_score: string;
     is_summative: boolean;
@@ -1086,6 +1145,10 @@ export type AssignmentLevel = {
 
     display_name: string;
     title: string;
+
+    skill_statement_code: string;
+    skill_statement: string;
+    objective: string;
     instructions: string;
 
     tasks: unknown[];
@@ -1114,6 +1177,10 @@ export type CreateAssignmentLevelInput = {
     level_code: AssignmentLevel["level_code"];
     display_name: string;
     title: string;
+
+    skill_statement_code: string;
+    skill_statement: string;
+    objective: string;
     instructions: string;
 
     tasks: unknown[];
@@ -1995,7 +2062,7 @@ export type MappingSubmissionContext = {
         level_code: "basic" | "advanced";
         display_name: string;
         title: string;
-        }[];
+    }[];
 };
 
 export async function getMappingSubmissionContext(
@@ -2024,54 +2091,173 @@ export async function getMappingSubmissionContext(
 
 
 export type AutoTaskCriteriaMappingResult = {
-  assignment_level: string;
-  tasks_mapped: number;
-  status: string;
-  mappings: {
-    task_code: string;
-    task_title: string;
-    rubric_criterion: {
-      id: string;
-      criterion_code: string | null;
-      title: string | null;
-      description: string | null;
-      maximum_score: number;
-    };
-    inferred_weight: number;
-    ai_explanation: string;
-  }[];
+    assignment_level: string;
+    tasks_mapped: number;
+    status: string;
+    mappings: {
+        task_code: string;
+        task_title: string;
+        rubric_criterion: {
+            id: string;
+            criterion_code: string | null;
+            title: string | null;
+            description: string | null;
+            maximum_score: number;
+        };
+        inferred_weight: number;
+        ai_explanation: string;
+    }[];
 };
 
 export async function generateTaskCriteriaMapping(
-  assignmentLevelId: string,
+    assignmentLevelId: string,
 ): Promise<AutoTaskCriteriaMappingResult> {
-  const csrfToken = await getCsrfToken();
+    const csrfToken = await getCsrfToken();
 
-  const response = await fetch(
-    `${API_BASE_URL}/grading/map-tasks-criteria/`,
-    {
-      method: "POST",
-      credentials: "include",
-      headers: {
-        "Content-Type": "application/json",
-        "X-CSRFToken": csrfToken,
-      },
-      body: JSON.stringify({
-        assignment_level: assignmentLevelId,
-      }),
-    },
-  );
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(
-      typeof data?.error === "string"
-        ? data.error
-        : "Unable to generate task criteria mapping.",
+    const response = await fetch(
+        `${API_BASE_URL}/grading/map-tasks-criteria/`,
+        {
+            method: "POST",
+            credentials: "include",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRFToken": csrfToken,
+            },
+            body: JSON.stringify({
+                assignment_level: assignmentLevelId,
+            }),
+        },
     );
-  }
 
-  return data as AutoTaskCriteriaMappingResult;
+    const data = await response.json();
+
+    if (!response.ok) {
+        throw new Error(
+            typeof data?.error === "string"
+                ? data.error
+                : "Unable to generate task criteria mapping.",
+        );
+    }
+
+    return data as AutoTaskCriteriaMappingResult;
 }
 
+export type ModuleDeleteImpact = {
+    can_delete: boolean;
+
+    blockers: {
+        active_cohorts: Array<{
+            id: string;
+            code: string;
+            name: string;
+        }>;
+
+        assessment_mappings: Array<{
+            id: string;
+            name: string;
+            cohort: string;
+            assignment: string;
+        }>;
+
+        submissions: number;
+    };
+
+    affected: {
+        inactive_cohorts: number;
+        assignments: number;
+        assignment_levels: number;
+        submission_contexts: number;
+    };
+};
+
+export async function updateModule(
+    moduleId: string,
+    input: UpdateModuleInput,
+): Promise<Module> {
+    const csrfToken = await getCsrfToken();
+
+    const response = await fetch(
+        `${API_BASE_URL}/courses/modules/${moduleId}/`,
+        {
+            method: "PATCH",
+            credentials: "include",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRFToken": csrfToken,
+            },
+            body: JSON.stringify(input),
+        },
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+        throw new Error(
+            typeof data?.detail === "string"
+                ? data.detail
+                : "Unable to update module.",
+        );
+    }
+
+    return data as Module;
+}
+
+export async function getModuleDeleteImpact(
+    moduleId: string,
+): Promise<ModuleDeleteImpact> {
+    const response = await fetch(
+        `${API_BASE_URL}/courses/modules/${moduleId}/delete-impact/`,
+        {
+            method: "GET",
+            credentials: "include",
+        },
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+        throw new Error(
+            typeof data?.detail === "string"
+                ? data.detail
+                : "Unable to check module dependencies.",
+        );
+    }
+
+    return data as ModuleDeleteImpact;
+}
+
+
+export async function deleteAssessmentMapping(
+    mappingId: string,
+): Promise<void> {
+    const csrfToken = await getCsrfToken();
+
+    const response = await fetch(
+        `${API_BASE_URL}/lms/assessment-mappings/${mappingId}/`,
+        {
+            method: "DELETE",
+            credentials: "include",
+            headers: {
+                "X-CSRFToken": csrfToken,
+            },
+        },
+    );
+
+    if (response.status === 204) {
+        return;
+    }
+
+    let message = "Unable to unassign assessment.";
+
+    try {
+        const data = await response.json();
+
+        if (typeof data?.detail === "string") {
+            message = data.detail;
+        }
+    } catch {
+        // Keep default message.
+    }
+
+    throw new Error(message);
+}

@@ -664,3 +664,224 @@
   background: #f4f3ff;
   color: #5925dc;
 }
+
+/* ===== Submission page redesign ===== */
+
+.submission-content-redesign {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.submission-header-compact {
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
+.submission-header-compact h1 {
+  margin-bottom: 6px;
+}
+
+.submission-form-primary {
+  margin: 0;
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface, #fff);
+}
+
+.submission-form-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.submission-form-top h2 {
+  margin: 0 0 4px;
+}
+
+.submission-form-top p {
+  margin: 0;
+  color: var(--text-muted, #64748b);
+  font-size: 13px;
+}
+
+.submission-track-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0 0 14px;
+  padding: 0;
+  border: 0;
+}
+
+.submission-track-grid legend {
+  grid-column: 1 / -1;
+  margin-bottom: 6px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.submission-track-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: #fff;
+  cursor: pointer;
+}
+
+.submission-track-card.selected {
+  border-width: 2px;
+  background: #f8fafc;
+}
+
+.submission-track-card input {
+  margin-top: 3px;
+}
+
+.submission-track-card > span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.submission-track-card small {
+  color: var(--text-muted, #64748b);
+}
+
+.submission-upload-row {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+}
+
+.file-upload-box-compact {
+  flex: 1;
+  min-height: 76px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+}
+
+.file-upload-box-compact .upload-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.file-upload-box-compact .upload-title,
+.file-upload-box-compact .upload-help {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.submission-actions {
+  margin-top: 14px;
+  justify-content: flex-end;
+}
+
+/* Compact information strip */
+.assignment-summary-compact {
+  display: grid;
+  grid-template-columns:
+    minmax(140px, 0.8fr)
+    minmax(150px, 1fr)
+    minmax(220px, 1.4fr)
+    minmax(220px, 1.5fr)
+    minmax(110px, 0.6fr);
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface, #fff);
+}
+
+.assignment-summary-compact .summary-item {
+  min-width: 0;
+  padding: 12px 14px;
+  border-right: 1px solid var(--border);
+}
+
+.assignment-summary-compact .summary-item:last-child {
+  border-right: 0;
+}
+
+.assignment-summary-compact .summary-label {
+  display: block;
+  margin-bottom: 3px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--text-muted, #64748b);
+}
+
+.assignment-summary-compact strong {
+  display: block;
+  overflow: hidden;
+  color: var(--text-h, #0f172a);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 1000px) {
+  .assignment-summary-compact {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .assignment-summary-compact .summary-item {
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .assignment-summary-compact .summary-item:nth-child(odd) {
+    border-right: 1px solid var(--border);
+  }
+
+  .assignment-summary-compact .summary-item:last-child {
+    border-bottom: 0;
+  }
+}
+
+@media (max-width: 700px) {
+  .submission-track-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .submission-upload-row {
+    flex-direction: column;
+  }
+
+  .file-upload-box-compact {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .file-upload-box-compact .file-button {
+    grid-column: 1 / -1;
+  }
+
+  .assignment-summary-compact {
+    grid-template-columns: 1fr;
+  }
+
+  .assignment-summary-compact .summary-item,
+  .assignment-summary-compact .summary-item:nth-child(odd) {
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .assignment-summary-compact .summary-item:last-child {
+    border-bottom: 0;
+  }
+}

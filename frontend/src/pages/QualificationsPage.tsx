@@ -27,11 +27,16 @@ import {
   deleteModule,
   createQualification,
   deleteQualification,
+  getQualificationDeleteImpact,
   getModules,
   getQualifications,
   updateQualification,
+  getModuleDeleteImpact,
+  updateModule,
+  type ModuleDeleteImpact,
   type Module,
   type Qualification,
+  type QualificationDeleteImpact,
 } from "../api/lms";
 
 export function QualificationsPage() {
@@ -60,14 +65,52 @@ export function QualificationsPage() {
 
   const [showCreateQualification, setShowCreateQualification] = useState(false);
   const [showCreateModule, setShowCreateModule] = useState(false);
-  
+
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
+  const [qualificationToDelete, setQualificationToDelete] =
+    useState<Qualification | null>(null);
+
+  const [qualificationDeleteImpact, setQualificationDeleteImpact] =
+    useState<QualificationDeleteImpact | null>(null);
+
+  const [isCheckingDelete, setIsCheckingDelete] =
+    useState(false);
+
+  const [isDeletingQualification, setIsDeletingQualification] =
+    useState(false);
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isCreatingModule, setIsCreatingModule] = useState(false);
   const [error, setError] = useState("");
+
+  const [editingModuleId, setEditingModuleId] =
+    useState<string | null>(null);
+
+  const [editModuleCode, setEditModuleCode] =
+    useState("");
+
+  const [editModuleName, setEditModuleName] =
+    useState("");
+
+  const [editModuleDescription, setEditModuleDescription] =
+    useState("");
+
+  const [moduleToDelete, setModuleToDelete] =
+    useState<Module | null>(null);
+
+  const [moduleDeleteImpact, setModuleDeleteImpact] =
+    useState<ModuleDeleteImpact | null>(null);
+
+  const [isSavingModule, setIsSavingModule] =
+    useState(false);
+
+  const [isCheckingModuleDelete, setIsCheckingModuleDelete] =
+    useState(false);
+
+  const [isDeletingModule, setIsDeletingModule] =
+    useState(false);
 
   async function loadData() {
     try {
@@ -92,7 +135,7 @@ export function QualificationsPage() {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadData();
-    
+
     // Close dropdown on outside click
     const handleClickOutside = () => setOpenDropdownId(null);
     document.addEventListener("click", handleClickOutside);
@@ -189,19 +232,57 @@ export function QualificationsPage() {
     }
   }
 
-  async function removeQualification(qualification: Qualification) {
+  async function removeQualification(
+    qualification: Qualification,
+  ) {
     setOpenDropdownId(null);
-    if (!window.confirm(`Delete qualification ${qualification.qualification_code}?`)) {
+    setError("");
+    setIsCheckingDelete(true);
+
+    try {
+      const impact = await getQualificationDeleteImpact(
+        qualification.id,
+      );
+
+      setQualificationToDelete(qualification);
+      setQualificationDeleteImpact(impact);
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Unable to check qualification dependencies.",
+      );
+    } finally {
+      setIsCheckingDelete(false);
+    }
+  }
+
+
+  async function confirmQualificationDelete() {
+    if (
+      !qualificationToDelete ||
+      !qualificationDeleteImpact?.can_delete
+    ) {
       return;
     }
 
     setError("");
-    try {
-      await deleteQualification(qualification.id);
+    setIsDeletingQualification(true);
 
-      if (selectedQualificationId === qualification.id) {
+    try {
+      await deleteQualification(
+        qualificationToDelete.id,
+      );
+
+      if (
+        selectedQualificationId ===
+        qualificationToDelete.id
+      ) {
         setSelectedQualificationId("");
       }
+
+      setQualificationToDelete(null);
+      setQualificationDeleteImpact(null);
 
       await loadData();
     } catch (caughtError) {
@@ -210,7 +291,18 @@ export function QualificationsPage() {
           ? caughtError.message
           : "Unable to delete qualification.",
       );
+    } finally {
+      setIsDeletingQualification(false);
     }
+  }
+
+  function closeQualificationDeleteDialog() {
+    if (isDeletingQualification) {
+      return;
+    }
+
+    setQualificationToDelete(null);
+    setQualificationDeleteImpact(null);
   }
 
   async function handleCreateModule(event: FormEvent<HTMLFormElement>) {
@@ -246,22 +338,7 @@ export function QualificationsPage() {
     }
   }
 
-  async function removeModule(module: Module) {
-    if (!window.confirm(`Delete module ${module.module_code} — ${module.module_name}?`)) {
-      return;
-    }
-    setError("");
-    try {
-      await deleteModule(module.id);
-      await loadData();
-    } catch (caughtError) {
-      setError(
-        caughtError instanceof Error
-          ? caughtError.message
-          : "Unable to delete module.",
-      );
-    }
-  }
+
 
   if (isLoading) {
     return (
@@ -271,6 +348,120 @@ export function QualificationsPage() {
     );
   }
 
+
+  function beginEditingModule(module: Module) {
+    setEditingModuleId(module.id);
+    setEditModuleCode(module.module_code);
+    setEditModuleName(module.module_name);
+    setEditModuleDescription(module.description);
+    setError("");
+  }
+
+  function cancelEditingModule() {
+    setEditingModuleId(null);
+    setEditModuleCode("");
+    setEditModuleName("");
+    setEditModuleDescription("");
+  }
+
+  async function saveModule(moduleId: string) {
+    setError("");
+    setIsSavingModule(true);
+
+    try {
+      await updateModule(moduleId, {
+        module_code: editModuleCode,
+        module_name: editModuleName,
+        description: editModuleDescription,
+      });
+
+      cancelEditingModule();
+      await loadData();
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Unable to update module.",
+      );
+    } finally {
+      setIsSavingModule(false);
+    }
+  }
+
+  async function toggleModuleStatus(module: Module) {
+    setError("");
+
+    try {
+      await updateModule(module.id, {
+        is_active: !module.is_active,
+      });
+
+      await loadData();
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Unable to update module status.",
+      );
+    }
+  }
+
+  async function removeModule(module: Module) {
+    setError("");
+    setIsCheckingModuleDelete(true);
+
+    try {
+      const impact = await getModuleDeleteImpact(
+        module.id,
+      );
+
+      setModuleToDelete(module);
+      setModuleDeleteImpact(impact);
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Unable to check module dependencies.",
+      );
+    } finally {
+      setIsCheckingModuleDelete(false);
+    }
+  }
+
+  async function confirmModuleDelete() {
+    if (!moduleToDelete || !moduleDeleteImpact?.can_delete) {
+      return;
+    }
+
+    setError("");
+    setIsDeletingModule(true);
+
+    try {
+      await deleteModule(moduleToDelete.id);
+
+      setModuleToDelete(null);
+      setModuleDeleteImpact(null);
+
+      await loadData();
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Unable to delete module.",
+      );
+    } finally {
+      setIsDeletingModule(false);
+    }
+  }
+
+  function closeModuleDeleteDialog() {
+    if (isDeletingModule) {
+      return;
+    }
+
+    setModuleToDelete(null);
+    setModuleDeleteImpact(null);
+  }
   const selectedQualification = qualifications.find(
     (qualification) => qualification.id === selectedQualificationId,
   );
@@ -281,14 +472,14 @@ export function QualificationsPage() {
 
   const activeQualificationsCount = qualifications.filter(q => q.is_active).length;
   const inactiveQualificationsCount = qualifications.length - activeQualificationsCount;
-  
-  const filteredQualifications = qualifications.filter(q => 
-    q.qualification_code.toLowerCase().includes(searchQuery.toLowerCase()) || 
+
+  const filteredQualifications = qualifications.filter(q =>
+    q.qualification_code.toLowerCase().includes(searchQuery.toLowerCase()) ||
     q.qualification_name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const filteredAllModules = modules.filter(m => 
-    m.module_code.toLowerCase().includes(moduleSearchQuery.toLowerCase()) || 
+  const filteredAllModules = modules.filter(m =>
+    m.module_code.toLowerCase().includes(moduleSearchQuery.toLowerCase()) ||
     m.module_name.toLowerCase().includes(moduleSearchQuery.toLowerCase())
   );
 
@@ -296,21 +487,21 @@ export function QualificationsPage() {
     <div className="academic-layout">
       {/* Sidebar */}
       <aside className="academic-sidebar">
-        <div 
+        <div
           className={`sidebar-nav-item ${activeTab === 'setup' ? 'active' : ''}`}
           onClick={() => setActiveTab('setup')}
         >
           <GraduationCap className="sidebar-icon" />
           <span>Academic Setup</span>
         </div>
-        <div 
+        <div
           className={`sidebar-nav-item ${activeTab === 'qualifications' ? 'active' : ''}`}
           onClick={() => setActiveTab('qualifications')}
         >
           <Bookmark className="sidebar-icon" />
           <span>Qualifications</span>
         </div>
-        <div 
+        <div
           className={`sidebar-nav-item ${activeTab === 'modules' ? 'active' : ''}`}
           onClick={() => setActiveTab('modules')}
         >
@@ -483,9 +674,9 @@ export function QualificationsPage() {
               </div>
               <div className="search-box">
                 <Search className="search-icon" />
-                <input 
-                  type="text" 
-                  placeholder="Search qualifications..." 
+                <input
+                  type="text"
+                  placeholder="Search qualifications..."
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
                 />
@@ -584,8 +775,8 @@ export function QualificationsPage() {
                                 <Pencil className="btn-action-icon" /> Edit
                               </button>
                               <div className="action-dropdown-wrapper">
-                                <button 
-                                  type="button" 
+                                <button
+                                  type="button"
                                   className="btn-icon-only"
                                   onClick={(e) => {
                                     e.stopPropagation();
@@ -599,11 +790,17 @@ export function QualificationsPage() {
                                     <button type="button" className="dropdown-item warning" onClick={() => void toggleQualificationStatus(qualification)}>
                                       {qualification.is_active ? <><PauseCircle size={14} /> Deactivate</> : <><PlayCircle size={14} /> Activate</>}
                                     </button>
-                                    {qualification.can_delete && (
-                                      <button type="button" className="dropdown-item danger" onClick={() => void removeQualification(qualification)}>
-                                        <Trash2 size={14} /> Delete
-                                      </button>
-                                    )}
+
+                                    <button
+                                      type="button"
+                                      className="dropdown-item danger"
+                                      disabled={isCheckingDelete}
+                                      onClick={() => void removeQualification(qualification)}
+                                    >
+                                      <Trash2 size={14} />
+                                      {isCheckingDelete ? "Checking..." : "Delete"}
+                                    </button>
+
                                   </div>
                                 )}
                               </div>
@@ -687,9 +884,45 @@ export function QualificationsPage() {
                   <tbody>
                     {selectedModules.map((module) => (
                       <tr key={module.id}>
-                        <td><span className="tag-pill">{module.module_code}</span></td>
-                        <td style={{ fontWeight: 500, color: 'var(--text-h)' }}>{module.module_name}</td>
-                        <td>{module.description || "—"}</td>
+                        <td>
+                          {editingModuleId === module.id ? (
+                            <input
+                              value={editModuleCode}
+                              onChange={(e) => setEditModuleCode(e.target.value)}
+                              style={{ width: '90px', padding: '4px' }}
+                            />
+                          ) : (
+                            <span className="tag-pill">
+                              {module.module_code}
+                            </span>
+                          )}
+                        </td>
+                        <td style={{ fontWeight: 500, color: 'var(--text-h)' }}>
+                          {editingModuleId === module.id ? (
+                            <input
+                              value={editModuleName}
+                              onChange={(e) => setEditModuleName(e.target.value)}
+                              style={{ width: '100%', padding: '4px' }}
+                            />
+                          ) : (
+                            module.module_name
+                          )}
+                        </td>
+                        <td>
+                          {editingModuleId === module.id ? (
+                            <textarea
+                              value={editModuleDescription}
+                              onChange={(e) => setEditModuleDescription(e.target.value)}
+                              style={{
+                                width: '100%',
+                                padding: '4px',
+                                minHeight: '40px',
+                              }}
+                            />
+                          ) : (
+                            module.description || "—"
+                          )}
+                        </td>
                         <td>
                           <span className={`status-badge ${!module.is_active ? 'inactive' : ''}`}>
                             <span className="status-dot"></span>
@@ -697,12 +930,67 @@ export function QualificationsPage() {
                           </span>
                         </td>
                         <td>
-                          {module.can_delete ? (
-                            <button type="button" className="btn-action" style={{ color: 'var(--danger)' }} onClick={() => void removeModule(module)}>
-                              <Trash2 size={14} /> Delete
-                            </button>
+                          {editingModuleId === module.id ? (
+                            <div className="actions-cell">
+                              <button
+                                type="button"
+                                className="btn-action"
+                                style={{ color: 'var(--success)' }}
+                                disabled={isSavingModule}
+                                onClick={() => void saveModule(module.id)}
+                              >
+                                {isSavingModule ? "Saving..." : "Save"}
+                              </button>
+
+                              <button
+                                type="button"
+                                className="btn-action"
+                                disabled={isSavingModule}
+                                onClick={cancelEditingModule}
+                              >
+                                Cancel
+                              </button>
+                            </div>
                           ) : (
-                            <span style={{ color: 'var(--text-muted)', fontSize: '13px' }}>In use</span>
+                            <div className="actions-cell">
+                              <button
+                                type="button"
+                                className="btn-action"
+                                onClick={() => beginEditingModule(module)}
+                              >
+                                <Pencil className="btn-action-icon" />
+                                Edit
+                              </button>
+
+                              <button
+                                type="button"
+                                className="btn-action"
+                                onClick={() => void toggleModuleStatus(module)}
+                              >
+                                {module.is_active ? (
+                                  <>
+                                    <PauseCircle size={14} />
+                                    Deactivate
+                                  </>
+                                ) : (
+                                  <>
+                                    <PlayCircle size={14} />
+                                    Activate
+                                  </>
+                                )}
+                              </button>
+
+                              <button
+                                type="button"
+                                className="btn-action"
+                                style={{ color: 'var(--danger)' }}
+                                disabled={isCheckingModuleDelete}
+                                onClick={() => void removeModule(module)}
+                              >
+                                <Trash2 size={14} />
+                                {isCheckingModuleDelete ? "Checking..." : "Delete"}
+                              </button>
+                            </div>
                           )}
                         </td>
                       </tr>
@@ -729,9 +1017,9 @@ export function QualificationsPage() {
               </div>
               <div className="search-box">
                 <Search className="search-icon" />
-                <input 
-                  type="text" 
-                  placeholder="Search modules..." 
+                <input
+                  type="text"
+                  placeholder="Search modules..."
                   value={moduleSearchQuery}
                   onChange={e => setModuleSearchQuery(e.target.value)}
                 />
@@ -788,6 +1076,352 @@ export function QualificationsPage() {
         )}
 
       </main>
+
+      {qualificationToDelete && qualificationDeleteImpact && (
+        <div className="delete-modal-backdrop">
+          <div className="delete-modal">
+            <div className="delete-modal-header">
+              <div>
+                <h2>Delete Qualification</h2>
+                <p>
+                  {qualificationToDelete.qualification_code} —{" "}
+                  {qualificationToDelete.qualification_name}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                className="delete-modal-close"
+                onClick={closeQualificationDeleteDialog}
+                disabled={isDeletingQualification}
+              >
+                ×
+              </button>
+            </div>
+
+            {!qualificationDeleteImpact.can_delete ? (
+              <div className="delete-blocked-section">
+                <h3>This qualification cannot be deleted</h3>
+
+                {qualificationDeleteImpact.blockers.active_cohorts.length > 0 && (
+                  <div className="delete-blocker">
+                    <strong>Active cohorts</strong>
+                    <p>
+                      Deactivate these cohorts before deleting the qualification.
+                    </p>
+
+                    <ul>
+                      {qualificationDeleteImpact.blockers.active_cohorts.map(
+                        (cohort) => (
+                          <li key={cohort.id}>
+                            {cohort.code} — {cohort.name}
+                          </li>
+                        ),
+                      )}
+                    </ul>
+                  </div>
+                )}
+
+                {qualificationDeleteImpact.blockers.assessment_mappings.length >
+                  0 && (
+                    <div className="delete-blocker">
+                      <strong>Assessment mappings</strong>
+                      <p>
+                        Remove these assessment mappings before deleting the
+                        qualification.
+                      </p>
+
+                      <ul>
+                        {qualificationDeleteImpact.blockers.assessment_mappings.map(
+                          (mapping) => (
+                            <li key={mapping.id}>
+                              {mapping.name} — {mapping.cohort} /{" "}
+                              {mapping.assignment}
+                            </li>
+                          ),
+                        )}
+                      </ul>
+                    </div>
+                  )}
+
+                {qualificationDeleteImpact.blockers.submissions > 0 && (
+                  <div className="delete-blocker">
+                    <strong>Learner submissions</strong>
+                    <p>
+                      {
+                        qualificationDeleteImpact.blockers.submissions
+                      }{" "}
+                      learner submission
+                      {qualificationDeleteImpact.blockers.submissions === 1
+                        ? ""
+                        : "s"}{" "}
+                      exist under this qualification.
+                    </p>
+
+                    <p>
+                      Remove the relevant submissions first before deleting the
+                      qualification.
+                    </p>
+                  </div>
+                )}
+
+                <div className="delete-modal-actions">
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={closeQualificationDeleteDialog}
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div>
+                <div className="delete-warning">
+                  <strong>
+                    This will permanently delete the qualification and its related
+                    setup data.
+                  </strong>
+
+                  <p>The following records will also be removed:</p>
+                </div>
+
+                <div className="delete-impact-list">
+                  <div>
+                    <span>Modules</span>
+                    <strong>
+                      {qualificationDeleteImpact.affected.modules}
+                    </strong>
+                  </div>
+
+                  <div>
+                    <span>Inactive cohorts</span>
+                    <strong>
+                      {qualificationDeleteImpact.affected.inactive_cohorts}
+                    </strong>
+                  </div>
+
+                  <div>
+                    <span>Assignments</span>
+                    <strong>
+                      {qualificationDeleteImpact.affected.assignments}
+                    </strong>
+                  </div>
+
+                  <div>
+                    <span>Assignment levels</span>
+                    <strong>
+                      {qualificationDeleteImpact.affected.assignment_levels}
+                    </strong>
+                  </div>
+
+                  <div>
+                    <span>Empty submission contexts</span>
+                    <strong>
+                      {qualificationDeleteImpact.affected.submission_contexts}
+                    </strong>
+                  </div>
+                </div>
+
+                <div className="delete-modal-actions">
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={closeQualificationDeleteDialog}
+                    disabled={isDeletingQualification}
+                  >
+                    Cancel
+                  </button>
+
+                  <button
+                    type="button"
+                    className="btn-danger"
+                    onClick={() => void confirmQualificationDelete()}
+                    disabled={isDeletingQualification}
+                  >
+                    <Trash2 size={14} />
+                    {isDeletingQualification
+                      ? "Deleting..."
+                      : "Delete Qualification"}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {moduleToDelete && moduleDeleteImpact && (
+        <div className="delete-modal-backdrop">
+          <div className="delete-modal">
+            <div className="delete-modal-header">
+              <div>
+                <h2>Delete Module</h2>
+                <p>
+                  {moduleToDelete.module_code} —{" "}
+                  {moduleToDelete.module_name}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                className="delete-modal-close"
+                onClick={closeModuleDeleteDialog}
+                disabled={isDeletingModule}
+              >
+                ×
+              </button>
+            </div>
+
+            {!moduleDeleteImpact.can_delete ? (
+              <div className="delete-blocked-section">
+                <h3>This module cannot be deleted</h3>
+
+                {moduleDeleteImpact.blockers.active_cohorts.length > 0 && (
+                  <div className="delete-blocker">
+                    <strong>Active cohorts</strong>
+                    <p>
+                      Deactivate these cohorts before deleting the module.
+                    </p>
+
+                    <ul>
+                      {moduleDeleteImpact.blockers.active_cohorts.map(
+                        (cohort) => (
+                          <li key={cohort.id}>
+                            {cohort.code} — {cohort.name}
+                          </li>
+                        ),
+                      )}
+                    </ul>
+                  </div>
+                )}
+
+                {moduleDeleteImpact.blockers.assessment_mappings.length > 0 && (
+                  <div className="delete-blocker">
+                    <strong>Assessment mappings</strong>
+                    <p>
+                      Remove these assessment mappings before deleting the
+                      module.
+                    </p>
+
+                    <ul>
+                      {moduleDeleteImpact.blockers.assessment_mappings.map(
+                        (mapping) => (
+                          <li key={mapping.id}>
+                            {mapping.name} — {mapping.cohort} /{" "}
+                            {mapping.assignment}
+                          </li>
+                        ),
+                      )}
+                    </ul>
+                  </div>
+                )}
+
+                {moduleDeleteImpact.blockers.submissions > 0 && (
+                  <div className="delete-blocker">
+                    <strong>Learner submissions</strong>
+
+                    <p>
+                      {moduleDeleteImpact.blockers.submissions} learner
+                      submission
+                      {moduleDeleteImpact.blockers.submissions === 1
+                        ? ""
+                        : "s"}{" "}
+                      exist under this module.
+                    </p>
+
+                    <p>
+                      Remove the relevant submissions first before deleting
+                      the module.
+                    </p>
+                  </div>
+                )}
+
+                <div className="delete-modal-actions">
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={closeModuleDeleteDialog}
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div>
+                <div className="delete-warning">
+                  <strong>
+                    This will permanently delete this module and everything
+                    underneath it.
+                  </strong>
+
+                  <p>
+                    The qualification will not be deleted.
+                  </p>
+
+                  <p>
+                    The following related records will also be removed:
+                  </p>
+                </div>
+
+                <div className="delete-impact-list">
+                  <div>
+                    <span>Inactive cohorts</span>
+                    <strong>
+                      {moduleDeleteImpact.affected.inactive_cohorts}
+                    </strong>
+                  </div>
+
+                  <div>
+                    <span>Assignments</span>
+                    <strong>
+                      {moduleDeleteImpact.affected.assignments}
+                    </strong>
+                  </div>
+
+                  <div>
+                    <span>Assignment levels</span>
+                    <strong>
+                      {moduleDeleteImpact.affected.assignment_levels}
+                    </strong>
+                  </div>
+
+                  <div>
+                    <span>Empty submission contexts</span>
+                    <strong>
+                      {moduleDeleteImpact.affected.submission_contexts}
+                    </strong>
+                  </div>
+                </div>
+
+                <div className="delete-modal-actions">
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={closeModuleDeleteDialog}
+                    disabled={isDeletingModule}
+                  >
+                    Cancel
+                  </button>
+
+                  <button
+                    type="button"
+                    className="btn-danger"
+                    onClick={() => void confirmModuleDelete()}
+                    disabled={isDeletingModule}
+                  >
+                    <Trash2 size={14} />
+                    {isDeletingModule
+                      ? "Deleting..."
+                      : "Delete Module"}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

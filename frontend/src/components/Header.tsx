@@ -6,6 +6,7 @@ import {
   Users,
   ClipboardList,
   LayoutDashboard,
+  FileText,
 } from "lucide-react";
 
 export function Header() {
@@ -56,7 +57,7 @@ export function Header() {
               <Link to="/admin/qualifications" className="nav-link" style={{ display: "flex", alignItems: "center", gap: "6px" }}>
                 <GraduationCap size={16} color="#10b981" /> Qualifications
               </Link>
-              
+
               <Link to="/admin/cohorts" className="nav-link" style={{ display: "flex", alignItems: "center", gap: "6px" }}>
                 <Users size={16} color="#8b5cf6" /> Cohorts
               </Link>
@@ -80,8 +81,21 @@ export function Header() {
                 Assignments
               </Link>
 
+              <Link
+                to="/admin/submission-records"
+                className="nav-link"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                }}
+              >
+                <FileText size={16} color="#f59e0b" />
+                Records
+              </Link>
             </div>
           </div>
+
         </div>
         <button onClick={handleLogout} className="logout-button">
           Logout
