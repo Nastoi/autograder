@@ -35,7 +35,8 @@ export function CohortsPage() {
   const [endDate, setEndDate] = useState("");
   const [isActive, setIsActive] = useState(true);
 
-  const [selectedCohortId, setSelectedCohortId] = useState<number | null>(null);
+const [selectedCohortId, setSelectedCohortId] =
+  useState<string | null>(null);
   const [showCreateCohort, setShowCreateCohort] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -86,8 +87,7 @@ export function CohortsPage() {
   );
 
   const selectedCohort = cohorts.find(
-    (cohort) =>
-      Number(cohort.id) === selectedCohortId,
+    (cohort) => cohort.id === selectedCohortId,
   );
 
   const filteredCohorts = cohorts.filter((cohort) => {
@@ -101,8 +101,7 @@ export function CohortsPage() {
   });
 
   const selectedCohortMappings = mappings.filter(
-    (mapping) =>
-      Number(mapping.cohort) === selectedCohortId,
+    (mapping) => mapping.cohort === selectedCohortId,
   );
 
   function handleQualificationChange(
@@ -420,15 +419,10 @@ export function CohortsPage() {
                 return (
                   <tr
                     key={cohort.id}
-                    onClick={() =>
-                      setSelectedCohortId(Number(cohort.id))
-                    }
+                    onClick={() => setSelectedCohortId(cohort.id)}
                     style={{
                       cursor: "pointer",
-                      backgroundColor:
-                        selectedCohortId === Number(cohort.id)
-                          ? "rgba(238, 242, 255, 0.5)"
-                          : undefined,
+                      backgroundColor: selectedCohortId === cohort.id ? 'rgba(238, 242, 255, 0.5)' : undefined
                     }}
                   >
                     <td>{cohort.qualification_code}</td>
@@ -458,7 +452,7 @@ export function CohortsPage() {
 
       {selectedCohort && (
         <>
-          <div
+          <div 
             style={{
               position: 'fixed',
               top: 0,
@@ -470,9 +464,9 @@ export function CohortsPage() {
             }}
             onClick={() => setSelectedCohortId(null)}
           />
-          <section
-            className="content-card"
-            style={{
+          <section 
+            className="content-card" 
+            style={{ 
               position: 'fixed',
               top: 0,
               right: 0,
@@ -524,69 +518,69 @@ export function CohortsPage() {
             </div>
 
             <div style={{ padding: '24px', flex: 1 }}>
-              {selectedCohortMappings.length === 0 ? (
-                <p style={{ margin: 0, color: 'var(--text-muted)' }}>No assignments mapped to this cohort.</p>
-              ) : (
-                <table className="data-table" style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
-                  <thead>
-                    <tr>
-                      <th>Assignment</th>
-                      <th>Status</th>
-                      <th>Submission URL</th>
-                      <th>Action</th>
-                    </tr>
-                  </thead>
+            {selectedCohortMappings.length === 0 ? (
+              <p style={{ margin: 0, color: 'var(--text-muted)' }}>No assignments mapped to this cohort.</p>
+            ) : (
+              <table className="data-table" style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
+                <thead>
+                  <tr>
+                    <th>Assignment</th>
+                    <th>Status</th>
+                    <th>Submission URL</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
 
-                  <tbody>
-                    {selectedCohortMappings.map((mapping) => (
-                      <tr key={mapping.id}>
-                        <td
+                <tbody>
+                  {selectedCohortMappings.map((mapping) => (
+                    <tr key={mapping.id}>
+                      <td
+                        style={{
+                          fontWeight: 500,
+                          color: "var(--text-h)",
+                        }}
+                      >
+                        {mapping.assignment_code} —{" "}
+                        {mapping.assignment_title}
+                      </td>
+
+                      <td>
+                        <span
+                          className={`status-badge ${!mapping.is_active ? "inactive" : ""
+                            }`}
+                        >
+                          <span className="status-dot"></span>
+                          {mapping.is_active ? "Active" : "Inactive"}
+                        </span>
+                      </td>
+
+                      <td>
+                        <span
                           style={{
-                            fontWeight: 500,
-                            color: "var(--text-h)",
+                            fontFamily: "monospace",
+                            color: "var(--text-muted)",
+                            fontSize: "13px",
                           }}
                         >
-                          {mapping.assignment_code} —{" "}
-                          {mapping.assignment_title}
-                        </td>
+                          {`${import.meta.env.VITE_AUTOGRADER_PUBLIC_URL}/api/lms/lti/launch/${mapping.id}/`}
+                        </span>
+                      </td>
 
-                        <td>
-                          <span
-                            className={`status-badge ${!mapping.is_active ? "inactive" : ""
-                              }`}
-                          >
-                            <span className="status-dot"></span>
-                            {mapping.is_active ? "Active" : "Inactive"}
-                          </span>
-                        </td>
-
-                        <td>
-                          <span
-                            style={{
-                              fontFamily: "monospace",
-                              color: "var(--text-muted)",
-                              fontSize: "13px",
-                            }}
-                          >
-                            {`${import.meta.env.VITE_AUTOGRADER_PUBLIC_URL}/api/lms/lti/launch/${mapping.id}/`}
-                          </span>
-                        </td>
-
-                        <td>
-                          <button
-                            type="button"
-                            className="btn-action"
-                            onClick={() => copyLtiUrl(mapping.id)}
-                          >
-                            <Copy size={14} /> Copy LTI URL
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
+                      <td>
+                        <button
+                          type="button"
+                          className="btn-action"
+                          onClick={() => copyLtiUrl(mapping.id)}
+                        >
+                          <Copy size={14} /> Copy LTI URL
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
           </section>
         </>
       )}
