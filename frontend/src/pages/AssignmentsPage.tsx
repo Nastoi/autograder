@@ -1902,11 +1902,7 @@ export function AssignmentsPage() {
                                 <div className="section-header compact-section-header">
                                   <div>
                                     <h3>{level.display_name} rubric criteria</h3>
-                                    {levelBands.some((band) => !band.descriptor?.trim()) && (
-                                      <p className="error-message">
-                                        Some rubric bands are missing a descriptor. Please edit each band and add a descriptor before grading.
-                                      </p>
-                                    )}
+
                                     <p className="section-description">
                                       Criteria for this submission path.
                                     </p>
@@ -2311,6 +2307,13 @@ export function AssignmentsPage() {
                                     + Add Band
                                   </button>
                                 </div>
+
+                                {levelBands.some((band) => !band.descriptor?.trim()) && (
+                                  <p className="error-message">
+                                    Please fill up all descriptor fields and save.
+                                  </p>
+                                )}
+
 
                                 {bandFormLevelId === level.id && (
                                   <div className="config-modal-backdrop">
