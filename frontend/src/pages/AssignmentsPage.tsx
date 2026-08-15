@@ -1902,6 +1902,11 @@ export function AssignmentsPage() {
                                 <div className="section-header compact-section-header">
                                   <div>
                                     <h3>{level.display_name} rubric criteria</h3>
+                                    {levelBands.some((band) => !band.descriptor?.trim()) && (
+                                      <p className="error-message">
+                                        Some rubric bands are missing a descriptor. Please edit each band and add a descriptor before grading.
+                                      </p>
+                                    )}
                                     <p className="section-description">
                                       Criteria for this submission path.
                                     </p>
