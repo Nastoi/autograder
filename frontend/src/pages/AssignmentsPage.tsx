@@ -1446,37 +1446,37 @@ export function AssignmentsPage() {
                                   ),
                               ),
                           ) && (
-                            <div className="overview-unmapped-tasks">
-                              <span className="detail-label">
-                                Unassigned tasks
-                              </span>
+                              <div className="overview-unmapped-tasks">
+                                <span className="detail-label">
+                                  Unassigned tasks
+                                </span>
 
-                              <div className="overview-mapping-tasks">
-                                {levelTasks
-                                  .filter(
-                                    (task) =>
-                                      !taskCriteriaMappings.some(
-                                        (mapping) =>
-                                          mapping.task === task.id &&
-                                          levelCriteria.some(
-                                            (criterion) =>
-                                              criterion.id ===
-                                              mapping.rubric_criterion,
-                                          ),
-                                      ),
-                                  )
-                                  .map((task) => (
-                                    <span
-                                      key={task.id}
-                                      className="tag-pill"
-                                      title={task.title}
-                                    >
-                                      {task.task_code}
-                                    </span>
-                                  ))}
+                                <div className="overview-mapping-tasks">
+                                  {levelTasks
+                                    .filter(
+                                      (task) =>
+                                        !taskCriteriaMappings.some(
+                                          (mapping) =>
+                                            mapping.task === task.id &&
+                                            levelCriteria.some(
+                                              (criterion) =>
+                                                criterion.id ===
+                                                mapping.rubric_criterion,
+                                            ),
+                                        ),
+                                    )
+                                    .map((task) => (
+                                      <span
+                                        key={task.id}
+                                        className="tag-pill"
+                                        title={task.title}
+                                      >
+                                        {task.task_code}
+                                      </span>
+                                    ))}
+                                </div>
                               </div>
-                            </div>
-                          )}
+                            )}
                         </div>
                       </div>
                     );
@@ -1530,7 +1530,7 @@ export function AssignmentsPage() {
                       );
                       const levelCriteria = selectedAssignmentCriteria.filter(
                         (criterion) => criterion.assignment_level === level.id,
-                        
+
                       );
                       const hasUnmappedCriteria = levelCriteria.some(
                         (criterion) =>
@@ -1915,6 +1915,12 @@ export function AssignmentsPage() {
                                     + Add Criterion
                                   </button>
                                 </div>
+
+                                {hasUnmappedCriteria && (
+                                  <p className="error-message">
+                                    Every rubric criterion must be assigned to at least one task before grading.
+                                  </p>
+                                )}
 
                                 {criterionFormLevelId === level.id && (
                                   <div className="config-modal-backdrop">
@@ -2567,7 +2573,7 @@ export function AssignmentsPage() {
           </>
         )}
       </section>
-    
+
       {deleteAssignmentId && (
         <div className="config-modal-backdrop">
           <div className="config-modal assignment-delete-modal">
