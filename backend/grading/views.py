@@ -664,16 +664,6 @@ class Gpt4oDispatchView(APIView):
                 status=status.HTTP_502_BAD_GATEWAY,
             )
             
-# Pydantic schema for structured output
-class TaskCriterionPair(BaseModel):
-    task_code: str = Field(description="The task_code (e.g. T-F-01)")
-    rubric_criterion_id: str = Field(description="UUID of the best matching rubric criterion")
-    inferred_weight: float = Field(description="Proportional weight percentage for this task")
-    ai_explanation: str = Field(description="Justification for mapping this task to the criterion")
-
-
-class AutoMappingResponseSchema(BaseModel):
-    mappings: list[TaskCriterionPair]
 
 # Pydantic Schemas for OpenAI Structured Outputs
 class TaskCriterionPair(BaseModel):
@@ -724,22 +714,83 @@ class MapTasksCriteriaView(APIView):
 
         # Fully generalized dynamic prompt requiring 100% task coverage
         user_prompt = (
-            f"AVAILABLE ASSIGNMENT TASKS ({len(task_data)} total):\n{json.dumps(task_data, indent=2)}\n\n"
-            f"RUBRIC CRITERIA:\n{json.dumps(criteria_data, indent=2)}\n\n"
-            "MANDATORY MAPPING RULES:\n"
-            "1. 100% TASK COVERAGE (NO SKIPPING):\n"
-            "   - You MUST evaluate and map EVERY single task listed in 'AVAILABLE ASSIGNMENT TASKS'.\n"
-            "   - Do NOT drop, skip, or omit any task code from the final output list.\n\n"
-            "2. SEMANTIC MULTI-TASK GROUPING:\n"
-            "   - Analyze the objective and instructions of each task.\n"
-            "   - If multiple tasks contribute toward fulfilling the same Rubric Criterion, map ALL of those tasks to that same criterion ID.\n\n"
-            "3. STRICT 100% WEIGHT NORMALIZATION PER CRITERION:\n"
-            "   - For EACH Rubric Criterion, evaluate the relative effort, difficulty, and technical complexity of all tasks mapped to it.\n"
-            "   - Assign an 'inferred_weight' percentage to each task representing its relative share of effort for THAT specific criterion.\n"
-            "   - CRITICAL MATHEMATICAL CONSTRAINT: For any given Rubric Criterion, the sum of 'inferred_weight' across all tasks mapped to it MUST EQUAL EXACTLY 100.0%.\n"
-            "     (e.g., If 1 task maps to Criterion A, its weight is 100.0%. If 5 tasks map to Criterion B, their individual weights must sum to exactly 100.0%).\n\n"
-            "4. JUSTIFICATION:\n"
-            "   - Provide a clear explanation in 'ai_explanation' describing how the task's technical scope justified its relative share of the criterion's 100% weight."
+            f"AVAILABLE ASSIGNMENT TASKS ({len(task_data)} total):\n"
+            f"{json.dumps(task_data, indent=2)}\n\n"
+            f"AVAILABLE RUBRIC CRITERIA ({len(criteria_data)} total):\n"
+            f"{json.dumps(criteria_data, indent=2)}\n\n"
+
+            "MANDATORY TASK-TO-CRITERION MAPPING RULES:\n\n"
+
+            "1. COMPLETE TASK COVERAGE:\n"
+            "   - Evaluate EVERY task listed in AVAILABLE ASSIGNMENT TASKS.\n"
+            "   - Every task MUST be mapped to at least one genuinely relevant Rubric Criterion.\n"
+            "   - Do NOT skip, drop, or omit any task_code.\n\n"
+
+            "2. SEMANTIC ACCURACY:\n"
+            "   - Base mappings ONLY on the supplied task title, task instructions, "
+            "criterion title, and criterion description.\n"
+            "   - Map a task to a criterion only when the task genuinely requires evidence "
+            "relevant to that criterion.\n"
+            "   - Do NOT create mappings merely because words look similar.\n"
+            "   - Do NOT invent requirements, evidence, tasks, criteria, or relationships "
+            "that are not supported by the provided content.\n\n"
+
+            "3. MULTI-MAPPING IS ALLOWED AND REQUIRED WHEN APPROPRIATE:\n"
+            "   - A single task MAY map to MULTIPLE Rubric Criteria when its instructions "
+            "genuinely require evidence for multiple criteria.\n"
+            "   - A single Rubric Criterion MAY be supported by MULTIPLE tasks.\n"
+            "   - Do not force each task to only one criterion.\n"
+            "   - Do not duplicate the same task_code + rubric_criterion_id pair.\n\n"
+
+            "4. CRITERION COVERAGE:\n"
+            "   - Consider EVERY Rubric Criterion before producing the final mappings.\n"
+            "   - Every criterion should have at least one mapped task when the assignment "
+            "tasks genuinely provide evidence for it.\n"
+            "   - Do NOT fabricate an unrelated mapping simply to force criterion coverage.\n\n"
+
+            "5. EXACT IDENTIFIERS:\n"
+            "   - Use the task_code EXACTLY as provided.\n"
+            "   - Use the exact Rubric Criterion 'id' provided in AVAILABLE RUBRIC CRITERIA "
+            "as rubric_criterion_id.\n"
+            "   - Do NOT invent, shorten, modify, or substitute identifiers.\n\n"
+
+            "6. INFERRED WEIGHT MEANING:\n"
+            "   - inferred_weight is a PERCENTAGE from 0.01 to 100.00.\n"
+            "   - It represents how much of THAT SPECIFIC criterion's expected evidence "
+            "is contributed by the mapped task.\n"
+            "   - Weight is relative within each criterion, NOT across the whole assignment.\n\n"
+
+            "7. STRICT 100% WEIGHT NORMALIZATION PER CRITERION:\n"
+            "   - For EACH Rubric Criterion independently, the sum of inferred_weight "
+            "across ALL tasks mapped to that criterion MUST equal exactly 100.00.\n"
+            "   - Example: if Criterion C01 is supported by T01 and T02, valid weights "
+            "could be T01 = 60.00 and T02 = 40.00.\n"
+            "   - If only one task supports a criterion, that mapping should normally "
+            "receive 100.00.\n"
+            "   - Allocate weights according to relative scope, effort, difficulty, "
+            "technical complexity, and amount of evidence expected from each task.\n\n"
+
+            "8. WEIGHT CONSISTENCY:\n"
+            "   - Do NOT use decimal fractions such as 0.60 to mean 60%.\n"
+            "   - Use 60.00 to represent 60 percent.\n"
+            "   - Never allow the total weight for a criterion to exceed or fall below "
+            "100.00.\n\n"
+
+            "9. AI EXPLANATION:\n"
+            "   - For every mapping, provide a concise and specific ai_explanation.\n"
+            "   - Explain WHY the task provides evidence for that criterion.\n"
+            "   - Also explain why its inferred_weight is appropriate relative to other "
+            "tasks mapped to the same criterion.\n"
+            "   - Base the explanation on the supplied task instructions and criterion "
+            "description, not generic assumptions.\n\n"
+
+            "10. FINAL VERIFICATION BEFORE RETURNING:\n"
+            "   - Confirm every task_code appears at least once.\n"
+            "   - Confirm there are no duplicate task/criterion pairs.\n"
+            "   - Confirm every rubric_criterion_id exists in the supplied criterion list.\n"
+            "   - Confirm each criterion's mapped weights total exactly 100.00.\n"
+            "   - Confirm all mappings are semantically justified.\n"
+            "   - Return only data conforming to the required structured output schema."
         )
 
         try:
@@ -808,8 +859,8 @@ class MapTasksCriteriaView(APIView):
                     record, _ = TaskCriteriaMapping.objects.update_or_create(
                         assignment_level_id=assignment_level_id,
                         task=task_obj,
+                        rubric_criterion=criterion_obj,
                         defaults={
-                            "rubric_criterion": criterion_obj,
                             "inferred_weight": Decimal(str(item.inferred_weight)),
                             "ai_explanation": item.ai_explanation,
                         },

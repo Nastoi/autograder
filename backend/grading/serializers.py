@@ -178,6 +178,7 @@ class RubricCriterionSerializer(
                 None,
             ),
         )
+        return attrs
 
     @transaction.atomic
     def create(self, validated_data):

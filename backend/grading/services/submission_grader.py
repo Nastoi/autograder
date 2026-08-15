@@ -14,6 +14,7 @@ from grading.models import (
     Task,
     TaskCriteriaMapping,
     RubricBand,
+    RubricCriterion,
 )
 from grading.schemas import (
     GradingResponseSchema,
@@ -307,11 +308,42 @@ def grade_submission(submission):
             "rubric_criterion",
         )
     )
+    
 
     if not criteria_mappings.exists():
         raise ValueError(
             "No task criteria mappings found for "
             f"AssignmentLevel {assignment_level.id}."
+        )
+
+    all_criteria_ids = set(
+        RubricCriterion.objects.filter(
+            assignment_level=assignment_level
+        ).values_list("id", flat=True)
+    )
+
+    mapped_criteria_ids = set(
+        criteria_mappings.values_list(
+            "rubric_criterion_id",
+            flat=True,
+        )
+    )
+
+    unmapped_criteria_ids = all_criteria_ids - mapped_criteria_ids
+
+    if unmapped_criteria_ids:
+        unmapped_codes = list(
+            RubricCriterion.objects.filter(
+                id__in=unmapped_criteria_ids
+            ).values_list(
+                "criterion_code",
+                flat=True,
+            )
+        )
+
+        raise ValueError(
+            "All rubric criteria must be assigned to at least one task before grading. "
+            f"Unmapped criteria: {', '.join(unmapped_codes)}"
         )
 
     submission_pages = {
@@ -500,7 +532,16 @@ def grade_submission(submission):
         )
 
     total_earned_points = 0.0
-    total_max_possible_points = 0.0
+
+    all_criteria = RubricCriterion.objects.filter(
+        assignment_level=assignment_level
+    )
+
+    total_max_possible_points = sum(
+        float(c.maximum_score)
+        for c in all_criteria
+    )
+
     evaluated_items = []
 
     # Remove old criterion results if this
@@ -514,10 +555,6 @@ def grade_submission(submission):
     ):
         criterion_max_score = (
             group_data["max_score"]
-        )
-
-        total_max_possible_points += (
-            criterion_max_score
         )
 
         criterion_earned = 0.0

@@ -27,6 +27,7 @@ from .views import (
     TaskEvidenceMapListCreateView,
     TaskMappingProcessView,
     Gpt4oDispatchView,
+    MapTasksCriteriaView,
 )
 
 urlpatterns = [
@@ -159,5 +160,10 @@ urlpatterns = [
         "gpt4o-dispatch/", 
         Gpt4oDispatchView.as_view(), 
         name="gpt4o-dispatch"
+    ),
+    path(
+        "map-tasks-criteria/",
+        MapTasksCriteriaView.as_view(),
+        name="map-tasks-criteria",
     ),
 ]

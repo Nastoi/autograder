@@ -1530,7 +1530,16 @@ export function AssignmentsPage() {
                       );
                       const levelCriteria = selectedAssignmentCriteria.filter(
                         (criterion) => criterion.assignment_level === level.id,
+                        
                       );
+                      const hasUnmappedCriteria = levelCriteria.some(
+                        (criterion) =>
+                          !taskCriteriaMappings.some(
+                            (mapping) =>
+                              mapping.rubric_criterion === criterion.id,
+                          ),
+                      );
+
                       const levelCriterionIds = levelCriteria.map(
                         (criterion) => criterion.id,
                       );
@@ -2370,6 +2379,7 @@ export function AssignmentsPage() {
                                               type="number"
                                               min="0"
                                               max="100"
+                                              step="0.01"
                                               value={bandMinimumPercentage}
                                               onChange={(event) =>
                                                 setBandMinimumPercentage(event.target.value)
@@ -2384,6 +2394,7 @@ export function AssignmentsPage() {
                                               type="number"
                                               min="0"
                                               max="100"
+                                              step="0.01"
                                               value={bandMaximumPercentage}
                                               onChange={(event) =>
                                                 setBandMaximumPercentage(event.target.value)
