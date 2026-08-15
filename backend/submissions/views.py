@@ -17,6 +17,10 @@ from .serializers import (
     SubmissionContextSerializer,
 )
 from .services import extract_submission_pages, run_ai_grading
+from .attempt_policy import (
+    clean_up_submission_files,
+    get_attempt_policy,
+)
 from lms.models import AssessmentMapping
 from courses.models import AssignmentLevel
 
@@ -230,14 +234,47 @@ class SubmissionCreateView(APIView):
                 status=status.HTTP_409_CONFLICT,
             )
 
+        assignment_level = context.assignment_level
+        assignment = assignment_level.assignment
+
+        attempt_policy = get_attempt_policy(
+            learner=request.user,
+            cohort=context.cohort,
+            assignment=assignment,
+        )
+
+        if not attempt_policy.can_submit:
+            return Response(
+                {
+                    "detail": (
+                        "You have used all 3 attempts available "
+                        "after achieving your first passing grade."
+                    ),
+                    "attempt_policy": {
+                        "limited_mode": True,
+                        "attempts_used": (
+                            attempt_policy.attempts_used
+                        ),
+                        "attempts_remaining": 0,
+                        "first_pass_attempt": (
+                            attempt_policy.first_pass_attempt
+                        ),
+                        "best_score": (
+                            str(attempt_policy.best_score)
+                            if attempt_policy.best_score is not None
+                            else None
+                        ),
+                    },
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
+
         previous_attempts = LearnerSubmission.objects.filter(
             learner=request.user,
             assignment_level__assignment=context.assignment_level.assignment,
             context__cohort=context.cohort,
         ).count()
 
-        assignment_level = context.assignment_level
-        assignment = assignment_level.assignment
 
         submission = LearnerSubmission.objects.create(
             context=context,
@@ -252,6 +289,17 @@ class SubmissionCreateView(APIView):
         )
 
         submission = run_ai_grading(submission)
+
+        if (
+            submission.status
+            == LearnerSubmission.Status.COMPLETED
+            and submission.final_score is not None
+        ):
+            clean_up_submission_files(
+                learner=request.user,
+                cohort=context.cohort,
+                assignment=assignment,
+            )
 
         return Response(
             LearnerSubmissionSerializer(submission).data,
@@ -464,9 +512,29 @@ class MappingSubmissionHistoryView(APIView):
             .order_by("-attempt_number")
         )
 
+        attempt_policy = get_attempt_policy(
+            learner=request.user,
+            cohort=mapping.cohort,
+            assignment=mapping.assignment,
+        )
+
         return Response(
-            LearnerSubmissionSerializer(
-                submissions,
-                many=True,
-            ).data
+            {
+                "submissions": LearnerSubmissionSerializer(
+                    submissions,
+                    many=True,
+                ).data,
+                "attempt_policy": {
+                    "can_submit": attempt_policy.can_submit,
+                    "limited_mode": attempt_policy.limited_mode,
+                    "attempts_used": attempt_policy.attempts_used,
+                    "attempts_remaining": attempt_policy.attempts_remaining,
+                    "first_pass_attempt": attempt_policy.first_pass_attempt,
+                    "best_score": (
+                        str(attempt_policy.best_score)
+                        if attempt_policy.best_score is not None
+                        else None
+                    ),
+                },
+            }
         )

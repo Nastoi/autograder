@@ -193,28 +193,40 @@ USE_TZ = True
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
+# CORS_ALLOWED_ORIGINS = [
+#     origin.strip()
+#     for origin in os.environ.get(
+#         "CORS_ALLOWED_ORIGINS",
+#         "http://localhost:5173,https://refill-blot-unnamed.ngrok-free.dev",
+        
+#     ).split(",")
+#     if origin.strip()
+# ]
+
 CORS_ALLOWED_ORIGINS = [
-    origin.strip()
-    for origin in os.environ.get(
-        "CORS_ALLOWED_ORIGINS",
-        "http://localhost:5173",
-    ).split(",")
-    if origin.strip()
+    "http://localhost:5173",
+    "https://refill-blot-unnamed.ngrok-free.dev",
 ]
 
 CORS_ALLOW_CREDENTIALS = True
 
+# CSRF_TRUSTED_ORIGINS = [
+#     origin.strip()
+#     for origin in os.environ.get(
+#         "CSRF_TRUSTED_ORIGINS",
+#         (
+#             "http://localhost:5173,"
+#             "https://claaslms.educlaas.com,"
+#             "https://apps.claaslms.educlaas.com",
+#             "https://refill-blot-unnamed.ngrok-free.dev",
+#         ),
+#     ).split(",")
+#     if origin.strip()
+# ]
 CSRF_TRUSTED_ORIGINS = [
-    origin.strip()
-    for origin in os.environ.get(
-        "CSRF_TRUSTED_ORIGINS",
-        (
-            "http://localhost:5173,"
-            "https://claaslms.educlaas.com,"
-            "https://apps.claaslms.educlaas.com"
-        ),
-    ).split(",")
-    if origin.strip()
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "https://refill-blot-unnamed.ngrok-free.dev",
 ]
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = "None"

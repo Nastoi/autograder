@@ -1,29 +1,29 @@
 @import url("https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap");
 
 .submission-page {
-    position: relative;
-    z-index: 1;
+  position: relative;
+  z-index: 1;
 
-    width: 100%;
-    min-height: 100vh;
-    box-sizing: border-box;
+  width: 100%;
+  min-height: 100vh;
+  box-sizing: border-box;
 
-    padding: 36px 40px 80px;
+  padding: 36px 40px 80px;
 
-    background: #f5f7fb;
-    font-family: "Montserrat", sans-serif;
-    color: #13233f;
+  background: #f5f7fb;
+  font-family: "Montserrat", sans-serif;
+  color: #13233f;
 
-    overflow: visible;
+  overflow: visible;
 }
 
 .submission-content {
-    position: relative;
-    width: 100%;
-    max-width: 1040px;
-    margin: 0 auto;
-    padding-bottom: 40px;
-    box-sizing: border-box;
+  position: relative;
+  width: 100%;
+  max-width: 1040px;
+  margin: 0 auto;
+  padding-bottom: 40px;
+  box-sizing: border-box;
 }
 
 .submission-header {
@@ -390,7 +390,7 @@
   margin-bottom: 16px;
 }
 
-.attempt-card-header > div {
+.attempt-card-header>div {
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -417,7 +417,7 @@
   gap: 16px;
 }
 
-.attempt-details > div {
+.attempt-details>div {
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -466,6 +466,7 @@
 }
 
 .latest-result {
+  margin-top: 24px;
   margin-bottom: 28px;
   padding: 24px;
   border: 1px solid #dfe6ef;
@@ -545,11 +546,11 @@
   font-weight: 700;
 }
 
-.latest-result .attempt-details > div:nth-child(2) .attempt-detail-value {
+.latest-result .attempt-details>div:nth-child(2) .attempt-detail-value {
   font-size: 22px;
 }
 
-.latest-result .attempt-details > div:nth-child(3) .attempt-detail-value {
+.latest-result .attempt-details>div:nth-child(3) .attempt-detail-value {
   text-transform: capitalize;
 }
 
@@ -744,7 +745,7 @@
   margin-top: 3px;
 }
 
-.submission-track-card > span {
+.submission-track-card>span {
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -793,11 +794,7 @@
 .assignment-summary-compact {
   display: grid;
   grid-template-columns:
-    minmax(140px, 0.8fr)
-    minmax(150px, 1fr)
-    minmax(220px, 1.4fr)
-    minmax(220px, 1.5fr)
-    minmax(110px, 0.6fr);
+    minmax(140px, 0.8fr) minmax(260px, 1.6fr) minmax(130px, 0.7fr) minmax(180px, 1fr);
   gap: 0;
   margin: 0;
   padding: 0;

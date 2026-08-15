@@ -80,6 +80,20 @@ export type Submission = {
   completed_at: string | null;
 };
 
+export type AttemptPolicy = {
+  can_submit: boolean;
+  limited_mode: boolean;
+  attempts_used: number;
+  attempts_remaining: number | null;
+  first_pass_attempt: number | null;
+  best_score: string | null;
+};
+
+export type MappingSubmissionHistory = {
+  submissions: Submission[];
+  attempt_policy: AttemptPolicy;
+};
+
 async function readJson<T>(
   response: Response,
 ): Promise<T | null> {
@@ -332,7 +346,7 @@ export async function resolveMappingContext(
 
 export async function getMappingSubmissionHistory(
   mappingId: string,
-): Promise<Submission[]> {
+): Promise<MappingSubmissionHistory> {
   const response = await fetch(
     `${API_BASE_URL}/submissions/mapping/${mappingId}/attempts/`,
     {
@@ -352,19 +366,30 @@ export async function getMappingSubmissionHistory(
     );
   }
 
-  if (!Array.isArray(data)) {
+  if (
+    typeof data !== "object" ||
+    data === null ||
+    !("submissions" in data) ||
+    !("attempt_policy" in data) ||
+    !Array.isArray(data.submissions)
+  ) {
     throw new Error(
       "The server returned invalid submission history data.",
     );
   }
 
-  const submissions = data.filter(isSubmission);
+  const submissions =
+    data.submissions.filter(isSubmission);
 
-  if (submissions.length !== data.length) {
+  if (submissions.length !== data.submissions.length) {
     throw new Error(
       "The server returned invalid submission history data.",
     );
   }
 
-  return submissions;
+  return {
+    submissions,
+    attempt_policy:
+      data.attempt_policy as AttemptPolicy,
+  };
 }

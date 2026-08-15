@@ -21,6 +21,7 @@ import {
   getMappingSubmissionHistory,
   resolveMappingContext,
   submitAssignment,
+  type AttemptPolicy,
   type Submission,
 } from "../api/submissions";
 
@@ -34,6 +35,7 @@ import {
 
 export function MappingSubmissionPage() {
   const [attempts, setAttempts] = useState<Submission[]>([]);
+  const [attemptPolicy, setAttemptPolicy] = useState<AttemptPolicy | null>(null);
   const { mappingId } = useParams();
 
   const [context, setContext] =
@@ -53,7 +55,8 @@ export function MappingSubmissionPage() {
     useState(false);
 
   const latestAttempt = attempts[0];
-
+  const hasNoAttemptsRemaining =
+    attemptPolicy?.can_submit === false;
   const isWaitingForGrading =
     latestAttempt?.status === "uploaded" ||
     latestAttempt?.status === "processing";
@@ -88,7 +91,8 @@ export function MappingSubmissionPage() {
         ]);
 
         setContext(mappingData);
-        setAttempts(attemptData);
+        setAttempts(attemptData.submissions);
+        setAttemptPolicy(attemptData.attempt_policy);
       } catch (caughtError) {
         setError(
           caughtError instanceof Error
@@ -121,12 +125,13 @@ export function MappingSubmissionPage() {
     const intervalId = window.setInterval(
       async () => {
         try {
-          const updatedAttempts =
+          const updatedHistory =
             await getMappingSubmissionHistory(
               mappingId,
             );
 
-          setAttempts(updatedAttempts);
+          setAttempts(updatedHistory.submissions);
+          setAttemptPolicy(updatedHistory.attempt_policy);
         } catch {
           // Keep the current page state.
           // We don't want a temporary polling
@@ -246,10 +251,11 @@ export function MappingSubmissionPage() {
         submissionTrack,
       );
 
-      const updatedAttempts =
+      const updatedHistory =
         await getMappingSubmissionHistory(mappingId);
 
-      setAttempts(updatedAttempts);
+      setAttempts(updatedHistory.submissions);
+      setAttemptPolicy(updatedHistory.attempt_policy);
 
       setSelectedFile(null);
       setSubmissionTrack("");
@@ -375,6 +381,35 @@ export function MappingSubmissionPage() {
             </strong>
           </div>
 
+          <div className="summary-item">
+            <span className="summary-label">
+              Maximum score
+            </span>
+
+            <strong>
+              {context.assignment.maximum_score}
+            </strong>
+          </div>
+
+          <div className="summary-item">
+            <span className="summary-label">
+              Attempts
+            </span>
+
+            <strong>
+              {attempts.length === 0
+                ? "-"
+                : attemptPolicy?.limited_mode
+                  ? attemptPolicy.attempts_remaining === 0
+                    ? "No attempts remaining"
+                    : `${attemptPolicy.attempts_remaining} ${attemptPolicy.attempts_remaining === 1
+                      ? "attempt"
+                      : "attempts"
+                    } remaining`
+                  : "Resubmit and try again"}
+            </strong>
+          </div>
+
           <div className="summary-item summary-item-wide">
             <span className="summary-label">
               Assignment
@@ -385,18 +420,240 @@ export function MappingSubmissionPage() {
               {context.assignment.title}
             </strong>
           </div>
-
-          <div className="summary-item">
-            <span className="summary-label">
-              Maximum score
-            </span>
-
-            <strong>
-              {context.assignment.maximum_score}
-            </strong>
-          </div>
         </section>
 
+        {attemptPolicy?.limited_mode && (
+          <div className="grading-wait-message">
+            <strong>
+              {attemptPolicy.attempts_remaining === 0
+                ? "No attempts remaining"
+                : `${attemptPolicy.attempts_remaining} ${attemptPolicy.attempts_remaining === 1
+                  ? "attempt"
+                  : "attempts"
+                } remaining`}
+            </strong>
+
+            <p>
+              You have used{" "}
+              {attemptPolicy.attempts_used} of 3 attempts.
+            </p>
+          </div>
+        )}
+
+        <div className="new-attempt-heading">
+          <h2>
+            {attempts.length > 0
+              ? "Submit a New Attempt"
+              : "Submit Your First Attempt"}
+          </h2>
+
+          <p>
+            Choose the submission track and upload
+            your completed assignment.
+          </p>
+        </div>
+
+        {isWaitingForGrading && (
+          <div className="grading-wait-message">
+            <strong>
+              Your latest attempt is still being graded.
+            </strong>
+
+            <p>
+              You can submit another attempt after
+              grading is complete.
+            </p>
+          </div>
+        )}
+
+
+        <form
+          onSubmit={handleSubmit}
+          className="submission-form"
+        >
+          <fieldset className="submission-track-options">
+            <legend>
+              Select submission type
+            </legend>
+
+            <label>
+              <input
+                type="radio"
+                name="submission_track"
+                value="basic"
+                checked={
+                  submissionTrack === "basic"
+                }
+                onChange={() =>
+                  setSubmissionTrack("basic")
+                }
+                disabled={
+                  isSubmitting ||
+                  isWaitingForGrading ||
+                  hasNoAttemptsRemaining
+                }
+                required
+              />
+              Basic
+            </label>
+
+            <p>
+              Outcome can be Failed,
+              Foundation, or Proficient.
+            </p>
+
+            <label>
+              <input
+                type="radio"
+                name="submission_track"
+                value="advanced"
+                checked={
+                  submissionTrack === "advanced"
+                }
+                onChange={() =>
+                  setSubmissionTrack("advanced")
+                }
+                disabled={
+                  isSubmitting ||
+                  isWaitingForGrading ||
+                  hasNoAttemptsRemaining
+                }
+                required
+              />
+              Advanced
+            </label>
+
+            <p>
+              Outcome can be Failed,
+              Proficient, or Expert.
+            </p>
+          </fieldset>
+
+          <label
+            htmlFor="submitted-file"
+            className={[
+              "file-upload-box",
+              isDragging
+                ? "file-upload-box-dragging"
+                : "",
+              isSubmitting ||
+                isWaitingForGrading ||
+                hasNoAttemptsRemaining
+                ? "file-upload-box-disabled"
+                : "",
+            ]
+              .filter(Boolean)
+              .join(" ")}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+          >
+            <span
+              className="upload-icon"
+              aria-hidden="true"
+            >
+              ↑
+            </span>
+
+            <span className="upload-title">
+              Drag and drop your file here
+            </span>
+
+            <span className="upload-help">
+              or browse your computer.
+              DOC, DOCX, PDF, PBIX, ZIP — maximum 50 MB.
+            </span>
+
+            <span className="file-button">
+              Browse files
+            </span>
+          </label>
+
+          <input
+            id="submitted-file"
+            name="submitted_file"
+            className="file-input"
+            type="file"
+            accept=".doc,.docx,.pdf,.pbix,.zip"
+            onChange={handleFileChange}
+            disabled={
+              isSubmitting ||
+              isWaitingForGrading ||
+              hasNoAttemptsRemaining
+            }
+            ref={fileInputRef}
+            required
+          />
+
+          {selectedFile && (
+            <div className="selected-file">
+              <div className="selected-file-details">
+                <span className="selected-file-label">
+                  Selected file
+                </span>
+
+                <strong className="selected-file-name">
+                  {selectedFile.name}
+                </strong>
+
+                <span className="selected-file-size">
+                  {formatFileSize(selectedFile.size)}
+                </span>
+              </div>
+
+              <button
+                type="button"
+                className="remove-file-button"
+                onClick={() => {
+                  setSelectedFile(null);
+                  setError("");
+
+                  if (fileInputRef.current) {
+                    fileInputRef.current.value = "";
+                  }
+                }}
+                disabled={isSubmitting ||
+                  isWaitingForGrading ||
+                  hasNoAttemptsRemaining}
+              >
+                Remove
+              </button>
+            </div>
+          )}
+
+          {error && (
+            <p
+              role="alert"
+              className="error-message"
+            >
+              {error}
+            </p>
+          )}
+
+          <div className="form-actions">
+            <button
+              type="submit"
+              className="btn-primary"
+              disabled={
+                !selectedFile ||
+                !submissionTrack ||
+                isSubmitting ||
+                isWaitingForGrading ||
+                hasNoAttemptsRemaining
+              }
+            >
+              {hasNoAttemptsRemaining
+                ? "No Attempts Remaining"
+                : isWaitingForGrading
+                  ? "Waiting for Grading"
+                  : isSubmitting
+                    ? "Submitting..."
+                    : attempts.length > 0
+                      ? "Submit New Attempt"
+                      : "Submit Assignment"}
+            </button>
+          </div>
+        </form>
         {attempts.length > 0 && (
           <section className="latest-result">
             <div className="latest-result-heading">
@@ -494,19 +751,6 @@ export function MappingSubmissionPage() {
                 </span>
 
                 <p>{attempts[0].feedback}</p>
-              </div>
-            )}
-
-
-            {attempts[0].status === "error" && (
-              <div className="grading-error-message">
-                <strong>
-                  Grading could not be completed.
-                </strong>
-
-                <p>
-                  Please submit a new attempt.
-                </p>
               </div>
             )}
 
@@ -623,6 +867,15 @@ export function MappingSubmissionPage() {
                         </strong>
                       </div>
                     </div>
+                    {attempt.feedback && (
+                      <div className="latest-feedback">
+                        <span className="attempt-detail-label">
+                          Feedback
+                        </span>
+
+                        <p>{attempt.feedback}</p>
+                      </div>
+                    )}
 
 
                   </article>
@@ -633,208 +886,6 @@ export function MappingSubmissionPage() {
         )}
 
 
-        <div className="new-attempt-heading">
-          <h2>
-            {attempts.length > 0
-              ? "Submit a New Attempt"
-              : "Submit Your First Attempt"}
-          </h2>
-
-          <p>
-            Choose the submission track and upload
-            your completed assignment.
-          </p>
-        </div>
-
-        {isWaitingForGrading && (
-          <div className="grading-wait-message">
-            <strong>
-              Your latest attempt is still being graded.
-            </strong>
-
-            <p>
-              You can submit another attempt after
-              grading is complete.
-            </p>
-          </div>
-        )}
-
-
-        <form
-          onSubmit={handleSubmit}
-          className="submission-form"
-        >
-          <fieldset className="submission-track-options">
-            <legend>
-              Select submission type
-            </legend>
-
-            <label>
-              <input
-                type="radio"
-                name="submission_track"
-                value="basic"
-                checked={
-                  submissionTrack === "basic"
-                }
-                onChange={() =>
-                  setSubmissionTrack("basic")
-                }
-                disabled={
-                  isSubmitting ||
-                  isWaitingForGrading
-                }
-                required
-              />
-              Basic
-            </label>
-
-            <p>
-              Outcome can be Failed,
-              Foundation, or Proficient.
-            </p>
-
-            <label>
-              <input
-                type="radio"
-                name="submission_track"
-                value="advanced"
-                checked={
-                  submissionTrack === "advanced"
-                }
-                onChange={() =>
-                  setSubmissionTrack("advanced")
-                }
-                disabled={
-                  isSubmitting ||
-                  isWaitingForGrading
-                }
-                required
-              />
-              Advanced
-            </label>
-
-            <p>
-              Outcome can be Failed,
-              Proficient, or Expert.
-            </p>
-          </fieldset>
-
-          <label
-            htmlFor="submitted-file"
-            className={[
-              "file-upload-box",
-              isDragging
-                ? "file-upload-box-dragging"
-                : "",
-              isSubmitting || isWaitingForGrading
-                ? "file-upload-box-disabled"
-                : "",
-            ]
-              .filter(Boolean)
-              .join(" ")}
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onDrop={handleDrop}
-          >
-            <span
-              className="upload-icon"
-              aria-hidden="true"
-            >
-              ↑
-            </span>
-
-            <span className="upload-title">
-              Drag and drop your file here
-            </span>
-
-            <span className="upload-help">
-              or browse your computer.
-              DOC, DOCX, PDF, PBIX, ZIP — maximum 50 MB.
-            </span>
-
-            <span className="file-button">
-              Browse files
-            </span>
-          </label>
-
-          <input
-            id="submitted-file"
-            name="submitted_file"
-            className="file-input"
-            type="file"
-            accept=".doc,.docx,.pdf,.pbix,.zip"
-            onChange={handleFileChange}
-            disabled={
-              isSubmitting ||
-              isWaitingForGrading
-            }
-            ref={fileInputRef}
-            required
-          />
-
-          {selectedFile && (
-            <div className="selected-file">
-              <div className="selected-file-details">
-                <span className="selected-file-label">
-                  Selected file
-                </span>
-
-                <strong className="selected-file-name">
-                  {selectedFile.name}
-                </strong>
-
-                <span className="selected-file-size">
-                  {formatFileSize(selectedFile.size)}
-                </span>
-              </div>
-
-              <button
-                type="button"
-                className="remove-file-button"
-                onClick={() => {
-                  setSelectedFile(null);
-                  setError("");
-
-                  if (fileInputRef.current) {
-                    fileInputRef.current.value = "";
-                  }
-                }}
-                disabled={isSubmitting}
-              >
-                Remove
-              </button>
-            </div>
-          )}
-
-          {error && (
-            <p
-              role="alert"
-              className="error-message"
-            >
-              {error}
-            </p>
-          )}
-
-          <div className="form-actions">
-            <button
-              type="submit"
-              className="btn-primary"
-              disabled={
-                !selectedFile ||
-                !submissionTrack ||
-                isSubmitting ||
-                isWaitingForGrading
-              }
-            >
-              {isSubmitting
-                ? "Submitting..."
-                : attempts.length > 0
-                  ? "Submit New Attempt"
-                  : "Submit Assignment"}
-            </button>
-          </div>
-        </form>
       </div>
     </main>
   );
