@@ -39,19 +39,27 @@ def get_assignment_submissions(
 
 def submission_is_pass(submission: LearnerSubmission) -> bool:
     """
-    Determine pass/fail using the assignment's configured pass mark.
-
-    Only completed submissions with a final score can pass.
+    Determine pass/fail using percentage score against
+    the assignment's configured pass mark.
     """
     if (
         submission.status != LearnerSubmission.Status.COMPLETED
         or submission.final_score is None
+        or submission.maximum_score is None
+        or submission.maximum_score <= 0
     ):
         return False
 
     assignment = submission.assignment_level.assignment
 
-    return submission.final_score >= assignment.minimum_pass_score
+    score_percentage = (
+        float(submission.final_score)
+        / float(submission.maximum_score)
+    ) * 100
+
+    return score_percentage >= float(
+        assignment.minimum_pass_score
+    )
 
 
 def get_attempt_policy(

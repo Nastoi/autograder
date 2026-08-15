@@ -706,9 +706,14 @@ export function MappingSubmissionPage() {
                     : attempts[0].status === "uploaded" ||
                       attempts[0].status === "processing"
                       ? "Processing"
-                      : attempts[0].final_score !== null
-                        ? `${attempts[0].final_score} / ${attempts[0].maximum_score ?? "-"
-                        }`
+                      : attempts[0].final_score !== null &&
+                        attempts[0].maximum_score !== null &&
+                        Number(attempts[0].maximum_score) > 0
+                        ? `${(
+                          (Number(attempts[0].final_score) /
+                            Number(attempts[0].maximum_score)) *
+                          100
+                        ).toFixed(2)} / 100`
                         : "Pending"}
                 </strong>
               </div>
@@ -838,8 +843,14 @@ export function MappingSubmissionPage() {
                             : attempt.status === "uploaded" ||
                               attempt.status === "processing"
                               ? "Processing"
-                              : attempt.final_score !== null
-                                ? `${attempt.final_score} / ${attempt.maximum_score ?? "-"}`
+                              : attempt.final_score !== null &&
+                                attempt.maximum_score !== null &&
+                                Number(attempt.maximum_score) > 0
+                                ? `${(
+                                  (Number(attempt.final_score) /
+                                    Number(attempt.maximum_score)) *
+                                  100
+                                ).toFixed(2)} / 100`
                                 : "Pending"}
                         </strong>
                       </div>
