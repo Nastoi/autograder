@@ -6,6 +6,7 @@ services:
     ports: !reset []
 
   backend:
+    restart: unless-stopped
     build:
       context: ./backend
       dockerfile: Dockerfile.prod
@@ -33,6 +34,7 @@ services:
     
 
   frontend:
+    restart: unless-stopped
     build:
       context: ./frontend
       dockerfile: Dockerfile.prod
