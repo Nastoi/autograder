@@ -6,7 +6,7 @@ from rest_framework.views import APIView
 
 from lms.permissions import IsMappingAdmin
 
-from .models import LearnerSubmission
+from .models import LearnerSubmission, SubmissionContext
 
 
 class AdminSubmissionRecordsView(APIView):
@@ -45,6 +45,60 @@ class AdminSubmissionRecordsView(APIView):
             submissions = submissions.filter(
                 assignment_level__assignment_id=assignment_id,
             )
+
+        # Gradebook learner source:
+        # A learner belongs to the local cohort view once an LTI/submission
+        # context has been created for that learner and cohort. This lets the
+        # Final Gradebook include learners with zero submissions.
+        gradebook_contexts = (
+            SubmissionContext.objects
+            .select_related(
+                "learner",
+                "cohort",
+            )
+            .filter(is_active=True)
+            .order_by(
+                "cohort__cohort_code",
+                "learner__username",
+            )
+        )
+
+        if cohort_id:
+            gradebook_contexts = gradebook_contexts.filter(
+                cohort_id=cohort_id,
+            )
+
+        gradebook_grouped = OrderedDict()
+
+        for context in gradebook_contexts:
+            cohort = context.cohort
+            learner = context.learner
+
+            cohort_key = str(cohort.id)
+            learner_key = str(learner.id)
+
+            if cohort_key not in gradebook_grouped:
+                gradebook_grouped[cohort_key] = {
+                    "id": cohort_key,
+                    "code": cohort.cohort_code,
+                    "name": cohort.cohort_name,
+                    "learners": OrderedDict(),
+                }
+
+            if (
+                learner_key
+                not in gradebook_grouped[cohort_key]["learners"]
+            ):
+                gradebook_grouped[cohort_key]["learners"][learner_key] = {
+                    "id": learner_key,
+                    "learner_id": learner.username,
+                    "username": learner.username,
+                    "name": (
+                        learner.get_full_name()
+                        or learner.username
+                    ),
+                    "email": learner.email,
+                }
 
         grouped = OrderedDict()
 
@@ -138,9 +192,24 @@ class AdminSubmissionRecordsView(APIView):
             cohort_group["assignments"] = response_assignments
             response_cohorts.append(cohort_group)
 
+        response_gradebook_cohorts = []
+
+        for cohort_group in gradebook_grouped.values():
+            response_gradebook_cohorts.append(
+                {
+                    "id": cohort_group["id"],
+                    "code": cohort_group["code"],
+                    "name": cohort_group["name"],
+                    "learners": list(
+                        cohort_group["learners"].values()
+                    ),
+                }
+            )
+
         return Response(
             {
                 "cohorts": response_cohorts,
+                "gradebook_cohorts": response_gradebook_cohorts,
                 "summary": {
                     "cohorts": len(response_cohorts),
                     "assignments": sum(

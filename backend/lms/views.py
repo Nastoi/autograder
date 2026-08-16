@@ -31,6 +31,8 @@ from .services import (
 )
 from courses.models import AssignmentLevel
 from lms.models import AssessmentMapping
+from accounts.audit import record_portal_activity
+from accounts.models import PortalActivity
 
 logger = logging.getLogger(__name__)
 
@@ -52,9 +54,17 @@ class AssessmentMappingListCreateView(
         )
 
     def perform_create(self, serializer):
-        serializer.save(
+        mapping = serializer.save(
             created_by=self.request.user,
             updated_by=self.request.user,
+        )
+
+        record_portal_activity(
+            user=self.request.user,
+            action=PortalActivity.Action.CREATED,
+            object_type="assessment_mapping",
+            object_id=mapping.id,
+            object_label=mapping.name,
         )
 
 from rest_framework import status
@@ -83,8 +93,16 @@ class AssessmentMappingDetailView(
         )
 
     def perform_update(self, serializer):
-        serializer.save(
+        mapping = serializer.save(
             updated_by=self.request.user,
+        )
+
+        record_portal_activity(
+            user=self.request.user,
+            action=PortalActivity.Action.UPDATED,
+            object_type="assessment_mapping",
+            object_id=mapping.id,
+            object_label=mapping.name,
         )
 
     def destroy(self, request, *args, **kwargs):
@@ -106,12 +124,20 @@ class AssessmentMappingDetailView(
                 status=status.HTTP_409_CONFLICT,
             )
 
+        record_portal_activity(
+            user=request.user,
+            action=PortalActivity.Action.DELETED,
+            object_type="assessment_mapping",
+            object_id=mapping.id,
+            object_label=mapping.name,
+        )
+
         return super().destroy(
             request,
             *args,
             **kwargs,
         )
-
+    
 from rest_framework.permissions import AllowAny
 
 

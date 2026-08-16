@@ -30,6 +30,8 @@ import { SubmissionRecordsPage } from "./pages/SubmissionRecordsPage";
 // >>>>>>> origin/feature/update_11Aug_8PM_MMT
 
 import { MappingSubmissionPage } from "./pages/MappingSubmissionPage";
+import { UserManagementPage } from "./pages/UserManagementPage";
+import { ChangePasswordPage } from "./pages/ChangePasswordPage";
 
 export default function App() {
   return (
@@ -64,12 +66,12 @@ export default function App() {
           <Route
             path="/submit/mapping/:mappingId"
             element={<MappingSubmissionPage />}
-          /> 
+          />
 
           <Route
             path="/results/:submissionId"
             element={<ResultPage />}
-          /> 
+          />
 
 
           <Route
@@ -97,34 +99,15 @@ export default function App() {
             element={<SubmissionRecordsPage />}
           />
 
-{/* <<<<<<< HEAD
+          <Route
+            path="/change-password"
+            element={<ChangePasswordPage />}
+          />
 
-=======
           <Route
-            path="/admin/grading-configurations"
-            element={<GradingConfigurationsPage />}
+            path="/admin/users"
+            element={<UserManagementPage />}
           />
-          <Route
-            path="/admin/assignment-levels"
-            element={<AssignmentLevelsPage />}
-          />
-          <Route
-            path="/admin/rubric-criteria"
-            element={<RubricCriteriaPage />}
-          />
-          <Route
-            path="/admin/rubric-bands"
-            element={<RubricBandsPage />}
-          />
-          <Route
-            path="/admin/ai-grading-profiles"
-            element={<AIGradingProfilesPage />}
-          />
-          <Route
-            path="/admin/task-criteria-mappings"
-            element={<TaskCriteriaMappingsPage />}
-          />
->>>>>>> origin/feature/update_11Aug_8PM_MMT */}
         </Route>
 
         {/* -------------------- */}

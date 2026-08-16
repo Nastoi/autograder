@@ -241,6 +241,11 @@ class AssignmentLevel(models.Model):
         default="",
     )
 
+    scenario = models.TextField(
+        blank=True,
+        default="",
+    )
+
     instructions = models.TextField(blank=True)
 
     tasks = models.JSONField(default=list)

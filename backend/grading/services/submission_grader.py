@@ -25,6 +25,12 @@ from submissions.models import SubmissionPage
 def map_submission_tasks(submission):
     assignment_level = submission.context.assignment_level
 
+    assignment_context = {
+        "title": assignment_level.title or "",
+        "scenario": assignment_level.scenario or "",
+        "objective": assignment_level.objective or "",
+    }
+        
     tasks = Task.objects.filter(
         assignment_level=assignment_level
     ).order_by("sequence")
@@ -73,6 +79,8 @@ def map_submission_tasks(submission):
                 f"{total_pages}.\n"
                 f"- A SINGLE PAGE CAN CONTAIN EVIDENCE FOR "
                 f"MULTIPLE TASKS.\n\n"
+                f"Assignment Context:\n"
+                f"{json.dumps(assignment_context, indent=2)}\n\n"
                 f"Target Assignment Tasks to Map:\n"
                 f"{json.dumps(task_definitions, indent=2)}\n\n"
                 "Examine the page text and images below and map "
@@ -164,6 +172,10 @@ def map_submission_tasks(submission):
         "empty.\n"
         "5. MISSING TASKS: If not attempted, set "
         "'is_relevant': false and 'mapped_page_numbers': []."
+        "6. SCENARIO RELEVANCE: Evidence must reasonably relate "
+        "to the supplied assignment scenario. Technically similar "
+        "but scenario-unrelated work must not be treated as valid "
+        "task evidence."
     )
 
     http_client = httpx.Client()
@@ -298,6 +310,12 @@ def grade_submission(submission):
 
     assignment_level = submission.context.assignment_level
 
+    assignment_context = (
+        f"Assignment Level Title: {assignment_level.title or '-'}\n"
+        f"Scenario: {assignment_level.scenario or '-'}\n"
+        f"Objective: {assignment_level.objective or '-'}"
+    )
+
     criteria_mappings = (
         TaskCriteriaMapping.objects
         .filter(
@@ -363,7 +381,8 @@ def grade_submission(submission):
             "type": "text",
             "text": (
                 f"Grading Evaluation for Submission ID: "
-                f"{submission.id}.\n"
+                f"{submission.id}.\n\n"
+                f"{assignment_context}\n\n"
                 "Evaluate each task/criterion against its "
                 "mapped page evidence and output a "
                 "score_percentage from 0 to 100.\n"
@@ -379,6 +398,27 @@ def grade_submission(submission):
             mapping.rubric_criterion.id
         )
 
+        rubric_bands = (
+            RubricBand.objects
+            .filter(
+                rubric_criterion=mapping.rubric_criterion,
+            )
+            .order_by("sequence")
+        )
+
+        rubric_band_text = "\n".join(
+            (
+                f"- {band.display_name}: "
+                f"{band.minimum_percentage}% to "
+                f"{band.maximum_percentage}% — "
+                f"{band.descriptor}"
+            )
+            for band in rubric_bands
+        )
+
+        if not rubric_band_text:
+            rubric_band_text = "No rubric bands configured."
+    
         criteria_weight_map[
             f"{task_code}_{criterion_id}"
         ] = {
@@ -401,9 +441,19 @@ def grade_submission(submission):
                 "text": (
                     "\n=== CRITERION EVALUATION TARGET ===\n"
                     f"Task Code: {task_code}\n"
+                    f"Task Title: {mapping.task.title}\n"
+                    f"Task Instruction: {mapping.task.instructions}\n"
                     f"Rubric Criterion ID: {criterion_id}\n"
-                    f"Task Instruction: "
-                    f"{mapping.task.instructions}\n"
+                    f"Criterion Code: "
+                    f"{mapping.rubric_criterion.criterion_code}\n"
+                    f"Criterion Title: "
+                    f"{mapping.rubric_criterion.title}\n"
+                    f"Criterion Description: "
+                    f"{mapping.rubric_criterion.description or '-'}\n"
+                    f"Criterion Maximum Score: "
+                    f"{mapping.rubric_criterion.maximum_score}\n"
+                    f"Rubric Bands:\n"
+                    f"{rubric_band_text}\n"
                     f"Mapped Evidence Pages: "
                     f"{mapped_pages if mapped_pages else 'NO EVIDENCE FOUND'}\n"
                 ),
@@ -462,9 +512,15 @@ def grade_submission(submission):
     system_prompt = (
         "You are an academic grader. "
         "Evaluate the evidence provided for each "
-        "task/criterion. For each target, assign a "
-        "score_percentage between 0.0 and 100.0 "
-        "based on completion quality."
+        "task/criterion against the assignment scenario, "
+        "objective, task requirements, criterion description, "
+        "and rubric bands. "
+        "For each target, assign a score_percentage "
+        "between 0.0 and 100.0 based on completion quality. "
+        "Do not award full credit merely because work is "
+        "technically valid if it does not reasonably address "
+        "the stated scenario or criterion. "
+        "Use only the supplied evidence and requirements."
     )
 
     http_client = httpx.Client()

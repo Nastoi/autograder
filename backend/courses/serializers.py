@@ -1,6 +1,5 @@
 from rest_framework import serializers
 from django.db import transaction
-
 from grading.models import (
     AIGradingProfile,
     GradingConfiguration,
@@ -644,6 +643,7 @@ class AssignmentLevelSerializer(serializers.ModelSerializer):
             "skill_statement_code",
             "skill_statement",
             "objective",
+            "scenario",
             "instructions",
             "tasks",
             "deliverables",
@@ -721,3 +721,4 @@ class AssignmentLevelSerializer(serializers.ModelSerializer):
                 )
 
         return attrs
+

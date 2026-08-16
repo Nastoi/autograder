@@ -28,6 +28,12 @@ class AssessmentMapping(models.Model):
         related_name="assessment_mappings",
     )
 
+    final_mark_weight = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=0,
+    )
+
     external_platform_id = models.CharField(
         max_length=255,
         blank=True,

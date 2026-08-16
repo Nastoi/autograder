@@ -7,6 +7,7 @@ import {
   ClipboardList,
   LayoutDashboard,
   FileText,
+  UserCog,
 } from "lucide-react";
 
 export function Header() {
@@ -17,7 +18,8 @@ export function Header() {
 
   const isSubmissionFlow =
     location.pathname.startsWith("/submit/mapping/") ||
-    location.pathname.startsWith("/results/");
+    location.pathname.startsWith("/results/") ||
+    location.pathname === "/change-password";
 
   async function handleLogout() {
     try {
@@ -46,7 +48,7 @@ export function Header() {
       <nav className="header-nav">
         <div className="nav-links">
           <Link to="/dashboard" className="nav-link" style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-            <LayoutDashboard size={16} color="#3b82f6" />
+           
             Dashboard
           </Link>
 
@@ -93,7 +95,20 @@ export function Header() {
                 Records
               </Link>
             </div>
+            
           </div>
+          <Link
+              to="/admin/users"
+              className="nav-link"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
+              }}
+            >
+              
+              User Management
+            </Link>
 
         </div>
         <button onClick={handleLogout} className="logout-button">

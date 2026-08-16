@@ -1,7 +1,6 @@
 from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-
 from lms.permissions import IsMappingAdmin
 
 from .models import (
@@ -29,7 +28,8 @@ from submissions.models import (
 )
 from django.db import transaction
 from django.db.models.deletion import ProtectedError
-
+from accounts.audit import record_portal_activity
+from accounts.models import PortalActivity
 
 class CohortListView(generics.ListAPIView):
     permission_classes = [
@@ -153,6 +153,20 @@ class QualificationListCreateView(
 
     def get_queryset(self):
         return Qualification.objects.order_by("qualification_code")
+
+    def perform_create(self, serializer):
+        qualification = serializer.save()
+
+        record_portal_activity(
+            user=self.request.user,
+            action=PortalActivity.Action.CREATED,
+            object_type="qualification",
+            object_id=qualification.id,
+            object_label=(
+                f"{qualification.qualification_code} — "
+                f"{qualification.qualification_name}"
+            ),
+        )
 
 
 class QualificationDetailView(
@@ -292,6 +306,16 @@ class QualificationDetailView(
                     qualification=qualification,
                 ).delete()
 
+
+                record_portal_activity(
+                    user=request.user,
+                    action=PortalActivity.Action.DELETED,
+                    object_type="qualification",
+                    object_id=qualification.id,
+                    object_label=(
+                        f"{qualification.qualification_code} — {qualification.qualification_name}"
+                    ),
+                )
                 qualification.delete()
 
         except ProtectedError:
@@ -309,6 +333,20 @@ class QualificationDetailView(
 
         return Response(
             status=status.HTTP_204_NO_CONTENT,
+        )
+
+    def perform_update(self, serializer):
+        qualification = serializer.save()
+
+        record_portal_activity(
+            user=self.request.user,
+            action=PortalActivity.Action.UPDATED,
+            object_type="qualification",
+            object_id=qualification.id,
+            object_label=(
+                f"{qualification.qualification_code} — "
+                f"{qualification.qualification_name}"
+            ),
         )
 
 class QualificationDeleteImpactView(generics.RetrieveAPIView):
@@ -441,6 +479,18 @@ class ModuleListCreateView(
 
         return queryset
 
+    def perform_create(self, serializer):
+        module = serializer.save()
+
+        record_portal_activity(
+            user=self.request.user,
+            action=PortalActivity.Action.CREATED,
+            object_type="module",
+            object_id=module.id,
+            object_label=(
+                f"{module.module_code} — {module.module_name}"
+            ),
+        )
 
 class ModuleDetailView(
     generics.RetrieveUpdateDestroyAPIView
@@ -533,6 +583,16 @@ class ModuleDetailView(
                     module=module,
                 ).delete()
 
+                record_portal_activity(
+                    user=request.user,
+                    action=PortalActivity.Action.DELETED,
+                    object_type="module",
+                    object_id=module.id,
+                    object_label=(
+                        f"{module.module_code} — {module.module_name}"
+                    ),
+                )
+
                 module.delete()
 
         except ProtectedError:
@@ -550,6 +610,19 @@ class ModuleDetailView(
             status=status.HTTP_204_NO_CONTENT,
         )
 
+
+    def perform_update(self, serializer):
+        module = serializer.save()
+
+        record_portal_activity(
+            user=self.request.user,
+            action=PortalActivity.Action.UPDATED,
+            object_type="module",
+            object_id=module.id,
+            object_label=(
+                f"{module.module_code} — {module.module_name}"
+            ),
+        )
 
 class ModuleDeleteImpactView(generics.RetrieveAPIView):
     permission_classes = [IsAuthenticated, IsMappingAdmin]
@@ -680,6 +753,18 @@ class CohortListCreateView(
 
         return queryset
 
+    def perform_create(self, serializer):
+        cohort = serializer.save()
+
+        record_portal_activity(
+            user=self.request.user,
+            action=PortalActivity.Action.CREATED,
+            object_type="cohort",
+            object_id=cohort.id,
+            object_label=(
+                f"{cohort.cohort_code} — {cohort.cohort_name}"
+            ),
+        )
 
 class CohortDetailView(
     generics.RetrieveUpdateDestroyAPIView
@@ -751,6 +836,16 @@ class CohortDetailView(
                     submissions__isnull=True,
                 ).distinct().delete()
 
+                record_portal_activity(
+                    user=request.user,
+                    action=PortalActivity.Action.DELETED,
+                    object_type="cohort",
+                    object_id=cohort.id,
+                    object_label=(
+                        f"{cohort.cohort_code} — {cohort.cohort_name}"
+                    ),
+                )
+                                        
                 cohort.delete()
 
         except ProtectedError:
@@ -768,6 +863,21 @@ class CohortDetailView(
         return Response(
             status=status.HTTP_204_NO_CONTENT,
         )
+
+
+    def perform_update(self, serializer):
+        cohort = serializer.save()
+
+        record_portal_activity(
+            user=self.request.user,
+            action=PortalActivity.Action.UPDATED,
+            object_type="cohort",
+            object_id=cohort.id,
+            object_label=(
+                f"{cohort.cohort_code} — {cohort.cohort_name}"
+            ),
+        )
+
 
 class CohortDeleteImpactView(generics.RetrieveAPIView):
     permission_classes = [IsAuthenticated, IsMappingAdmin]
@@ -861,6 +971,16 @@ class ModuleAssignmentListCreateView(
 
         return queryset
 
+    def perform_create(self, serializer):
+        assignment = serializer.save()
+
+        record_portal_activity(
+            user=self.request.user,
+            action=PortalActivity.Action.CREATED,
+            object_type="assignment",
+            object_id=assignment.id,
+            object_label=assignment.assignment_code,
+        )
 
 class ModuleAssignmentDetailView(
     generics.RetrieveUpdateDestroyAPIView
@@ -897,8 +1017,27 @@ class ModuleAssignmentDetailView(
                 status=status.HTTP_409_CONFLICT,
             )
 
+        record_portal_activity(
+            user=request.user,
+            action=PortalActivity.Action.DELETED,
+            object_type="assignment",
+            object_id=assignment.id,
+            object_label=assignment.assignment_code,
+        )
+
         return super().destroy(request, *args, **kwargs)
 
+
+    def perform_update(self, serializer):
+        assignment = serializer.save()
+
+        record_portal_activity(
+            user=self.request.user,
+            action=PortalActivity.Action.UPDATED,
+            object_type="assignment",
+            object_id=assignment.id,
+            object_label=assignment.assignment_code,
+        )
 
 class AssignmentLevelListCreateView(
     generics.ListCreateAPIView

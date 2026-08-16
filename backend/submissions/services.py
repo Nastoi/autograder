@@ -1,9 +1,6 @@
 import io
 import pdfplumber
-from django.utils import timezone
 
-from decimal import Decimal
-from grading.services.criterion_assessor import assess_criterion
 from pdf2image import convert_from_path
 from django.core.files.base import ContentFile
 from .models import LearnerSubmission, SubmissionPage

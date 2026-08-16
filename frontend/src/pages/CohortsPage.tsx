@@ -27,6 +27,7 @@ import {
   deleteCohort,
   getCohortDeleteImpact,
   updateCohort,
+  updateAssessmentMapping,
   deleteAssessmentMapping,
   type CohortDeleteImpact,
   type Cohort,
@@ -36,6 +37,9 @@ import {
 
 import "../css/AssessmentMappings.css";
 import "../css/QualificationsPage.css"; // For modern UI classes
+
+import { AuditTrailButton } from "../components/AuditTrailButton";
+import { RecentDeletedAuditButton } from "../components/RecentDeletedAuditButton";
 
 export function CohortsPage() {
   const [cohorts, setCohorts] = useState<Cohort[]>([]);
@@ -81,6 +85,13 @@ export function CohortsPage() {
 
   const [isDeletingCohort, setIsDeletingCohort] =
     useState(false);
+
+  const [editingMappingWeightId, setEditingMappingWeightId] =
+    useState<string | null>(null);
+  const [editMappingWeight, setEditMappingWeight] = useState("");
+  const [isSavingMappingWeight, setIsSavingMappingWeight] =
+    useState(false);
+  const [mappingError, setMappingError] = useState("");
 
   async function loadData() {
     try {
@@ -316,17 +327,67 @@ export function CohortsPage() {
   }
 
 
-  async function unassignAssessment(
+  function beginEditingMappingWeight(
     mapping: AssessmentMapping,
   ) {
+    setEditingMappingWeightId(mapping.id);
+    setEditMappingWeight(mapping.final_mark_weight || "0");
     setError("");
+  }
 
-    if (mapping.has_submissions) {
+  function cancelEditingMappingWeight() {
+    setEditingMappingWeightId(null);
+    setEditMappingWeight("");
+  }
+
+  async function saveMappingWeight(
+    mapping: AssessmentMapping,
+  ) {
+    const numericWeight = Number(editMappingWeight);
+
+    if (
+      !Number.isFinite(numericWeight) ||
+      numericWeight < 0 ||
+      numericWeight > 100
+    ) {
       setError(
-        `${mapping.assignment_code} — ${mapping.assignment_title} cannot be unassigned because learner submissions already exist for this assessment. Remove the submissions first before removing the assessment mapping.`,
+        "Final mark weight must be between 0 and 100.",
       );
       return;
     }
+
+    setError("");
+    setIsSavingMappingWeight(true);
+
+    try {
+      await updateAssessmentMapping(mapping.id, {
+        final_mark_weight: editMappingWeight,
+      });
+
+      cancelEditingMappingWeight();
+      await loadData();
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Unable to update final mark weight.",
+      );
+    } finally {
+      setIsSavingMappingWeight(false);
+    }
+  }
+
+  async function unassignAssessment(
+    mapping: AssessmentMapping,
+  ) {
+    setMappingError("");
+
+if (mapping.has_submissions) {
+  setMappingError(
+    `${mapping.assignment_code} — ${mapping.assignment_title} cannot be unassigned because learner submissions already exist for this assessment. Remove the submissions first before removing the assessment mapping.`,
+  );
+  return;
+}
 
     const confirmed = window.confirm(
       `Unassign ${mapping.assignment_code} — ${mapping.assignment_title} from ${selectedCohort?.cohort_code ?? "this cohort"}?\n\nThis removes only the assessment mapping. The assignment itself will not be deleted.`,
@@ -340,7 +401,7 @@ export function CohortsPage() {
       await deleteAssessmentMapping(mapping.id);
       await loadData();
     } catch (caughtError) {
-      setError(
+      setMappingError(
         caughtError instanceof Error
           ? caughtError.message
           : "Unable to unassign assessment.",
@@ -366,19 +427,23 @@ export function CohortsPage() {
           </p>
         </div>
 
-        <button
-          type="button"
-          className="btn-accent"
-          onClick={() =>
-            setShowCreateCohort((current) => !current)
-          }
-        >
-          {showCreateCohort ? (
-            "Close Form"
-          ) : (
-            <><Plus size={16} /> New Cohort</>
-          )}
-        </button>
+        <div className="section-actions">
+          <RecentDeletedAuditButton />
+
+          <button
+            type="button"
+            className="btn-accent"
+            onClick={() =>
+              setShowCreateCohort((current) => !current)
+            }
+          >
+            {showCreateCohort ? (
+              "Close Form"
+            ) : (
+              <><Plus size={16} /> New Cohort</>
+            )}
+          </button>
+        </div>
       </div>
 
       {error && (
@@ -607,7 +672,10 @@ export function CohortsPage() {
                 return (
                   <tr
                     key={cohort.id}
-                    onClick={() => setSelectedCohortId(cohort.id)}
+                    onClick={() => {
+  setSelectedCohortId(cohort.id);
+  setMappingError("");
+}}
                     style={{
                       cursor: "pointer",
                       backgroundColor: selectedCohortId === cohort.id ? 'rgba(238, 242, 255, 0.5)' : undefined
@@ -699,6 +767,11 @@ export function CohortsPage() {
                         </div>
                       ) : (
                         <div className="cohort-actions">
+                          <AuditTrailButton
+                            objectType="cohort"
+                            objectId={cohort.id}
+                            label={`${cohort.cohort_code} — ${cohort.cohort_name}`}
+                          />
                           <button
                             type="button"
                             className="btn-action"
@@ -759,7 +832,10 @@ export function CohortsPage() {
               backgroundColor: 'rgba(0, 0, 0, 0.4)',
               zIndex: 9998,
             }}
-            onClick={() => setSelectedCohortId(null)}
+            onClick={() => {
+  setSelectedCohortId(null);
+  setMappingError("");
+}}
           />
           <section
             className="content-card"
@@ -814,6 +890,14 @@ export function CohortsPage() {
               </div>
             </div>
 
+            {mappingError && (
+  <div style={{ padding: "16px 24px 0" }}>
+    <p role="alert" className="error-message">
+      {mappingError}
+    </p>
+  </div>
+)}
+
             <div style={{ padding: '24px', flex: 1 }}>
               {selectedCohortMappings.length === 0 ? (
                 <p style={{ margin: 0, color: 'var(--text-muted)' }}>No assignments mapped to this cohort.</p>
@@ -823,6 +907,7 @@ export function CohortsPage() {
                     <tr>
                       <th>Assignment</th>
                       <th>Status</th>
+                      <th>Weightage</th>
                       <th>Submission URL</th>
                       <th>Action</th>
                     </tr>
@@ -852,6 +937,91 @@ export function CohortsPage() {
                         </td>
 
                         <td>
+                          {mapping.assignment_contributes_to_final_mark ? (
+                            editingMappingWeightId === mapping.id ? (
+                              <div
+                                style={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: "8px",
+                                  minWidth: "180px",
+                                }}
+                              >
+                                <input
+                                  type="number"
+                                  min="0"
+                                  max="100"
+                                  step="0.01"
+                                  value={editMappingWeight}
+                                  onChange={(event) =>
+                                    setEditMappingWeight(
+                                      event.target.value,
+                                    )
+                                  }
+                                  style={{
+                                    width: "80px",
+                                    padding: "6px 8px",
+                                  }}
+                                />
+                                <span>%</span>
+
+                                <button
+                                  type="button"
+                                  className="btn-action"
+                                  disabled={isSavingMappingWeight}
+                                  onClick={() =>
+                                    void saveMappingWeight(mapping)
+                                  }
+                                >
+                                  {isSavingMappingWeight
+                                    ? "Saving..."
+                                    : "Save"}
+                                </button>
+
+                                <button
+                                  type="button"
+                                  className="btn-action"
+                                  disabled={isSavingMappingWeight}
+                                  onClick={cancelEditingMappingWeight}
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            ) : (
+                              <div
+                                style={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: "8px",
+                                }}
+                              >
+                                <strong>
+                                  {Number(
+                                    mapping.final_mark_weight || 0,
+                                  ).toFixed(2)}
+                                  %
+                                </strong>
+
+                                <button
+                                  type="button"
+                                  className="btn-action"
+                                  onClick={() =>
+                                    beginEditingMappingWeight(mapping)
+                                  }
+                                >
+                                  <Pencil size={14} />
+                                  Edit Weight
+                                </button>
+                              </div>
+                            )
+                          ) : (
+                            <span className="table-subtext">
+                              Does not contribute
+                            </span>
+                          )}
+                        </td>
+
+                        <td>
                           <span
                             style={{
                               fontFamily: "monospace",
@@ -872,6 +1042,12 @@ export function CohortsPage() {
                               alignItems: "flex-start",
                             }}
                           >
+                            <AuditTrailButton
+                              objectType="assessment_mapping"
+                              objectId={mapping.id}
+                              label={`${mapping.assignment_code} — ${mapping.assignment_title}`}
+                            />
+
                             <button
                               type="button"
                               className="btn-action"

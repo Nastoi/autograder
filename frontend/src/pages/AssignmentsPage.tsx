@@ -50,6 +50,9 @@ import {
   type AssignmentDeleteImpact,
 } from "../api/assignmentDelete";
 
+import { AuditTrailButton } from "../components/AuditTrailButton";
+import { RecentDeletedAuditButton } from "../components/RecentDeletedAuditButton";
+
 type WorkspaceTab = "overview" | "configuration";
 
 const levelOrder: Record<AssignmentLevel["level_code"], number> = {
@@ -86,7 +89,6 @@ export function AssignmentsPage() {
   const [qualificationId, setQualificationId] = useState("");
   const [moduleId, setModuleId] = useState("");
   const [code, setCode] = useState("");
-  const [title, setTitle] = useState("");
   const [maximumScore, setMaximumScore] = useState("100");
   const [minimumPassScore, setMinimumPassScore] = useState("50");
   const [isSummative, setIsSummative] = useState(true);
@@ -102,7 +104,6 @@ export function AssignmentsPage() {
     useState<AssignmentDeleteImpact | null>(null);
   const [isCheckingDeleteImpact, setIsCheckingDeleteImpact] = useState(false);
   const [isDeletingAssignment, setIsDeletingAssignment] = useState(false);
-  const [editAssignmentTitle, setEditAssignmentTitle] = useState("");
   const [editMaximumScore, setEditMaximumScore] = useState("");
   const [editMinimumPassScore, setEditMinimumPassScore] = useState("");
 
@@ -112,6 +113,7 @@ export function AssignmentsPage() {
   const [levelSkillStatementCode, setLevelSkillStatementCode] = useState("");
   const [levelSkillStatement, setLevelSkillStatement] = useState("");
   const [levelObjective, setLevelObjective] = useState("");
+  const [levelScenario, setLevelScenario] = useState("");
   const [levelInstructions, setLevelInstructions] = useState("");
   const [levelDeliverables, setLevelDeliverables] = useState("");
   const [levelExpectedOutcome, setLevelExpectedOutcome] = useState("");
@@ -122,7 +124,6 @@ export function AssignmentsPage() {
   const [criterionTitle, setCriterionTitle] = useState("");
   const [criterionDescription, setCriterionDescription] = useState("");
   const [criterionMaximumScore, setCriterionMaximumScore] = useState("10");
-  const [criterionSequence, setCriterionSequence] = useState("1");
   const [isSavingCriterion, setIsSavingCriterion] = useState(false);
   const [editingCriterionId, setEditingCriterionId] = useState("");
   const [editCriterionTitle, setEditCriterionTitle] = useState("");
@@ -251,7 +252,7 @@ export function AssignmentsPage() {
       const createdAssignment = await createModuleAssignment({
         module: moduleId,
         assignment_code: code,
-        assignment_title: title,
+        assignment_title: code,
         maximum_score: maximumScore,
         minimum_pass_score: minimumPassScore,
         is_summative: isSummative,
@@ -261,7 +262,6 @@ export function AssignmentsPage() {
       });
 
       setCode("");
-      setTitle("");
       setMaximumScore("100");
       setMinimumPassScore("50");
       setIsSummative(true);
@@ -286,7 +286,6 @@ export function AssignmentsPage() {
 
   function startEditingAssignment(assignment: ModuleAssignment) {
     setEditingAssignmentId(assignment.id);
-    setEditAssignmentTitle(assignment.assignment_title);
     setEditMaximumScore(assignment.maximum_score);
     setEditMinimumPassScore(assignment.minimum_pass_score);
   }
@@ -295,7 +294,6 @@ export function AssignmentsPage() {
     setError("");
     try {
       await updateModuleAssignment(assignment.id, {
-        assignment_title: editAssignmentTitle,
         maximum_score: editMaximumScore,
         minimum_pass_score: editMinimumPassScore,
       });
@@ -382,6 +380,7 @@ export function AssignmentsPage() {
     setLevelSkillStatementCode(level.skill_statement_code);
     setLevelSkillStatement(level.skill_statement);
     setLevelObjective(level.objective);
+    setLevelScenario(level.scenario);
     setLevelInstructions(level.instructions);
     setLevelDeliverables(
       Array.isArray(level.deliverables) ? level.deliverables.join("\n") : "",
@@ -399,6 +398,7 @@ export function AssignmentsPage() {
         skill_statement_code: levelSkillStatementCode,
         skill_statement: levelSkillStatement,
         objective: levelObjective,
+        scenario: levelScenario,
         instructions: levelInstructions,
         deliverables: levelDeliverables
           .split("\n")
@@ -539,6 +539,16 @@ export function AssignmentsPage() {
     setError("");
     setIsSavingCriterion(true);
 
+    const levelCriteria = criteria.filter(
+      (criterion) => criterion.assignment_level === assignmentLevelId,
+    );
+
+    const nextSequence =
+      levelCriteria.reduce(
+        (max, criterion) => Math.max(max, criterion.sequence),
+        0,
+      ) + 1;
+
     try {
       await createRubricCriterion({
         assignment_level: assignmentLevelId,
@@ -546,7 +556,7 @@ export function AssignmentsPage() {
         title: criterionTitle,
         description: criterionDescription,
         maximum_score: criterionMaximumScore,
-        sequence: Number(criterionSequence),
+        sequence: nextSequence,
         ai_gradable: true,
         deterministic: false,
       });
@@ -555,7 +565,6 @@ export function AssignmentsPage() {
       setCriterionTitle("");
       setCriterionDescription("");
       setCriterionMaximumScore("10");
-      setCriterionSequence("1");
       setCriteria(await getRubricCriteria());
       setBands(await getRubricBands());
       setCriterionFormLevelId("");
@@ -822,6 +831,8 @@ export function AssignmentsPage() {
             Create assignments and manage grading levels and rubrics in one place.
           </p>
         </div>
+
+        <RecentDeletedAuditButton />
       </div>
 
       {error && (
@@ -964,15 +975,7 @@ export function AssignmentsPage() {
                 />
               </div>
 
-              <div className="form-group">
-                <label htmlFor="assignment-title">Title</label>
-                <input
-                  id="assignment-title"
-                  value={title}
-                  onChange={(event) => setTitle(event.target.value)}
-                  required
-                />
-              </div>
+
 
               <div className="form-group">
                 <label htmlFor="maximum-score">Maximum score</label>
@@ -1078,7 +1081,6 @@ export function AssignmentsPage() {
                   <th>Module</th>
                   <th>No.</th>
                   <th>Code</th>
-                  <th>Title</th>
                   <th>Max</th>
                   <th>Pass</th>
                   <th>Status</th>
@@ -1103,19 +1105,7 @@ export function AssignmentsPage() {
                       <td>{assignment.module_code}</td>
                       <td>-</td>
                       <td>{assignment.assignment_code}</td>
-                      <td>
-                        {isEditing ? (
-                          <input
-                            value={editAssignmentTitle}
-                            onClick={(event) => event.stopPropagation()}
-                            onChange={(event) =>
-                              setEditAssignmentTitle(event.target.value)
-                            }
-                          />
-                        ) : (
-                          assignment.assignment_title
-                        )}
-                      </td>
+
                       <td>
                         {isEditing ? (
                           <input
@@ -1180,7 +1170,19 @@ export function AssignmentsPage() {
                             </button>
                           </>
                         ) : (
-                          <>
+                          <div
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "8px",
+                            }}
+                          >
+                            <AuditTrailButton
+                              objectType="assignment"
+                              objectId={assignment.id}
+                              label={assignment.assignment_code}
+                            />
+
                             <button
                               type="button"
                               className="btn-table"
@@ -1188,6 +1190,7 @@ export function AssignmentsPage() {
                             >
                               Edit
                             </button>
+
                             <button
                               type="button"
                               className="btn-table btn-table-danger"
@@ -1197,7 +1200,7 @@ export function AssignmentsPage() {
                             >
                               Delete
                             </button>
-                          </>
+                          </div>
                         )}
                       </td>
                     </tr>
@@ -1228,7 +1231,7 @@ export function AssignmentsPage() {
               <div className="section-header assignment-workspace-header" style={{ position: 'sticky', top: 0, backgroundColor: 'white', zIndex: 10, padding: '24px 24px 0', borderBottom: '1px solid var(--border)', margin: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div>
                   <h2 style={{ margin: '0 0 8px 0' }}>
-                    {selectedAssignment.assignment_code} — {selectedAssignment.assignment_title}
+                    {selectedAssignment.assignment_code}
                   </h2>
                   <p className="section-description" style={{ margin: 0, paddingBottom: '16px' }}>
                     {selectedAssignment.qualification_code} → {selectedAssignment.module_code}
@@ -1631,7 +1634,7 @@ export function AssignmentsPage() {
                                 <div className="level-edit-form">
                                   <div className="form-grid form-grid-2">
                                     <div className="form-group">
-                                      <label>Level title</label>
+                                      <label>Title</label>
                                       <input
                                         value={levelTitle}
                                         onChange={(event) => setLevelTitle(event.target.value)}
@@ -1661,6 +1664,13 @@ export function AssignmentsPage() {
                                     <textarea
                                       value={levelObjective}
                                       onChange={(event) => setLevelObjective(event.target.value)}
+                                    />
+                                  </div>
+                                  <div className="form-group">
+                                    <label>Scenario</label>
+                                    <textarea
+                                      value={levelScenario}
+                                      onChange={(event) => setLevelScenario(event.target.value)}
                                     />
                                   </div>
                                   <div className="form-group">
@@ -1718,7 +1728,7 @@ export function AssignmentsPage() {
                                       <strong>{level.skill_statement_code || "—"}</strong>
                                     </div>
                                     <div>
-                                      <span className="detail-label">Level title</span>
+                                      <span className="detail-label">Title</span>
                                       <strong>{level.title || "—"}</strong>
                                     </div>
                                   </div>
@@ -1730,6 +1740,10 @@ export function AssignmentsPage() {
                                     <div className="detail-block">
                                       <span className="detail-label">Objective</span>
                                       <p>{level.objective || "—"}</p>
+                                    </div>
+                                    <div className="detail-block">
+                                      <span className="detail-label">Scenario</span>
+                                      <p>{level.scenario || "—"}</p>
                                     </div>
                                     <div className="detail-block">
                                       <span className="detail-label">Instructions</span>
@@ -1778,7 +1792,6 @@ export function AssignmentsPage() {
                                       <tr>
                                         <th>Code</th>
                                         <th>Task</th>
-                                        <th>Seq.</th>
                                         <th>Actions</th>
                                       </tr>
                                     </thead>
@@ -1794,7 +1807,6 @@ export function AssignmentsPage() {
                                               </small>
                                             )}
                                           </td>
-                                          <td>{task.sequence}</td>
                                           <td className="table-actions">
                                             <button
                                               type="button"
@@ -1975,16 +1987,6 @@ export function AssignmentsPage() {
                                             />
                                           </div>
 
-                                          <div className="form-group">
-                                            <label>Sequence</label>
-                                            <input
-                                              type="number"
-                                              min="1"
-                                              value={criterionSequence}
-                                              onChange={(event) => setCriterionSequence(event.target.value)}
-                                              required
-                                            />
-                                          </div>
                                         </div>
 
                                         <div className="form-group">
@@ -2029,7 +2031,6 @@ export function AssignmentsPage() {
                                           <th>Code</th>
                                           <th>Criterion</th>
                                           <th>Max</th>
-                                          <th>Seq.</th>
                                           <th>Assigned tasks</th>
                                           <th>Actions</th>
                                         </tr>
@@ -2099,7 +2100,6 @@ export function AssignmentsPage() {
                                                   criterion.maximum_score
                                                 )}
                                               </td>
-                                              <td>{criterion.sequence}</td>
                                               <td>
                                                 {assignedTasks.length === 0 ? (
                                                   <span className="table-subtext">
@@ -2592,12 +2592,7 @@ export function AssignmentsPage() {
                   {assignments.find(
                     (assignment) =>
                       assignment.id === deleteAssignmentId,
-                  )?.assignment_code}{" "}
-                  —{" "}
-                  {assignments.find(
-                    (assignment) =>
-                      assignment.id === deleteAssignmentId,
-                  )?.assignment_title}
+                  )?.assignment_code}
                 </p>
               </div>
 

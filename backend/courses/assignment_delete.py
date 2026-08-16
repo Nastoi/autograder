@@ -18,7 +18,8 @@ from submissions.models import LearnerSubmission, SubmissionContext
 
 from .models import ModuleAssignment
 from .serializers import ModuleAssignmentSerializer
-
+from accounts.audit import record_portal_activity
+from accounts.models import PortalActivity
 
 def build_assignment_delete_impact(assignment):
     level_ids = list(
@@ -114,6 +115,17 @@ class ModuleAssignmentSafeDetailView(
             "grading_configuration",
         )
 
+    def perform_update(self, serializer):
+        assignment = serializer.save()
+
+        record_portal_activity(
+            user=self.request.user,
+            action=PortalActivity.Action.UPDATED,
+            object_type="assignment",
+            object_id=assignment.id,
+            object_label=assignment.assignment_code,
+        )
+
     def destroy(self, request, *args, **kwargs):
         assignment = self.get_object()
         impact = build_assignment_delete_impact(assignment)
@@ -150,12 +162,17 @@ class ModuleAssignmentSafeDetailView(
 
         try:
             with transaction.atomic():
-                # Empty contexts use PROTECT against AssignmentLevel,
-                # so remove them first. Contexts with submissions are
-                # already blocked above.
                 SubmissionContext.objects.filter(
                     assignment_level__assignment=assignment,
                 ).delete()
+
+                record_portal_activity(
+                    user=request.user,
+                    action=PortalActivity.Action.DELETED,
+                    object_type="assignment",
+                    object_id=assignment.id,
+                    object_label=assignment.assignment_code,
+                )
 
                 assignment.delete()
 

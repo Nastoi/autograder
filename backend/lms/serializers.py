@@ -26,6 +26,11 @@ class AssessmentMappingSerializer(
         read_only=True,
     )
 
+    assignment_contributes_to_final_mark = serializers.BooleanField(
+        source="assignment.contributes_to_final_mark",
+        read_only=True,
+    )
+
     has_submissions = serializers.SerializerMethodField()
     can_delete = serializers.SerializerMethodField()
 
@@ -40,6 +45,8 @@ class AssessmentMappingSerializer(
             "assignment",
             "assignment_code",
             "assignment_title",
+            "assignment_contributes_to_final_mark",
+            "final_mark_weight",
             "lti_client_id",
             "lti_jwks_url",
             "lti_deployment_id",
@@ -95,6 +102,23 @@ class AssessmentMappingSerializer(
                         )
                     }
                 )
+
+        weight = attrs.get(
+            "final_mark_weight",
+            getattr(self.instance, "final_mark_weight", 0),
+        )
+
+        if weight is not None and (weight < 0 or weight > 100):
+            raise serializers.ValidationError(
+                {
+                    "final_mark_weight": (
+                        "Final mark weight must be between 0 and 100."
+                    )
+                }
+            )
+
+        if assignment and not assignment.contributes_to_final_mark:
+            attrs["final_mark_weight"] = 0
 
         return attrs
 

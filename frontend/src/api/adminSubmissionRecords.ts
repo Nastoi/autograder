@@ -43,8 +43,24 @@ export type AdminSubmissionCohort = {
   assignments: AdminSubmissionAssignment[];
 };
 
+export type AdminGradebookLearner = {
+  id: string;
+  learner_id: string;
+  username: string;
+  name: string;
+  email: string;
+};
+
+export type AdminGradebookCohort = {
+  id: string;
+  code: string;
+  name: string;
+  learners: AdminGradebookLearner[];
+};
+
 export type AdminSubmissionRecordsResponse = {
   cohorts: AdminSubmissionCohort[];
+  gradebook_cohorts: AdminGradebookCohort[];
   summary: {
     cohorts: number;
     assignments: number;

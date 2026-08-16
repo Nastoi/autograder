@@ -1,5 +1,6 @@
 import {
   useEffect,
+  useMemo,
   useState,
   type FormEvent,
 } from "react";
@@ -42,6 +43,9 @@ export function CreateAssessmentMappingPage() {
 
   const [ltiConfigurations, setLtiConfigurations] =
     useState<Record<string, LtiConfiguration>>({});
+
+  const [finalMarkWeights, setFinalMarkWeights] =
+    useState<Record<string, string>>({});
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -97,6 +101,7 @@ export function CreateAssessmentMappingPage() {
     setCohortId(selectedCohortId);
     setSelectedAssignmentIds([]);
     setAssignments([]);
+    setFinalMarkWeights({});
     setError("");
 
     if (!selectedCohortId) {
@@ -143,6 +148,45 @@ export function CreateAssessmentMappingPage() {
       !mappedAssignmentIds.has(assignment.id),
   );
 
+  const existingContributionTotal = useMemo(() => {
+    if (!cohortId) return 0;
+
+    return existingMappings
+      .filter(
+        (mapping) =>
+          mapping.cohort.toString() === cohortId,
+      )
+      .reduce((total, mapping) => {
+        const assignment = assignments.find(
+          (item) => item.id === mapping.assignment,
+        );
+
+        if (!assignment?.contributes_to_final_mark) {
+          return total;
+        }
+
+        return total + Number(mapping.final_mark_weight || 0);
+      }, 0);
+  }, [assignments, cohortId, existingMappings]);
+
+  const selectedContributionTotal = selectedAssignmentIds.reduce(
+    (total, assignmentId) => {
+      const assignment = assignments.find(
+        (item) => item.id === assignmentId,
+      );
+
+      if (!assignment?.contributes_to_final_mark) {
+        return total;
+      }
+
+      return total + Number(finalMarkWeights[assignmentId] || 0);
+    },
+    0,
+  );
+
+  const finalContributionTotal =
+    existingContributionTotal + selectedContributionTotal;
+
   function toggleAssignment(assignmentId: string) {
     setSelectedAssignmentIds((current) =>
       current.includes(assignmentId)
@@ -174,6 +218,36 @@ export function CreateAssessmentMappingPage() {
     ) {
       setError(
         "Please select a cohort and at least one assignment.",
+      );
+      return;
+    }
+
+    if (finalContributionTotal > 100.0001) {
+      setError("Final mark allocation cannot exceed 100%.");
+      return;
+    }
+
+    const contributingWithoutWeight =
+      selectedAssignmentIds.find((assignmentId) => {
+        const assignment = assignments.find(
+          (item) => item.id === assignmentId,
+        );
+
+        return (
+          assignment?.contributes_to_final_mark &&
+          Number(finalMarkWeights[assignmentId] || 0) <= 0
+        );
+      });
+
+    if (contributingWithoutWeight) {
+      const assignment = assignments.find(
+        (item) => item.id === contributingWithoutWeight,
+      );
+
+      setError(
+        `Enter a final mark weight for ${
+          assignment?.assignment_code ?? "the selected assignment"
+        }.`,
       );
       return;
     }
@@ -211,9 +285,17 @@ export function CreateAssessmentMappingPage() {
         selectedAssignmentIds.map((assignmentId) => {
           const lti = ltiConfigurations[assignmentId];
 
+          const assignment = assignments.find(
+            (item) => item.id === assignmentId,
+          );
+
           return createAssessmentMapping({
             cohort: cohortId,
             assignment: assignmentId,
+            final_mark_weight:
+              assignment?.contributes_to_final_mark
+                ? (finalMarkWeights[assignmentId] || "0")
+                : "0",
             lti_client_id: lti?.clientId ?? "",
             lti_deployment_id: lti?.deploymentId ?? "",
             lti_jwks_url: lti?.jwksUrl ?? "",
@@ -306,15 +388,31 @@ export function CreateAssessmentMappingPage() {
             </div>
 
             {selectedCohort && (
-              <div className="detail-block">
-                <span className="detail-label">
-                  Selected cohort
-                </span>
-                <strong>
-                  {selectedCohort.cohort_code} —{" "}
-                  {selectedCohort.cohort_name}
-                </strong>
-              </div>
+              <>
+                <div className="detail-block">
+                  <span className="detail-label">
+                    Selected cohort
+                  </span>
+                  <strong>
+                    {selectedCohort.cohort_code} —{" "}
+                    {selectedCohort.cohort_name}
+                  </strong>
+                </div>
+
+                <div className="detail-block">
+                  <span className="detail-label">
+                    Final mark allocation
+                  </span>
+                  <strong>
+                    {finalContributionTotal.toFixed(2)}%
+                  </strong>
+                  <small className="table-subtext">
+                    Existing: {existingContributionTotal.toFixed(2)}%.
+                    Total may stay below 100% while setup is incomplete,
+                    but it cannot exceed 100%.
+                  </small>
+                </div>
+              </>
             )}
 
             {cohortId && (
@@ -380,6 +478,11 @@ export function CreateAssessmentMappingPage() {
                               <small>
                                 {assignment.assignment_title}
                               </small>
+                              <small>
+                                {assignment.contributes_to_final_mark
+                                  ? "Contributes to final mark"
+                                  : "Does not contribute to final mark"}
+                              </small>
                             </span>
                           </label>
 
@@ -387,6 +490,26 @@ export function CreateAssessmentMappingPage() {
                             assignment.id,
                           ) && (
                               <div className="modern-form">
+                                {assignment.contributes_to_final_mark && (
+                                  <div className="form-group">
+                                    <label>Final mark weight (%)</label>
+                                    <input
+                                      type="number"
+                                      min="0.01"
+                                      max="100"
+                                      step="0.01"
+                                      value={finalMarkWeights[assignment.id] ?? ""}
+                                      onChange={(event) =>
+                                        setFinalMarkWeights((current) => ({
+                                          ...current,
+                                          [assignment.id]: event.target.value,
+                                        }))
+                                      }
+                                      required
+                                    />
+                                  </div>
+                                )}
+
                                 <div className="form-grid form-grid-2">
                                   <div className="form-group">
                                     <label>Client ID</label>
@@ -537,7 +660,8 @@ export function CreateAssessmentMappingPage() {
                 disabled={
                   isSubmitting ||
                   !cohortId ||
-                  selectedAssignmentIds.length === 0
+                  selectedAssignmentIds.length === 0 ||
+                  finalContributionTotal > 100.0001
                 }
               >
                 {isSubmitting

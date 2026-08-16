@@ -39,6 +39,9 @@ import {
   type QualificationDeleteImpact,
 } from "../api/lms";
 
+import { AuditTrailButton } from "../components/AuditTrailButton";
+import { RecentDeletedAuditButton } from "../components/RecentDeletedAuditButton";
+
 export function QualificationsPage() {
   const [qualifications, setQualifications] = useState<Qualification[]>([]);
   const [modules, setModules] = useState<Module[]>([]);
@@ -539,16 +542,20 @@ export function QualificationsPage() {
             </p>
           </div>
 
-          {(activeTab === 'setup' || activeTab === 'qualifications') && (
-            <button
-              type="button"
-              className="btn-accent"
-              onClick={() => setShowCreateQualification((current) => !current)}
-            >
-              <Plus size={16} />
-              {showCreateQualification ? "Close Form" : "New Qualification"}
-            </button>
-          )}
+          <div className="section-actions">
+            <RecentDeletedAuditButton />
+
+            {(activeTab === 'setup' || activeTab === 'qualifications') && (
+              <button
+                type="button"
+                className="btn-accent"
+                onClick={() => setShowCreateQualification((current) => !current)}
+              >
+                <Plus size={16} />
+                {showCreateQualification ? "Close Form" : "New Qualification"}
+              </button>
+            )}
+          </div>
         </div>
 
         {error && (
@@ -771,6 +778,11 @@ export function QualificationsPage() {
                             </div>
                           ) : (
                             <div className="actions-cell">
+                              <AuditTrailButton
+                                objectType="qualification"
+                                objectId={qualification.id}
+                                label={`${qualification.qualification_code} — ${qualification.qualification_name}`}
+                              />
                               <button type="button" className="btn-action" onClick={() => beginEditing(qualification)}>
                                 <Pencil className="btn-action-icon" /> Edit
                               </button>
@@ -953,6 +965,11 @@ export function QualificationsPage() {
                             </div>
                           ) : (
                             <div className="actions-cell">
+                              <AuditTrailButton
+                                objectType="module"
+                                objectId={module.id}
+                                label={`${module.module_code} — ${module.module_name}`}
+                              />
                               <button
                                 type="button"
                                 className="btn-action"
@@ -1058,13 +1075,21 @@ export function QualificationsPage() {
                           </span>
                         </td>
                         <td>
-                          {module.can_delete ? (
-                            <button type="button" className="btn-action" style={{ color: 'var(--danger)' }} onClick={() => void removeModule(module)}>
-                              <Trash2 size={14} /> Delete
-                            </button>
-                          ) : (
-                            <span style={{ color: 'var(--text-muted)', fontSize: '13px' }}>In use</span>
-                          )}
+                          <div className="actions-cell">
+                            <AuditTrailButton
+                              objectType="module"
+                              objectId={module.id}
+                              label={`${module.module_code} — ${module.module_name}`}
+                            />
+
+                            {module.can_delete ? (
+                              <button type="button" className="btn-action" style={{ color: 'var(--danger)' }} onClick={() => void removeModule(module)}>
+                                <Trash2 size={14} /> Delete
+                              </button>
+                            ) : (
+                              <span style={{ color: 'var(--text-muted)', fontSize: '13px' }}>In use</span>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     );

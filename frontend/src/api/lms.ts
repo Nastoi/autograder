@@ -55,6 +55,8 @@ export type AssessmentMapping = {
 
     created_at: string;
     updated_at: string;
+    final_mark_weight: string;
+    assignment_contributes_to_final_mark: boolean;
 };
 
 export async function getAssessmentMappings(): Promise<
@@ -131,6 +133,7 @@ export type CreateAssessmentMappingInput = {
     lti_access_token_url: string;
 
     is_active: boolean;
+    final_mark_weight: string;
 };
 
 export async function createAssessmentMapping(
@@ -1149,6 +1152,7 @@ export type AssignmentLevel = {
     skill_statement_code: string;
     skill_statement: string;
     objective: string;
+    scenario: string;
     instructions: string;
 
     tasks: unknown[];
@@ -1181,6 +1185,7 @@ export type CreateAssignmentLevelInput = {
     skill_statement_code: string;
     skill_statement: string;
     objective: string;
+    scenario: string;
     instructions: string;
 
     tasks: unknown[];
@@ -2260,4 +2265,45 @@ export async function deleteAssessmentMapping(
     }
 
     throw new Error(message);
+}
+
+export async function updateAssessmentMapping(
+  mappingId: string,
+  data: Partial<{
+    cohort: string;
+    assignment: string;
+    final_mark_weight: string;
+    lti_client_id: string;
+    lti_deployment_id: string;
+    lti_jwks_url: string;
+    lti_access_token_url: string;
+    is_active: boolean;
+  }>,
+): Promise<AssessmentMapping> {
+  const csrfToken = await getCsrfToken();
+
+  const response = await fetch(
+    `${API_BASE_URL}/lms/assessment-mappings/${mappingId}/`,
+    {
+      method: "PATCH",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRFToken": csrfToken,
+      },
+      body: JSON.stringify(data),
+    },
+  );
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    throw new Error(
+      typeof result?.detail === "string"
+        ? result.detail
+        : "Unable to update assessment mapping.",
+    );
+  }
+
+  return result as AssessmentMapping;
 }
