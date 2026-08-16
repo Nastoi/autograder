@@ -9,7 +9,7 @@ export default defineConfig({
     port: 5173,
 
     allowedHosts: [
-      "refill-blot-unnamed.ngrok-free.dev",
+      "ag.claas2saas.com",
     ],
 
     proxy: {
