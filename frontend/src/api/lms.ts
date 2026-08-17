@@ -43,7 +43,8 @@ export type AssessmentMapping = {
     assignment: string;
     assignment_code: string;
     assignment_title: string;
-
+    assignment_is_summative: boolean;
+    
     lti_client_id: string;
     lti_deployment_id: string;
     lti_jwks_url: string;

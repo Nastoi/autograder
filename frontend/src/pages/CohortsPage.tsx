@@ -382,12 +382,12 @@ export function CohortsPage() {
   ) {
     setMappingError("");
 
-if (mapping.has_submissions) {
-  setMappingError(
-    `${mapping.assignment_code} — ${mapping.assignment_title} cannot be unassigned because learner submissions already exist for this assessment. Remove the submissions first before removing the assessment mapping.`,
-  );
-  return;
-}
+    if (mapping.has_submissions) {
+      setMappingError(
+        `${mapping.assignment_code} — ${mapping.assignment_title} cannot be unassigned because learner submissions already exist for this assessment. Remove the submissions first before removing the assessment mapping.`,
+      );
+      return;
+    }
 
     const confirmed = window.confirm(
       `Unassign ${mapping.assignment_code} — ${mapping.assignment_title} from ${selectedCohort?.cohort_code ?? "this cohort"}?\n\nThis removes only the assessment mapping. The assignment itself will not be deleted.`,
@@ -673,9 +673,9 @@ if (mapping.has_submissions) {
                   <tr
                     key={cohort.id}
                     onClick={() => {
-  setSelectedCohortId(cohort.id);
-  setMappingError("");
-}}
+                      setSelectedCohortId(cohort.id);
+                      setMappingError("");
+                    }}
                     style={{
                       cursor: "pointer",
                       backgroundColor: selectedCohortId === cohort.id ? 'rgba(238, 242, 255, 0.5)' : undefined
@@ -833,9 +833,9 @@ if (mapping.has_submissions) {
               zIndex: 9998,
             }}
             onClick={() => {
-  setSelectedCohortId(null);
-  setMappingError("");
-}}
+              setSelectedCohortId(null);
+              setMappingError("");
+            }}
           />
           <section
             className="content-card"
@@ -891,12 +891,12 @@ if (mapping.has_submissions) {
             </div>
 
             {mappingError && (
-  <div style={{ padding: "16px 24px 0" }}>
-    <p role="alert" className="error-message">
-      {mappingError}
-    </p>
-  </div>
-)}
+              <div style={{ padding: "16px 24px 0" }}>
+                <p role="alert" className="error-message">
+                  {mappingError}
+                </p>
+              </div>
+            )}
 
             <div style={{ padding: '24px', flex: 1 }}>
               {selectedCohortMappings.length === 0 ? (
@@ -922,8 +922,31 @@ if (mapping.has_submissions) {
                             color: "var(--text-h)",
                           }}
                         >
-                          {mapping.assignment_code} —{" "}
-                          {mapping.assignment_title}
+                          <div
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "8px",
+                              flexWrap: "wrap",
+                            }}
+                          >
+                            <span>
+                              {mapping.assignment_code} —{" "}
+                              {mapping.assignment_title}
+                            </span>
+
+                            {mapping.assignment_is_summative && (
+                              <span
+                                className="status-badge"
+                                style={{
+                                  fontSize: "11px",
+                                  padding: "2px 7px",
+                                }}
+                              >
+                                Summative
+                              </span>
+                            )}
+                          </div>
                         </td>
 
                         <td>

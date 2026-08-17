@@ -9,165 +9,87 @@ from grading.services.submission_grader import (
     map_submission_tasks,
 )
 from grading.models import RubricBand
+import zipfile
+from pathlib import Path
 
-# def _get_assignment_type(submission) -> str:
-#     return submission.submission_track
+from django.core.files.base import ContentFile
 
-
-# def _build_assignment_payload(submission: LearnerSubmission) -> dict:
-#     assignment = submission.assignment
-
-#     return {
-#         "assignment_id": str(assignment.id),
-#         "assignment_version": getattr(assignment, "version", "1.0"),
-#         "assignment_title": assignment.title,
-#         "assignment_type": _get_assignment_type(submission),
-#         "confidence_threshold": 0.60,
-#         "assignment_score_boundaries": {
-#             "FAILED": [0, 49],
-#             "FOUNDATION": [50, 74],
-#             "PROFICIENT": [75, 100],
-#             "EXPERT": [90, 100],
-#         },
-#         "output_json_schema": {
-#             "type": "object",
-#             "properties": {},
-#         },
-#     }
+MAX_EXTRACTED_PDF_SIZE = 50 * 1024 * 1024
 
 
-# def _build_task_payload(submission: LearnerSubmission) -> dict:
-#     assignment = submission.assignment
+def prepare_submission_file(uploaded_file):
+    """
+    Accept:
+    - PDF directly
+    - ZIP containing exactly one PDF
 
-#     return {
-#         "id": str(assignment.id),
-#         "title": assignment.title,
-#         "instructions": (
-#             assignment.objective
-#             or "Assess the submitted assignment evidence against the published rubric."
-#         ),
-#         "submission_track": submission.submission_track,
-#     }
+    ZIP may contain other files such as PBIX, but only the PDF
+    is extracted and passed to the grading pipeline.
+    """
 
+    original_filename = uploaded_file.name
+    extension = Path(original_filename).suffix.lower()
 
-# def _build_criterion_payload(submission: LearnerSubmission) -> dict:
-#     assignment_type = _get_assignment_type(submission)
+    if extension == ".pdf":
+        return uploaded_file, original_filename
 
-#     score_bands = {
-#         "BASIC": {
-#             "FAILED": {"minimum": 0, "maximum": 49},
-#             "FOUNDATION": {"minimum": 50, "maximum": 74},
-#             "PROFICIENT": {"minimum": 75, "maximum": 100},
-#         },
-#         "ADVANCED": {
-#             "FAILED": {"minimum": 0, "maximum": 49},
-#             "PROFICIENT": {"minimum": 50, "maximum": 89},
-#             "EXPERT": {"minimum": 90, "maximum": 100},
-#         },
-#     }
+    if extension != ".zip":
+        raise ValueError(
+            "Unsupported file type. Please upload a PDF or "
+            "a ZIP file containing one PDF."
+        )
 
-#     return {
-#         "id": "AUTO-GRADE-OVERALL",
-#         "title": "Overall assignment assessment",
-#         "purpose": "Assess the submission against the published assignment requirements and rubric.",
-#         "maximum_marks": submission.maximum_score or 100,
-#         "mandatory_requirements": [
-#             {
-#                 "requirement_id": "MR01",
-#                 "description": "The submission demonstrates the required assignment deliverables and evidence.",
-#             }
-#         ],
-#         "optional_enhancements": [],
-#         "required_evidence": [
-#             {
-#                 "evidence_id": "EV01",
-#                 "description": "Submitted file metadata, page screenshots, and extracted text content.",
-#             }
-#         ],
-#         "performance_descriptors": [
-#             {
-#                 "level": "FAILED",
-#                 "description": "The submission does not demonstrate the required basic knowledge and skills.",
-#             },
-#             {
-#                 "level": "FOUNDATION",
-#                 "description": "The submission demonstrates the required basic knowledge and skills with minor limitations.",
-#             },
-#             {
-#                 "level": "PROFICIENT",
-#                 "description": "The submission applies the required skills accurately, independently, and consistently.",
-#             },
-#             {
-#                 "level": "EXPERT",
-#                 "description": "The submission demonstrates professional quality and advanced application.",
-#             },
-#         ],
-#         "score_bands": score_bands[assignment_type],
-#         "mandatory_outcome_rules": [],
-#         "assessor_guidance": [
-#             "Do not award a level that is not valid for the assignment type."
-#         ],
-#     }
+    try:
+        uploaded_file.seek(0)
 
+        with zipfile.ZipFile(uploaded_file) as archive:
+            pdf_entries = [
+                entry
+                for entry in archive.infolist()
+                if (
+                    not entry.is_dir()
+                    and Path(entry.filename).suffix.lower() == ".pdf"
+                )
+            ]
 
-# def _build_evidence_payload(submission: LearnerSubmission) -> list[dict]:
-#     # 1. Base File Metadata Evidence
-#     evidence_list = [
-#         {
-#             "evidence_id": "EV-SUBMISSION-FILE",
-#             "evidence_type": "FILE_METADATA",
-#             "source_file": submission.original_filename,
-#             "description": "Submission file metadata and original filename.",
-#             "metadata": {
-#                 "file_size": submission.submitted_file.size if submission.submitted_file else 0,
-#                 "content_type": getattr(
-#                     submission.submitted_file.file, "content_type", None
-#                 ),
-#             },
-#         }
-#     ]
+            if len(pdf_entries) == 0:
+                raise ValueError(
+                    "The ZIP file does not contain a PDF."
+                )
 
-#     # 2. Append Extracted Page Text & Image Evidence
-#     pages = submission.pages.all().order_by("page_number")
-#     for page in pages:
-#         evidence_list.append(
-#             {
-#                 "evidence_id": f"EV-PAGE-{page.page_number}",
-#                 "evidence_type": "DOCUMENT_PAGE",
-#                 "source_file": submission.original_filename,
-#                 "page_number": page.page_number,
-#                 "text_content": page.extracted_text,
-#                 "has_image": bool(page.image_data),
-#                 "image_mime_type": page.image_mime_type,
-#                 "description": f"Extracted text and rendered page screenshot for Page {page.page_number}.",
-#             }
-#         )
+            if len(pdf_entries) > 1:
+                raise ValueError(
+                    "The ZIP file contains more than one PDF. "
+                    "Please submit a ZIP containing exactly one PDF."
+                )
 
-#     return evidence_list
+            pdf_entry = pdf_entries[0]
 
+            if pdf_entry.file_size > MAX_EXTRACTED_PDF_SIZE:
+                raise ValueError(
+                    "The PDF inside the ZIP cannot exceed 50 MB."
+                )
 
-# def _build_deterministic_checks(submission: LearnerSubmission) -> list[dict]:
-#     checks = [
-#         {
-#             "check_id": "DC_FILE_EXISTS",
-#             "status": "PASSED" if submission.submitted_file else "FAILED",
-#             "description": "Submitted file is present on disk.",
-#         }
-#     ]
+            pdf_bytes = archive.read(pdf_entry)
 
-#     has_pages = submission.pages.exists()
-#     checks.append(
-#         {
-#             "check_id": "DC_PAGES_EXTRACTED",
-#             "status": "PASSED" if has_pages else "FAILED",
-#             "description": "Submission pages and images were rendered successfully.",
-#         }
-#     )
+            if not pdf_bytes.startswith(b"%PDF"):
+                raise ValueError(
+                    "The PDF inside the ZIP is not a valid PDF file."
+                )
 
-#     return checks
-# =======
-# from decimal import Decimal
+            extracted_name = Path(pdf_entry.filename).name
 
+            grading_file = ContentFile(
+                pdf_bytes,
+                name=extracted_name,
+            )
+
+            return grading_file, original_filename
+
+    except zipfile.BadZipFile:
+        raise ValueError(
+            "The uploaded ZIP file is invalid or corrupted."
+        )
 
 def extract_submission_pages(submission: LearnerSubmission) -> LearnerSubmission:
     """

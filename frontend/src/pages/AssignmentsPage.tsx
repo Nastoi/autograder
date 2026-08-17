@@ -1104,7 +1104,29 @@ export function AssignmentsPage() {
                       <td>{assignment.qualification_code}</td>
                       <td>{assignment.module_code}</td>
                       <td>-</td>
-                      <td>{assignment.assignment_code}</td>
+                      <td>
+  <div
+    style={{
+      display: "flex",
+      alignItems: "center",
+      gap: "8px",
+    }}
+  >
+    <span>{assignment.assignment_code}</span>
+
+    {assignment.is_summative && (
+      <span
+        className="status-badge"
+        style={{
+          fontSize: "11px",
+          padding: "2px 7px",
+        }}
+      >
+        Summative
+      </span>
+    )}
+  </div>
+</td>
 
                       <td>
                         {isEditing ? (
@@ -1230,9 +1252,30 @@ export function AssignmentsPage() {
             >
               <div className="section-header assignment-workspace-header" style={{ position: 'sticky', top: 0, backgroundColor: 'white', zIndex: 10, padding: '24px 24px 0', borderBottom: '1px solid var(--border)', margin: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div>
-                  <h2 style={{ margin: '0 0 8px 0' }}>
-                    {selectedAssignment.assignment_code}
-                  </h2>
+                  <div
+  style={{
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+    marginBottom: "8px",
+  }}
+>
+  <h2 style={{ margin: 0 }}>
+    {selectedAssignment.assignment_code}
+  </h2>
+
+  {selectedAssignment.is_summative && (
+    <span
+      className="status-badge"
+      style={{
+        fontSize: "11px",
+        padding: "2px 7px",
+      }}
+    >
+      Summative
+    </span>
+  )}
+</div>
                   <p className="section-description" style={{ margin: 0, paddingBottom: '16px' }}>
                     {selectedAssignment.qualification_code} → {selectedAssignment.module_code}
                   </p>

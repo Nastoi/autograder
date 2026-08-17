@@ -245,8 +245,7 @@ export function CreateAssessmentMappingPage() {
       );
 
       setError(
-        `Enter a final mark weight for ${
-          assignment?.assignment_code ?? "the selected assignment"
+        `Enter a final mark weight for ${assignment?.assignment_code ?? "the selected assignment"
         }.`,
       );
       return;
@@ -471,13 +470,35 @@ export function CreateAssessmentMappingPage() {
                             />
 
                             <span>
-                              <strong>
-                                {assignment.assignment_code}
-                              </strong>
+                              <div
+                                style={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: "8px",
+                                  flexWrap: "wrap",
+                                }}
+                              >
+                                <strong>
+                                  {assignment.assignment_code}
+                                </strong>
+
+                                {assignment.is_summative && (
+                                  <span
+                                    className="status-badge"
+                                    style={{
+                                      fontSize: "11px",
+                                      padding: "2px 7px",
+                                    }}
+                                  >
+                                    Summative
+                                  </span>
+                                )}
+                              </div>
 
                               <small>
                                 {assignment.assignment_title}
                               </small>
+
                               <small>
                                 {assignment.contributes_to_final_mark
                                   ? "Contributes to final mark"

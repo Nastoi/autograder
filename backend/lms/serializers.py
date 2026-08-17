@@ -26,6 +26,11 @@ class AssessmentMappingSerializer(
         read_only=True,
     )
 
+    assignment_is_summative = serializers.BooleanField(
+        source="assignment.is_summative",
+        read_only=True,
+    )
+    
     assignment_contributes_to_final_mark = serializers.BooleanField(
         source="assignment.contributes_to_final_mark",
         read_only=True,
@@ -46,6 +51,7 @@ class AssessmentMappingSerializer(
             "assignment_code",
             "assignment_title",
             "assignment_contributes_to_final_mark",
+            "assignment_is_summative",
             "final_mark_weight",
             "lti_client_id",
             "lti_jwks_url",

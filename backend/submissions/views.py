@@ -16,19 +16,27 @@ from .serializers import (
     LearnerSubmissionListSerializer,
     SubmissionContextSerializer,
 )
-from .services import extract_submission_pages, run_ai_grading
+from .services import (
+    extract_submission_pages,
+    run_ai_grading,
+    prepare_submission_file,
+)
 from .attempt_policy import (
     clean_up_submission_files,
     get_attempt_policy,
 )
 from lms.models import AssessmentMapping
 from courses.models import AssignmentLevel
-
+from .services import (
+    extract_submission_pages,
+    run_ai_grading,
+    prepare_submission_file,
+)
 ALLOWED_EXTENSIONS = {
-    ".doc",
-    ".docx",
+    # ".doc",
+    # ".docx",
     ".pdf",
-    ".pbix",
+    # ".pbix",
     ".zip",
 }
 
@@ -212,6 +220,16 @@ class SubmissionCreateView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        try:
+            grading_file, original_filename = prepare_submission_file(
+                uploaded_file
+            )
+        except ValueError as exc:
+            return Response(
+                {"detail": str(exc)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         pending_submission = LearnerSubmission.objects.filter(
             learner=request.user,
             assignment_level=context.assignment_level,
@@ -281,8 +299,8 @@ class SubmissionCreateView(APIView):
             learner=request.user,
             assignment_level=assignment_level,
             submission_track=selected_track,
-            submitted_file=uploaded_file,
-            original_filename=uploaded_file.name,
+            submitted_file=grading_file,
+            original_filename=original_filename,
             attempt_number=previous_attempts + 1,
             status=LearnerSubmission.Status.UPLOADED,
             maximum_score=assignment.maximum_score,

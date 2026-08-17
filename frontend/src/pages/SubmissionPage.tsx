@@ -64,7 +64,49 @@ export function SubmissionPage() {
   function handleFileChange(
     event: ChangeEvent<HTMLInputElement>,
   ) {
-    setSelectedFile(event.target.files?.[0] ?? null);
+    const file = event.target.files?.[0] ?? null;
+
+    if (!file) {
+      setSelectedFile(null);
+      setError("");
+      return;
+    }
+
+    const extension = file.name
+      .slice(file.name.lastIndexOf("."))
+      .toLowerCase();
+
+    const allowedExtensions = [".pdf", ".zip"];
+
+    if (!allowedExtensions.includes(extension)) {
+      setSelectedFile(null);
+      setError(
+        "Unsupported file type. Please upload a PDF or ZIP containing one PDF.",
+      );
+
+      event.target.value = "";
+      return;
+    }
+
+    const maxFileSize = 50 * 1024 * 1024;
+
+    if (file.size > maxFileSize) {
+      setSelectedFile(null);
+      setError("The file cannot exceed 50 MB.");
+
+      event.target.value = "";
+      return;
+    }
+
+    if (file.size === 0) {
+      setSelectedFile(null);
+      setError("The selected file is empty.");
+
+      event.target.value = "";
+      return;
+    }
+
+    setSelectedFile(file);
     setError("");
   }
 
@@ -271,7 +313,8 @@ export function SubmissionPage() {
               name="submitted_file"
               className="file-input"
               type="file"
-              accept=".doc,.docx,.pdf,.pbix,.zip"
+              // accept=".doc,.docx,.pdf,.pbix,.zip"
+              accept=".pdf,.zip"
               onChange={handleFileChange}
               disabled={isSubmitting}
               required

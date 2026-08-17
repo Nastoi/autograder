@@ -521,6 +521,15 @@ def grade_submission(submission):
         "technically valid if it does not reasonably address "
         "the stated scenario or criterion. "
         "Use only the supplied evidence and requirements."
+        "Write feedback in a natural, concise academic tone. "
+        "Vary sentence structure and wording between feedback items. "
+        "Avoid repeatedly starting feedback with phrases such as "
+        "'The submission demonstrates', 'The submission lacks', "
+        "or 'However'. "
+        "Preserve the same factual meaning: clearly state what was "
+        "done well, what evidence is missing or incomplete, and what "
+        "could be improved. "
+        "Do not use a fixed feedback template."
     )
 
     http_client = httpx.Client()
