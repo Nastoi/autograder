@@ -5,7 +5,7 @@ from django.db.models import QuerySet
 from .models import LearnerSubmission
 
 
-MAX_ATTEMPTS_AFTER_FIRST_PASS = 3
+# MAX_ATTEMPTS_AFTER_FIRST_PASS = 3
 
 
 @dataclass(frozen=True)
@@ -102,62 +102,8 @@ def get_attempt_policy(
             for submission in completed_submissions
         )
 
-    first_pass = next(
-        (
-            submission
-            for submission in completed_submissions
-            if submission_is_pass(submission)
-        ),
-        None,
-    )
+    attempts_used = len(completed_submissions)
 
-    # No pass yet:
-    # learner continues to have unlimited attempts.
-    if first_pass is None:
-        return AttemptPolicy(
-            can_submit=True,
-            limited_mode=False,
-            attempts_used=0,
-            attempts_remaining=None,
-            first_pass_attempt=None,
-            best_score=best_score,
-        )
-
-    # Count completed graded attempts starting from the first pass.
-    #
-    # Example:
-    # A1 fail
-    # A2 pass  -> used 1
-    # A3 fail  -> used 2
-    # A4 fail  -> used 3
-    limited_attempts = [
-        submission
-        for submission in completed_submissions
-        if submission.attempt_number >= first_pass.attempt_number
-    ]
-
-    attempts_used = len(limited_attempts)
-
-    attempts_remaining = max(
-    #     MAX_ATTEMPTS_AFTER_FIRST_PASS - attempts_used,
-    #     0,
-        can_submit=attempts_remaining > 0,
-        limited_mode=True,
-        attempts_remaining=attempts_remaining,
-        first_pass_attempt=first_pass.attempt_number,
-    )
-
-
-
-    # return AttemptPolicy(
-    #     can_submit=attempts_remaining > 0,
-    #     limited_mode=True,
-    #     attempts_used=attempts_used,
-    #     attempts_remaining=attempts_remaining,
-    #     first_pass_attempt=first_pass.attempt_number,
-    #     best_score=best_score,
-    # )
-    
     return AttemptPolicy(
         can_submit=True,
         limited_mode=False,
@@ -166,6 +112,50 @@ def get_attempt_policy(
         first_pass_attempt=None,
         best_score=best_score,
     )
+
+    # # Count completed graded attempts starting from the first pass.
+    # #
+    # # Example:
+    # # A1 fail
+    # # A2 pass  -> used 1
+    # # A3 fail  -> used 2
+    # # A4 fail  -> used 3
+    # limited_attempts = [
+    #     submission
+    #     for submission in completed_submissions
+    #     if submission.attempt_number >= first_pass.attempt_number
+    # ]
+
+    # attempts_used = len(limited_attempts)
+
+    # attempts_remaining = max(
+    # #     MAX_ATTEMPTS_AFTER_FIRST_PASS - attempts_used,
+    # #     0,
+    #     can_submit=attempts_remaining > 0,
+    #     limited_mode=True,
+    #     attempts_remaining=attempts_remaining,
+    #     first_pass_attempt=first_pass.attempt_number,
+    # )
+
+
+
+    # # return AttemptPolicy(
+    # #     can_submit=attempts_remaining > 0,
+    # #     limited_mode=True,
+    # #     attempts_used=attempts_used,
+    # #     attempts_remaining=attempts_remaining,
+    # #     first_pass_attempt=first_pass.attempt_number,
+    # #     best_score=best_score,
+    # # )
+    
+    # return AttemptPolicy(
+    #     can_submit=True,
+    #     limited_mode=False,
+    #     attempts_used=attempts_used,
+    #     attempts_remaining=None,
+    #     first_pass_attempt=None,
+    #     best_score=best_score,
+    # )
 
 
 def clean_up_submission_files(
