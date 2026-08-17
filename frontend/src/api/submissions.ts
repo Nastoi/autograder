@@ -167,6 +167,22 @@ function getErrorMessage(
     typeof data.detail === "string" &&
     data.detail.length > 0
   ) {
+    const detail = data.detail.toLowerCase();
+
+    if (
+      detail.includes("authentication") ||
+      detail.includes("credentials") ||
+      detail.includes("csrf") ||
+      detail.includes("unauthorized") ||
+      detail.includes("forbidden")
+    ) {
+      return (
+        "Your session may have expired. "
+        + "Please refresh the page and try again. "
+        + "If the issue continues, please log in again."
+      );
+    }
+
     return data.detail;
   }
 

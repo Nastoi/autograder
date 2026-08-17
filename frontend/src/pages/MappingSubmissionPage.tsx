@@ -48,6 +48,7 @@ export function MappingSubmissionPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
 
   const [isDragging, setIsDragging] =
     useState(false);
@@ -289,9 +290,7 @@ export function MappingSubmissionPage() {
     }
 
     if (!submissionTrack) {
-      setError(
-        "Please select Basic or Advanced.",
-      );
+      setError("Please select Basic or Advanced.");
       return;
     }
 
@@ -300,13 +299,19 @@ export function MappingSubmissionPage() {
       return;
     }
 
+    const previousLatestSubmissionId =
+      attempts[0]?.id ?? null;
+
     setError("");
+    setNotice("");
     setIsSubmitting(true);
 
     try {
-      const selectedAssignmentLevel = context.assignment_levels.find(
-        (level) => level.level_code === submissionTrack,
-      );
+      const selectedAssignmentLevel =
+        context.assignment_levels.find(
+          (level) =>
+            level.level_code === submissionTrack,
+        );
 
       if (!selectedAssignmentLevel) {
         throw new Error(
@@ -320,17 +325,66 @@ export function MappingSubmissionPage() {
           selectedAssignmentLevel.id,
         );
 
-      await submitAssignment(
-        resolvedContext.context_id,
-        selectedFile,
-        submissionTrack,
-      );
+      try {
+        await submitAssignment(
+          resolvedContext.context_id,
+          selectedFile,
+          submissionTrack,
+        );
+      } catch (submissionError) {
+        try {
+          const verificationHistory =
+            await getMappingSubmissionHistory(mappingId);
 
-      const updatedHistory =
-        await getMappingSubmissionHistory(mappingId);
+          setAttempts(verificationHistory.submissions);
+          setAttemptPolicy(
+            verificationHistory.attempt_policy,
+          );
 
-      setAttempts(updatedHistory.submissions);
-      setAttemptPolicy(updatedHistory.attempt_policy);
+          const latestSubmission =
+            verificationHistory.submissions[0];
+
+          const newSubmissionExists =
+            latestSubmission &&
+            latestSubmission.id !==
+              previousLatestSubmissionId;
+
+          if (newSubmissionExists) {
+            setSelectedFile(null);
+            setSubmissionTrack("");
+
+            if (fileInputRef.current) {
+              fileInputRef.current.value = "";
+            }
+
+            setNotice(
+              latestSubmission.status === "completed"
+                ? "Your submission was graded successfully."
+                : "Your submission was received successfully. Please refresh the page shortly to view the latest grading result.",
+            );
+
+            return;
+          }
+        } catch {
+          // Verification also failed.
+        }
+
+        throw submissionError;
+      }
+
+      try {
+        const updatedHistory =
+          await getMappingSubmissionHistory(mappingId);
+
+        setAttempts(updatedHistory.submissions);
+        setAttemptPolicy(
+          updatedHistory.attempt_policy,
+        );
+      } catch {
+        setNotice(
+          "Your submission was received successfully. Please refresh the page shortly to view the latest grading result.",
+        );
+      }
 
       setSelectedFile(null);
       setSubmissionTrack("");
@@ -342,7 +396,7 @@ export function MappingSubmissionPage() {
       setError(
         caughtError instanceof Error
           ? caughtError.message
-          : "Submission failed.",
+          : "We could not submit your assignment. Please try again.",
       );
     } finally {
       setIsSubmitting(false);
@@ -707,6 +761,15 @@ export function MappingSubmissionPage() {
               >
                 Remove
               </button>
+            </div>
+          )}
+
+          {notice && (
+            <div
+              role="status"
+              className="submission-notice"
+            >
+              {notice}
             </div>
           )}
 
