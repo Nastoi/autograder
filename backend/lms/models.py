@@ -34,6 +34,11 @@ class AssessmentMapping(models.Model):
         default=0,
     )
 
+    due_date = models.DateTimeField(
+        null=True,
+        blank=True,
+    )
+
     external_platform_id = models.CharField(
         max_length=255,
         blank=True,

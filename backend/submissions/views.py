@@ -2,6 +2,7 @@ from pathlib import Path
 
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from rest_framework import permissions, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
@@ -171,7 +172,31 @@ class SubmissionCreateView(APIView):
             is_active=True,
         )
 
+        mapping = context.assessment_mapping
+
+        if (
+            mapping is not None
+            and mapping.due_date is not None
+            and timezone.now() > mapping.due_date
+        ):
+            return Response(
+                {
+                    "detail": (
+                        "The submission deadline has passed. "
+                        "Please contact your instructor if "
+                        "you need an extension."
+                    )
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
         uploaded_file = request.FILES.get("submitted_file")
+
+        if uploaded_file is None:
+            return Response(
+                {"detail": "Please select a file to submit."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         # AssignmentLevel is the single source of truth for Basic/Advanced.
         # The frontend may still send submission_track for compatibility, but

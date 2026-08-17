@@ -53,6 +53,7 @@ class AssessmentMappingSerializer(
             "assignment_contributes_to_final_mark",
             "assignment_is_summative",
             "final_mark_weight",
+            "due_date",
             "lti_client_id",
             "lti_jwks_url",
             "lti_deployment_id",

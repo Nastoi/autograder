@@ -16,11 +16,12 @@ from rest_framework.views import APIView
 import jwt
 
 from django.contrib.auth import login
-from django.shortcuts import redirect
-from submissions.models import SubmissionContext
+from django.shortcuts import redirect, get_object_or_404
+from submissions.models import SubmissionContext, LearnerSubmission
 from rest_framework.permissions import IsAuthenticated
 
 from django.conf import settings
+from django.utils import timezone
 
 from django.core.cache import cache
 import logging
@@ -232,6 +233,21 @@ class AssessmentMappingSubmissionView(generics.RetrieveAPIView):
                     }
                     for level in assignment_levels
                 ],
+
+                "due_date": (
+                    mapping.due_date.isoformat()
+                    if mapping.due_date
+                    else None
+                ),
+                "deadline_passed": (
+                    mapping.due_date is not None
+                    and timezone.now() > mapping.due_date
+                ),
+                "is_instructor": (
+                    request.session.get("lti_is_instructor", False)
+                    and request.session.get("lti_mapping_id")
+                    == str(mapping.id)
+                ),
             }
         )
 
@@ -400,9 +416,252 @@ class LtiLaunchView(APIView):
         if mapping_error is not None:
             return mapping_error
 
+        roles = claims.get(
+            "https://purl.imsglobal.org/spec/lti/claim/roles",
+            [],
+        )
+
+        if isinstance(roles, str):
+            roles = [roles]
+
+        is_instructor = any(
+            str(role).lower().endswith("#instructor")
+            or str(role).lower().endswith("/instructor")
+            for role in roles
+        )
+
+        request.session["lti_mapping_id"] = str(mapping.id)
+        request.session["lti_is_instructor"] = is_instructor
+
         return redirect(
             f"{settings.AUTOGRADER_PUBLIC_URL}"
             f"/submit/mapping/{mapping.id}"
+        )
+
+
+class InstructorMappingDashboardView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def _get_mapping(self, request, mapping_id):
+        mapping = get_object_or_404(
+            AssessmentMapping.objects.select_related(
+                "cohort",
+                "assignment",
+            ),
+            id=mapping_id,
+            is_active=True,
+        )
+
+        session_mapping_id = request.session.get(
+            "lti_mapping_id"
+        )
+        is_instructor = request.session.get(
+            "lti_is_instructor",
+            False,
+        )
+
+        if (
+            not request.user.is_superuser
+            and (
+                not is_instructor
+                or session_mapping_id != str(mapping.id)
+            )
+        ):
+            return None, Response(
+                {
+                    "detail": (
+                        "Instructor access is required "
+                        "for this assessment."
+                    )
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        return mapping, None
+
+    def get(self, request, mapping_id):
+        mapping, error_response = self._get_mapping(
+            request,
+            mapping_id,
+        )
+
+        if error_response is not None:
+            return error_response
+
+        submissions = (
+            LearnerSubmission.objects
+            .filter(
+                context__cohort=mapping.cohort,
+                assignment_level__assignment=mapping.assignment,
+            )
+            .select_related(
+                "learner",
+                "assignment_level",
+            )
+            .prefetch_related(
+                "criterion_results",
+            )
+            .order_by(
+                "learner__username",
+                "-attempt_number",
+            )
+        )
+
+        learners = {}
+
+        for submission in submissions:
+            learner = submission.learner
+            learner_key = str(learner.id)
+
+            if learner_key not in learners:
+                learners[learner_key] = {
+                    "id": learner_key,
+                    "learner_id": learner.username,
+                    "name": (
+                        learner.get_full_name()
+                        or learner.username
+                    ),
+                    "email": learner.email,
+                    "attempts": [],
+                }
+
+            if submission.status in (
+                LearnerSubmission.Status.COMPLETED,
+            ):
+                display_status = "Graded"
+            elif submission.status in (
+                LearnerSubmission.Status.ERROR,
+            ):
+                display_status = "Not Graded"
+            elif submission.status in (
+                LearnerSubmission.Status.UPLOADED,
+                LearnerSubmission.Status.PROCESSING,
+            ):
+                display_status = "Processing"
+            elif submission.status == "manual_review":
+                display_status = "Manual Review"
+            else:
+                display_status = (
+                    submission.get_status_display()
+                )
+
+            learners[learner_key]["attempts"].append(
+                {
+                    "id": str(submission.id),
+                    "attempt_number": submission.attempt_number,
+                    "level_code": (
+                        submission.assignment_level.level_code
+                    ),
+                    "level_name": (
+                        submission.assignment_level.display_name
+                    ),
+                    "status": submission.status,
+                    "status_display": display_status,
+                    "final_score": (
+                        str(submission.final_score)
+                        if submission.final_score is not None
+                        else None
+                    ),
+                    "maximum_score": (
+                        str(submission.maximum_score)
+                        if submission.maximum_score is not None
+                        else None
+                    ),
+                    "achieved_band": submission.achieved_band,
+                    "feedback": submission.feedback,
+                    "original_filename": (
+                        submission.original_filename
+                    ),
+                    "submitted_at": (
+                        submission.submitted_at
+                    ),
+                    "completed_at": (
+                        submission.completed_at
+                    ),
+                    "criterion_results": [
+                        {
+                            "id": str(result.id),
+                            "rubric_criterion": str(
+                                result.rubric_criterion_id
+                            ),
+                            "awarded_marks": str(
+                                result.awarded_marks
+                            ),
+                            "achievement_band": (
+                                result.achievement_band
+                            ),
+                            "feedback": result.feedback,
+                        }
+                        for result
+                        in submission.criterion_results.all()
+                    ],
+                }
+            )
+
+        return Response(
+            {
+                "mapping": {
+                    "id": str(mapping.id),
+                    "cohort_code": (
+                        mapping.cohort.cohort_code
+                    ),
+                    "cohort_name": (
+                        mapping.cohort.cohort_name
+                    ),
+                    "assignment_code": (
+                        mapping.assignment.assignment_code
+                    ),
+                    "assignment_title": (
+                        mapping.assignment.assignment_title
+                    ),
+                    "due_date": (
+                        mapping.due_date.isoformat()
+                        if mapping.due_date
+                        else None
+                    ),
+                    "deadline_passed": (
+                        mapping.due_date is not None
+                        and timezone.now() > mapping.due_date
+                    ),
+                },
+                "learners": list(learners.values()),
+            }
+        )
+
+    def patch(self, request, mapping_id):
+        mapping, error_response = self._get_mapping(
+            request,
+            mapping_id,
+        )
+
+        if error_response is not None:
+            return error_response
+
+        serializer = AssessmentMappingSerializer(
+            mapping,
+            data={
+                "due_date": request.data.get("due_date"),
+            },
+            partial=True,
+        )
+        serializer.is_valid(raise_exception=True)
+        mapping = serializer.save(
+            updated_by=request.user,
+        )
+
+        return Response(
+            {
+                "id": str(mapping.id),
+                "due_date": (
+                    mapping.due_date.isoformat()
+                    if mapping.due_date
+                    else None
+                ),
+                "deadline_passed": (
+                    mapping.due_date is not None
+                    and timezone.now() > mapping.due_date
+                ),
+            }
         )
 
 import re

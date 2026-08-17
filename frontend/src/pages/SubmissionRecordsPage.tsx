@@ -24,6 +24,27 @@ import {
 import { jsPDF } from "jspdf";
 type RecordsTab = "records" | "gradebook";
 
+
+function displayStatus(status: string, fallback: string) {
+  if (status === "completed" || status === "graded") {
+    return "Graded";
+  }
+
+  if (status === "error" || status === "failed") {
+    return "Not Graded";
+  }
+
+  if (status === "uploaded" || status === "processing") {
+    return "Processing";
+  }
+
+  if (status === "manual_review") {
+    return "Manual Review";
+  }
+
+  return fallback;
+}
+
 function formatDate(value: string | null) {
   if (!value) return "—";
 
@@ -687,7 +708,7 @@ export function SubmissionRecordsPage() {
                                                               </span>
                                                             </td>
                                                             <td>
-                                                              {attempt.status_display}
+                                                              {displayStatus(attempt.status, attempt.status_display)}
                                                             </td>
                                                             <td>
                                                               <strong>

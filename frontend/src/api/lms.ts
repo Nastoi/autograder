@@ -58,6 +58,7 @@ export type AssessmentMapping = {
     updated_at: string;
     final_mark_weight: string;
     assignment_contributes_to_final_mark: boolean;
+    due_date: string | null;
 };
 
 export async function getAssessmentMappings(): Promise<
@@ -2069,6 +2070,10 @@ export type MappingSubmissionContext = {
         display_name: string;
         title: string;
     }[];
+
+    due_date: string | null;
+    deadline_passed: boolean;
+    is_instructor: boolean;
 };
 
 export async function getMappingSubmissionContext(
@@ -2279,6 +2284,7 @@ export async function updateAssessmentMapping(
     lti_jwks_url: string;
     lti_access_token_url: string;
     is_active: boolean;
+    due_date: string | null;
   }>,
 ): Promise<AssessmentMapping> {
   const csrfToken = await getCsrfToken();
@@ -2307,4 +2313,112 @@ export async function updateAssessmentMapping(
   }
 
   return result as AssessmentMapping;
+}
+
+export type InstructorCriterionResult = {
+  id: string;
+  rubric_criterion: string;
+  awarded_marks: string;
+  achievement_band: string;
+  feedback: string;
+};
+
+export type InstructorMappingAttempt = {
+  id: string;
+  attempt_number: number;
+  level_code: string;
+  level_name: string;
+  status: string;
+  status_display: string;
+  final_score: string | null;
+  maximum_score: string | null;
+  achieved_band: string;
+  feedback: string;
+  original_filename: string;
+  submitted_at: string;
+  completed_at: string | null;
+  criterion_results: InstructorCriterionResult[];
+};
+
+export type InstructorMappingLearner = {
+  id: string;
+  learner_id: string;
+  name: string;
+  email: string;
+  attempts: InstructorMappingAttempt[];
+};
+
+export type InstructorMappingDashboard = {
+  mapping: {
+    id: string;
+    cohort_code: string;
+    cohort_name: string;
+    assignment_code: string;
+    assignment_title: string;
+    due_date: string | null;
+    deadline_passed: boolean;
+  };
+  learners: InstructorMappingLearner[];
+};
+
+export async function getInstructorMappingDashboard(
+  mappingId: string,
+): Promise<InstructorMappingDashboard> {
+  const response = await fetch(
+    `${API_BASE_URL}/lms/assessment-mappings/${mappingId}/instructor/`,
+    {
+      method: "GET",
+      credentials: "include",
+    },
+  );
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(
+      typeof data?.detail === "string"
+        ? data.detail
+        : "Unable to load instructor submission view.",
+    );
+  }
+
+  return data as InstructorMappingDashboard;
+}
+
+export async function updateInstructorMappingDueDate(
+  mappingId: string,
+  dueDate: string | null,
+): Promise<{
+  id: string;
+  due_date: string | null;
+  deadline_passed: boolean;
+}> {
+  const csrfToken = await getCsrfToken();
+
+  const response = await fetch(
+    `${API_BASE_URL}/lms/assessment-mappings/${mappingId}/instructor/`,
+    {
+      method: "PATCH",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRFToken": csrfToken,
+      },
+      body: JSON.stringify({
+        due_date: dueDate,
+      }),
+    },
+  );
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(
+      typeof data?.detail === "string"
+        ? data.detail
+        : "Unable to update the due date.",
+    );
+  }
+
+  return data;
 }

@@ -1,6 +1,9 @@
 import "../css/SubmissionPage.css";
+import "../css/SubmissionRecordsPage.css";
+import "../css/AssessmentMappings.css";
 
 import {
+  Fragment,
   useEffect,
   useRef,
   useState,
@@ -13,7 +16,10 @@ import {
 } from "react-router";
 
 import {
+  getInstructorMappingDashboard,
   getMappingSubmissionContext,
+  updateInstructorMappingDueDate,
+  type InstructorMappingDashboard,
   type MappingSubmissionContext,
 } from "../api/lms";
 
@@ -49,6 +55,17 @@ export function MappingSubmissionPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [activeTab, setActiveTab] =
+    useState<"submission" | "instructor">("submission");
+  const [instructorData, setInstructorData] =
+    useState<InstructorMappingDashboard | null>(null);
+  const [instructorDueDate, setInstructorDueDate] = useState("");
+  const [isLoadingInstructor, setIsLoadingInstructor] = useState(false);
+  const [isSavingInstructorDueDate, setIsSavingInstructorDueDate] =
+    useState(false);
+  const [instructorError, setInstructorError] = useState("");
+  const [expandedInstructorLearners, setExpandedInstructorLearners] =
+    useState<string[]>([]);
 
   const [isDragging, setIsDragging] =
     useState(false);
@@ -59,6 +76,7 @@ export function MappingSubmissionPage() {
   const isWaitingForGrading =
     latestAttempt?.status === "uploaded" ||
     latestAttempt?.status === "processing";
+  const deadlinePassed = context?.deadline_passed ?? false;
   const MAX_FILE_SIZE = 50 * 1024 * 1024;
 
   const ALLOWED_EXTENSIONS = [
@@ -67,6 +85,37 @@ export function MappingSubmissionPage() {
   ];
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const gradingMessages = [
+    "Reading your submission...",
+    "Extracting evidence from your PDF...",
+    "Matching evidence to assignment tasks...",
+    "Reviewing your work against the rubric...",
+    "Checking criterion coverage...",
+    "Preparing grading feedback...",
+    "Calculating your result...",
+    "Finalising your feedback...",
+  ];
+
+  const [gradingMessageIndex, setGradingMessageIndex] =
+    useState(0);
+
+  useEffect(() => {
+    if (!isSubmitting && !isWaitingForGrading) {
+      setGradingMessageIndex(0);
+      return;
+    }
+
+    const intervalId = window.setInterval(() => {
+      setGradingMessageIndex((current) =>
+        (current + 1) % gradingMessages.length,
+      );
+    }, 3500);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [isSubmitting, isWaitingForGrading]);
 
   useEffect(() => {
     async function loadMapping() {
@@ -140,6 +189,67 @@ export function MappingSubmissionPage() {
       window.clearInterval(intervalId);
     };
   }, [mappingId, attempts]);
+
+  useEffect(() => {
+    if (
+      activeTab !== "instructor" ||
+      !context?.is_instructor ||
+      !mappingId
+    ) {
+      return;
+    }
+
+    const currentMappingId = mappingId;
+
+    let cancelled = false;
+
+    async function loadInstructorTab() {
+      setIsLoadingInstructor(true);
+
+      try {
+        const result =
+          await getInstructorMappingDashboard(
+            currentMappingId,
+          );
+
+        if (cancelled) {
+          return;
+        }
+
+        setInstructorData(result);
+        setInstructorDueDate(
+          toDateTimeLocal(result.mapping.due_date),
+        );
+        setExpandedInstructorLearners(
+          result.learners.map((learner) => learner.id),
+        );
+      } catch (caughtError) {
+        if (cancelled) {
+          return;
+        }
+
+        setInstructorError(
+          caughtError instanceof Error
+            ? caughtError.message
+            : "Unable to load instructor submission records.",
+        );
+      } finally {
+        if (!cancelled) {
+          setIsLoadingInstructor(false);
+        }
+      }
+    }
+
+    void loadInstructorTab();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    activeTab,
+    context?.is_instructor,
+    mappingId,
+  ]);
 
   function downloadFeedbackPdf(attempt: Submission) {
     const doc = new jsPDF();
@@ -274,6 +384,84 @@ export function MappingSubmissionPage() {
     validateFile(file);
   }
 
+  function toDateTimeLocal(value: string | null) {
+    if (!value) return "";
+
+    const date = new Date(value);
+    const offset = date.getTimezoneOffset();
+    const local = new Date(
+      date.getTime() - offset * 60 * 1000,
+    );
+
+    return local.toISOString().slice(0, 16);
+  }
+
+  function formatInstructorDate(value: string | null) {
+    if (!value) return "—";
+
+    return new Intl.DateTimeFormat(undefined, {
+      dateStyle: "medium",
+      timeStyle: "short",
+    }).format(new Date(value));
+  }
+
+  function formatInstructorResult(
+    score: string | null,
+    maximumScore: string | null,
+  ) {
+    if (score === null) return "Pending";
+    if (maximumScore === null) return score;
+
+    return `${score} / ${maximumScore}`;
+  }
+
+  async function saveInstructorDueDate() {
+    if (!mappingId || !context?.is_instructor) return;
+
+    setInstructorError("");
+    setIsSavingInstructorDueDate(true);
+
+    try {
+      await updateInstructorMappingDueDate(
+        mappingId,
+        instructorDueDate
+          ? new Date(instructorDueDate).toISOString()
+          : null,
+      );
+
+      const refreshedContext =
+        await getMappingSubmissionContext(mappingId);
+
+      setContext(refreshedContext);
+
+      const refreshedInstructorData =
+        await getInstructorMappingDashboard(mappingId);
+
+      setInstructorData(refreshedInstructorData);
+      setInstructorDueDate(
+        toDateTimeLocal(
+          refreshedInstructorData.mapping.due_date,
+        ),
+      );
+    } catch (caughtError) {
+      setInstructorError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Unable to update the due date.",
+      );
+    } finally {
+      setIsSavingInstructorDueDate(false);
+    }
+  }
+
+  function toggleInstructorLearner(learnerId: string) {
+    setExpandedInstructorLearners((current) =>
+      current.includes(learnerId)
+        ? current.filter((id) => id !== learnerId)
+        : [...current, learnerId],
+    );
+  }
+
   async function handleSubmit(
     event: FormEvent<HTMLFormElement>,
   ) {
@@ -286,6 +474,13 @@ export function MappingSubmissionPage() {
 
     if (!context) {
       setError("Assignment context is not available.");
+      return;
+    }
+
+    if (context.deadline_passed) {
+      setError(
+        "The submission deadline has passed. Please contact your instructor if you need an extension.",
+      );
       return;
     }
 
@@ -347,7 +542,7 @@ export function MappingSubmissionPage() {
           const newSubmissionExists =
             latestSubmission &&
             latestSubmission.id !==
-              previousLatestSubmissionId;
+            previousLatestSubmissionId;
 
           if (newSubmissionExists) {
             setSelectedFile(null);
@@ -461,6 +656,26 @@ export function MappingSubmissionPage() {
     return true;
   }
 
+  function getStatusLabel(status: Submission["status"]) {
+    if (status === "completed" || status === "graded") {
+      return "Graded";
+    }
+
+    if (status === "error" || status === "failed") {
+      return "Not Graded";
+    }
+
+    if (status === "uploaded" || status === "processing") {
+      return "Processing";
+    }
+
+    if (status === "manual_review") {
+      return "Manual Review";
+    }
+
+    return status;
+  }
+
   function formatFileSize(bytes: number): string {
     if (bytes < 1024) {
       return `${bytes} B`;
@@ -495,37 +710,70 @@ export function MappingSubmissionPage() {
           </div>
         </header>
 
-        <section
-          className="assignment-summary"
-          aria-label="Assignment details"
-        >
-          <div className="summary-item">
-            <span className="summary-label">
-              Cohort
-            </span>
+        {context.is_instructor && (
+          <div
+            className="workspace-tabs"
+            style={{ marginBottom: "24px" }}
+          >
+            <button
+              type="button"
+              className={
+                activeTab === "submission"
+                  ? "workspace-tab active"
+                  : "workspace-tab"
+              }
+              onClick={() => setActiveTab("submission")}
+            >
+              Submission
+            </button>
 
-            <strong>
-              {context.cohort.code} —{" "}
-              {context.cohort.name}
-            </strong>
+            <button
+              type="button"
+              className={
+                activeTab === "instructor"
+                  ? "workspace-tab active"
+                  : "workspace-tab"
+              }
+              onClick={() => setActiveTab("instructor")}
+            >
+              Instructor
+            </button>
           </div>
+        )}
 
-          <div className="summary-item">
-            <span className="summary-label">
-              Maximum score
-            </span>
+        {activeTab === "submission" && (
+          <>
+            <section
+              className="assignment-summary"
+              aria-label="Assignment details"
+            >
+              <div className="summary-item">
+                <span className="summary-label">
+                  Cohort
+                </span>
 
-            <strong>
-              {context.assignment.maximum_score}
-            </strong>
-          </div>
+                <strong>
+                  {context.cohort.code} —{" "}
+                  {context.cohort.name}
+                </strong>
+              </div>
 
-          <div className="summary-item">
-            <span className="summary-label">
-              Attempts
-            </span>
+              <div className="summary-item">
+                <span className="summary-label">
+                  Maximum score
+                </span>
 
-            {/* <strong>
+                <strong>
+                  {context.assignment.maximum_score}
+                </strong>
+              </div>
+
+              <div className="summary-item">
+                <span className="summary-label">
+                  Attempts
+                </span>
+
+                {/* <strong>
               {attempts.length === 0
                 ? "-"
                 : attemptPolicy?.limited_mode
@@ -537,27 +785,39 @@ export function MappingSubmissionPage() {
                     } remaining`
                   : "Resubmit and try again"}
             </strong> */}
-            <strong>
-              {attempts.length === 0
-                ? "No attempts yet"
-                : `${attempts.length} ${attempts.length === 1 ? "attempt" : "attempts"
-                }`}
-            </strong>
-          </div>
+                <strong>
+                  {attempts.length === 0
+                    ? "No attempts yet"
+                    : `${attempts.length} ${attempts.length === 1 ? "attempt" : "attempts"
+                    }`}
+                </strong>
+              </div>
 
-          <div className="summary-item summary-item-wide">
-            <span className="summary-label">
-              Assignment
-            </span>
+              <div className="summary-item">
+                <span className="summary-label">
+                  Due date
+                </span>
 
-            <strong>
-              {context.assignment.code} —{" "}
-              {context.assignment.title}
-            </strong>
-          </div>
-        </section>
+                <strong>
+                  {context.due_date
+                    ? new Date(context.due_date).toLocaleString()
+                    : "No due date"}
+                </strong>
+              </div>
 
-        {/* {attemptPolicy?.limited_mode && (
+              <div className="summary-item summary-item-wide">
+                <span className="summary-label">
+                  Assignment
+                </span>
+
+                <strong>
+                  {context.assignment.code} —{" "}
+                  {context.assignment.title}
+                </strong>
+              </div>
+            </section>
+
+            {/* {attemptPolicy?.limited_mode && (
           <div className="grading-wait-message">
             <strong>
               {attemptPolicy.attempts_remaining === 0
@@ -575,19 +835,29 @@ export function MappingSubmissionPage() {
           </div>
         )} */}
 
-        <div className="new-attempt-heading">
-          <h2>
-            {attempts.length > 0
-              ? "Submit a New Attempt"
-              : "Submit Your First Attempt"}
-          </h2>
+            {deadlinePassed && (
+              <div className="grading-wait-message">
+                <strong>Submission deadline has passed.</strong>
+                <p>
+                  Please contact your instructor if you need
+                  the due date extended.
+                </p>
+              </div>
+            )}
 
-          <p>
-            Choose the submission track and upload
-            your completed assignment.
-          </p>
-        </div>
-        {/* 
+            <div className="new-attempt-heading">
+              <h2>
+                {attempts.length > 0
+                  ? "Submit a New Attempt"
+                  : "Submit Your First Attempt"}
+              </h2>
+
+              <p>
+                Choose the submission track and upload
+                your completed assignment.
+              </p>
+            </div>
+            {/* 
         {isWaitingForGrading && (
           <div className="grading-wait-message">
             <strong>
@@ -600,510 +870,809 @@ export function MappingSubmissionPage() {
             </p>
           </div>
         )} */}
-        {isWaitingForGrading
-          ? "Waiting for Grading"
-          : isSubmitting
-            ? "Submitting..."
-            : attempts.length > 0
-              ? "Submit New Attempt"
-              : "Submit Assignment"}
+            {/* {isWaitingForGrading
+              ? "Waiting for Grading"
+              : isSubmitting
+                ? "Submitting..."
+                : attempts.length > 0
+                  ? "Submit New Attempt"
+                  : "Submit Assignment"} */}
 
 
-        <form
-          onSubmit={handleSubmit}
-          className="submission-form"
-        >
-          <fieldset className="submission-track-options">
-            <legend>
-              Select submission type
-            </legend>
+            <form
+              onSubmit={handleSubmit}
+              className="submission-form"
+            >
+              <fieldset className="submission-track-options">
+                <legend>
+                  Select submission type
+                </legend>
 
-            <label>
+                <label>
+                  <input
+                    type="radio"
+                    name="submission_track"
+                    value="basic"
+                    checked={
+                      submissionTrack === "basic"
+                    }
+                    onChange={() =>
+                      setSubmissionTrack("basic")
+                    }
+                    disabled={
+                      isSubmitting ||
+                      isWaitingForGrading ||
+                      deadlinePassed
+                      // hasNoAttemptsRemaining
+                    }
+                    required
+                  />
+                  Basic
+                </label>
+
+                <p>
+                  Outcome can be Failed,
+                  Foundation, or Proficient.
+                </p>
+
+                <label>
+                  <input
+                    type="radio"
+                    name="submission_track"
+                    value="advanced"
+                    checked={
+                      submissionTrack === "advanced"
+                    }
+                    onChange={() =>
+                      setSubmissionTrack("advanced")
+                    }
+                    disabled={
+                      isSubmitting ||
+                      isWaitingForGrading ||
+                      deadlinePassed
+                      // hasNoAttemptsRemaining
+                    }
+                    required
+                  />
+                  Advanced
+                </label>
+
+                <p>
+                  Outcome can be Failed,
+                  Proficient, or Expert.
+                </p>
+              </fieldset>
+
+              <label
+                htmlFor="submitted-file"
+                className={[
+                  "file-upload-box",
+                  isDragging
+                    ? "file-upload-box-dragging"
+                    : "",
+                  isSubmitting ||
+                    isWaitingForGrading ||
+                    deadlinePassed
+                    // hasNoAttemptsRemaining
+                    ? "file-upload-box-disabled"
+                    : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+              >
+                <span
+                  className="upload-icon"
+                  aria-hidden="true"
+                >
+                  ↑
+                </span>
+
+                <span className="upload-title">
+                  Drag and drop your file here
+                </span>
+
+                <span className="upload-help">
+                  or browse your computer.
+                  PDF or ZIP containing one PDF — maximum 50 MB.
+                </span>
+
+                <span className="file-button">
+                  Browse files
+                </span>
+              </label>
+
               <input
-                type="radio"
-                name="submission_track"
-                value="basic"
-                checked={
-                  submissionTrack === "basic"
-                }
-                onChange={() =>
-                  setSubmissionTrack("basic")
-                }
+                id="submitted-file"
+                name="submitted_file"
+                className="file-input"
+                type="file"
+                accept=".pdf,.zip"
+                onChange={handleFileChange}
                 disabled={
                   isSubmitting ||
-                  isWaitingForGrading
+                  isWaitingForGrading ||
+                  deadlinePassed
                   // hasNoAttemptsRemaining
                 }
+                ref={fileInputRef}
                 required
               />
-              Basic
-            </label>
 
-            <p>
-              Outcome can be Failed,
-              Foundation, or Proficient.
-            </p>
+              {selectedFile && (
+                <div className="selected-file">
+                  <div className="selected-file-details">
+                    <span className="selected-file-label">
+                      Selected file
+                    </span>
 
-            <label>
-              <input
-                type="radio"
-                name="submission_track"
-                value="advanced"
-                checked={
-                  submissionTrack === "advanced"
-                }
-                onChange={() =>
-                  setSubmissionTrack("advanced")
-                }
-                disabled={
-                  isSubmitting ||
-                  isWaitingForGrading
-                  // hasNoAttemptsRemaining
-                }
-                required
-              />
-              Advanced
-            </label>
+                    <strong className="selected-file-name">
+                      {selectedFile.name}
+                    </strong>
 
-            <p>
-              Outcome can be Failed,
-              Proficient, or Expert.
-            </p>
-          </fieldset>
-
-          <label
-            htmlFor="submitted-file"
-            className={[
-              "file-upload-box",
-              isDragging
-                ? "file-upload-box-dragging"
-                : "",
-              isSubmitting ||
-                isWaitingForGrading
-                // hasNoAttemptsRemaining
-                ? "file-upload-box-disabled"
-                : "",
-            ]
-              .filter(Boolean)
-              .join(" ")}
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onDrop={handleDrop}
-          >
-            <span
-              className="upload-icon"
-              aria-hidden="true"
-            >
-              ↑
-            </span>
-
-            <span className="upload-title">
-              Drag and drop your file here
-            </span>
-
-            <span className="upload-help">
-              or browse your computer.
-              PDF or ZIP containing one PDF — maximum 50 MB.
-            </span>
-
-            <span className="file-button">
-              Browse files
-            </span>
-          </label>
-
-          <input
-            id="submitted-file"
-            name="submitted_file"
-            className="file-input"
-            type="file"
-            accept=".pdf,.zip"
-            onChange={handleFileChange}
-            disabled={
-              isSubmitting ||
-              isWaitingForGrading
-              // hasNoAttemptsRemaining
-            }
-            ref={fileInputRef}
-            required
-          />
-
-          {selectedFile && (
-            <div className="selected-file">
-              <div className="selected-file-details">
-                <span className="selected-file-label">
-                  Selected file
-                </span>
-
-                <strong className="selected-file-name">
-                  {selectedFile.name}
-                </strong>
-
-                <span className="selected-file-size">
-                  {formatFileSize(selectedFile.size)}
-                </span>
-              </div>
-
-              <button
-                type="button"
-                className="remove-file-button"
-                onClick={() => {
-                  setSelectedFile(null);
-                  setError("");
-
-                  if (fileInputRef.current) {
-                    fileInputRef.current.value = "";
-                  }
-                }}
-                disabled={isSubmitting ||
-                  isWaitingForGrading
-                  // hasNoAttemptsRemaining
-                }
-              >
-                Remove
-              </button>
-            </div>
-          )}
-
-          {notice && (
-            <div
-              role="status"
-              className="submission-notice"
-            >
-              {notice}
-            </div>
-          )}
-
-          {error && (
-            <p
-              role="alert"
-              className="error-message"
-            >
-              {error}
-            </p>
-          )}
-
-          <div className="form-actions">
-            <button
-              type="submit"
-              className="btn-primary"
-              disabled={
-                !selectedFile ||
-                !submissionTrack ||
-                isSubmitting ||
-                isWaitingForGrading
-                // hasNoAttemptsRemaining
-              }
-            >
-              {
-                // hasNoAttemptsRemaining
-                //   ? "No Attempts Remaining"
-                //   : 
-                isWaitingForGrading
-                  ? "Waiting for Grading"
-                  : isSubmitting
-                    ? "Submitting..."
-                    : attempts.length > 0
-                      ? "Submit New Attempt"
-                      : "Submit Assignment"}
-            </button>
-          </div>
-        </form>
-        {attempts.length > 0 && (
-          <section className="latest-result">
-            <div className="latest-result-heading">
-              <div>
-                <span className="section-eyebrow">
-                  Latest Result
-                </span>
-
-                <h2>
-                  Attempt {attempts[0].attempt_number}
-                </h2>
-              </div>
-
-              <span
-                className={`attempt-status status-${attempts[0].status}`}
-              >
-                {attempts[0].status}
-              </span>
-            </div>
-
-            <div className="latest-result-file">
-              <span>Submitted file</span>
-
-              <strong>
-                {attempts[0].original_filename}
-              </strong>
-            </div>
-
-            <div className="attempt-details">
-              <div>
-                <span className="attempt-detail-label">
-                  Track
-                </span>
-
-                <strong className="attempt-detail-value">
-                  {attempts[0].submission_track === "basic"
-                    ? "Basic"
-                    : "Advanced"}
-                </strong>
-              </div>
-
-              <div>
-                <span className="attempt-detail-label">
-                  Score
-                </span>
-
-                <strong className="attempt-detail-value">
-                  {attempts[0].status === "error"
-                    ? "Unavailable"
-                    : attempts[0].status === "uploaded" ||
-                      attempts[0].status === "processing"
-                      ? "Processing"
-                      : attempts[0].final_score !== null &&
-                        attempts[0].maximum_score !== null &&
-                        Number(attempts[0].maximum_score) > 0
-                        ? `${(
-                          (Number(attempts[0].final_score) /
-                            Number(attempts[0].maximum_score)) *
-                          100
-                        ).toFixed(2)} / 100`
-                        : "Pending"}
-                </strong>
-              </div>
-
-              <div>
-                <span className="attempt-detail-label">
-                  Band
-                </span>
-
-                <strong className="attempt-detail-value">
-                  {attempts[0].status === "error"
-                    ? "Not graded"
-                    : attempts[0].status === "uploaded" ||
-                      attempts[0].status === "processing"
-                      ? "Processing"
-                      : attempts[0].achieved_band
-                        ? attempts[0].achieved_band.charAt(0).toUpperCase() +
-                        attempts[0].achieved_band.slice(1)
-                        : "Pending"}
-                </strong>
-              </div>
-
-              <div>
-                <span className="attempt-detail-label">
-                  Submitted
-                </span>
-
-                <strong className="attempt-detail-value">
-                  {new Date(
-                    attempts[0].submitted_at,
-                  ).toLocaleString()}
-                </strong>
-              </div>
-            </div>
-
-            {attempts[0].feedback && (
-              <div className="latest-feedback">
-                <span className="attempt-detail-label">
-                  Overall Feedback
-                </span>
-
-                <p>{attempts[0].feedback}</p>
-              </div>
-            )}
-
-            {attempts[0].status === "completed" &&
-              attempts[0].criterion_results.length > 0 && (
-                <details className="latest-feedback detailed-feedback-collapse">
-                  <summary>
-                    Detailed Feedback
-                  </summary>
-
-                  <div className="detailed-feedback-content">
-                    {attempts[0].criterion_results.map(
-                      (criterion, index) => (
-                        <div
-                          key={criterion.id}
-                          className="criterion-feedback-item"
-                        >
-                          <div className="criterion-feedback-header">
-                            <strong>
-                              Criterion {index + 1}
-                            </strong>
-
-                            <span>
-                              {criterion.awarded_marks} marks
-                            </span>
-                          </div>
-
-                          {criterion.achievement_band && (
-                            <div className="criterion-feedback-band">
-                              {criterion.achievement_band}
-                            </div>
-                          )}
-
-                          <p className="criterion-feedback-text">
-                            {criterion.feedback}
-                          </p>
-                        </div>
-                      ),
-                    )}
+                    <span className="selected-file-size">
+                      {formatFileSize(selectedFile.size)}
+                    </span>
                   </div>
-                </details>
+
+                  <button
+                    type="button"
+                    className="remove-file-button"
+                    onClick={() => {
+                      setSelectedFile(null);
+                      setError("");
+
+                      if (fileInputRef.current) {
+                        fileInputRef.current.value = "";
+                      }
+                    }}
+                    disabled={isSubmitting ||
+                      isWaitingForGrading
+                      // hasNoAttemptsRemaining
+                    }
+                  >
+                    Remove
+                  </button>
+                </div>
               )}
 
-            {attempts[0].status === "completed" && (
-              <button
-                type="button"
-                className="btn-primary feedback-download-btn"
-                onClick={() =>
-                  downloadFeedbackPdf(attempts[0])
-                }
-              >
-                Download Detailed Feedback PDF
-              </button>
-            )}
+              {notice && (
+                <div
+                  role="status"
+                  className="submission-notice"
+                >
+                  {notice}
+                </div>
+              )}
 
-            {attempts[0].status === "manual_review" && (
-              <div className="grading-review-message">
-                <strong>
-                  Manual review required.
-                </strong>
-
-                <p>
-                  Your submission is waiting for review.
+              {error && (
+                <p
+                  role="alert"
+                  className="error-message"
+                >
+                  {error}
                 </p>
+              )}
+
+              <div className="form-actions">
+                <button
+                  type="submit"
+                  className="btn-primary"
+                  disabled={
+                    !selectedFile ||
+                    !submissionTrack ||
+                    isSubmitting ||
+                    isWaitingForGrading ||
+                    deadlinePassed
+                    // hasNoAttemptsRemaining
+                  }
+                >
+                  {
+                    // hasNoAttemptsRemaining
+                    //   ? "No Attempts Remaining"
+                    //   : 
+                    deadlinePassed
+                      ? "Deadline Passed"
+                      : isWaitingForGrading
+                        ? "Waiting for Grading"
+                        : isSubmitting
+                          ? "Submitting..."
+                          : attempts.length > 0
+                            ? "Submit New Attempt"
+                            : "Submit Assignment"}
+                </button>
               </div>
+            </form>
+            {attempts.length > 0 && (
+              <section className="latest-result">
+                <div className="latest-result-heading">
+                  <div>
+                    <span className="section-eyebrow">
+                      Latest Result
+                    </span>
+
+                    <h2>
+                      Attempt {attempts[0].attempt_number}
+                    </h2>
+                  </div>
+
+                  <span
+                    className={`attempt-status status-${attempts[0].status}`}
+                  >
+                    {getStatusLabel(attempts[0].status)}
+                  </span>
+                </div>
+
+                <div className="latest-result-file">
+                  <span>Submitted file</span>
+
+                  <strong>
+                    {attempts[0].original_filename}
+                  </strong>
+                </div>
+
+                <div className="attempt-details">
+                  <div>
+                    <span className="attempt-detail-label">
+                      Track
+                    </span>
+
+                    <strong className="attempt-detail-value">
+                      {attempts[0].submission_track === "basic"
+                        ? "Basic"
+                        : "Advanced"}
+                    </strong>
+                  </div>
+
+                  <div>
+                    <span className="attempt-detail-label">
+                      Score
+                    </span>
+
+                    <strong className="attempt-detail-value">
+                      {attempts[0].status === "error"
+                        ? "Unavailable"
+                        : attempts[0].status === "uploaded" ||
+                          attempts[0].status === "processing"
+                          ? "Processing"
+                          : attempts[0].final_score !== null &&
+                            attempts[0].maximum_score !== null &&
+                            Number(attempts[0].maximum_score) > 0
+                            ? `${(
+                              (Number(attempts[0].final_score) /
+                                Number(attempts[0].maximum_score)) *
+                              100
+                            ).toFixed(2)} / 100`
+                            : "Pending"}
+                    </strong>
+                  </div>
+
+                  <div>
+                    <span className="attempt-detail-label">
+                      Band
+                    </span>
+
+                    <strong className="attempt-detail-value">
+                      {attempts[0].status === "error"
+                        ? "Not graded"
+                        : attempts[0].status === "uploaded" ||
+                          attempts[0].status === "processing"
+                          ? "Processing"
+                          : attempts[0].achieved_band
+                            ? attempts[0].achieved_band.charAt(0).toUpperCase() +
+                            attempts[0].achieved_band.slice(1)
+                            : "Pending"}
+                    </strong>
+                  </div>
+
+                  <div>
+                    <span className="attempt-detail-label">
+                      Submitted
+                    </span>
+
+                    <strong className="attempt-detail-value">
+                      {new Date(
+                        attempts[0].submitted_at,
+                      ).toLocaleString()}
+                    </strong>
+                  </div>
+                </div>
+
+                {attempts[0].feedback && (
+                  <div className="latest-feedback">
+                    <span className="attempt-detail-label">
+                      Overall Feedback
+                    </span>
+
+                    <p>{attempts[0].feedback}</p>
+                  </div>
+                )}
+
+                {attempts[0].status === "completed" &&
+                  attempts[0].criterion_results.length > 0 && (
+                    <details className="latest-feedback detailed-feedback-collapse">
+                      <summary>
+                        Detailed Feedback
+                      </summary>
+
+                      <div className="detailed-feedback-content">
+                        {attempts[0].criterion_results.map(
+                          (criterion, index) => (
+                            <div
+                              key={criterion.id}
+                              className="criterion-feedback-item"
+                            >
+                              <div className="criterion-feedback-header">
+                                <strong>
+                                  Criterion {index + 1}
+                                </strong>
+
+                                <span>
+                                  {criterion.awarded_marks} marks
+                                </span>
+                              </div>
+
+                              {criterion.achievement_band && (
+                                <div className="criterion-feedback-band">
+                                  {criterion.achievement_band}
+                                </div>
+                              )}
+
+                              <p className="criterion-feedback-text">
+                                {criterion.feedback}
+                              </p>
+                            </div>
+                          ),
+                        )}
+                      </div>
+                    </details>
+                  )}
+
+                {attempts[0].status === "completed" && (
+                  <button
+                    type="button"
+                    className="btn-primary feedback-download-btn"
+                    onClick={() =>
+                      downloadFeedbackPdf(attempts[0])
+                    }
+                  >
+                    Download Detailed Feedback PDF
+                  </button>
+                )}
+
+                {attempts[0].status === "manual_review" && (
+                  <div className="grading-review-message">
+                    <strong>
+                      Manual review required.
+                    </strong>
+
+                    <p>
+                      Your submission is waiting for review.
+                    </p>
+                  </div>
+                )}
+              </section>
             )}
-          </section>
+
+
+
+            {attempts.length > 1 && (
+              <section
+                className="submission-history"
+                aria-label="Previous submission attempts"
+              >
+                <div className="submission-history-header">
+                  <div>
+                    <h2>Previous Attempts</h2>
+
+                    <p>
+                      Review your earlier submissions and grading results.
+                    </p>
+                  </div>
+                </div>
+
+                {attempts.length === 0 ? (
+                  <p className="submission-history-empty">
+                    No previous attempts yet.
+                  </p>
+                ) : (
+                  <div className="submission-history-list">
+                    {attempts.slice(1).map((attempt) => (
+                      <article
+                        key={attempt.id}
+                        className="submission-attempt-card"
+                      >
+                        <div className="attempt-card-header">
+                          <div>
+                            <span className="attempt-number">
+                              Attempt {attempt.attempt_number}
+                            </span>
+
+                            <strong className="attempt-filename">
+                              {attempt.original_filename}
+                            </strong>
+                          </div>
+
+                          <span
+                            className={`attempt-status status-${attempt.status}`}
+                          >
+                            {getStatusLabel(attempt.status)}
+                          </span>
+                        </div>
+
+                        <div className="attempt-details">
+
+
+                          <div>
+                            <span className="attempt-detail-label">
+                              Track
+                            </span>
+
+                            <strong className="attempt-detail-value">
+                              {attempt.submission_track === "basic"
+                                ? "Basic"
+                                : "Advanced"}
+                            </strong>
+                          </div>
+
+                          <div>
+                            <span className="attempt-detail-label">Score</span>
+
+                            <strong>
+                              {attempt.status === "error"
+                                ? "Unavailable"
+                                : attempt.status === "uploaded" ||
+                                  attempt.status === "processing"
+                                  ? "Processing"
+                                  : attempt.final_score !== null &&
+                                    attempt.maximum_score !== null &&
+                                    Number(attempt.maximum_score) > 0
+                                    ? `${(
+                                      (Number(attempt.final_score) /
+                                        Number(attempt.maximum_score)) *
+                                      100
+                                    ).toFixed(2)} / 100`
+                                    : "Pending"}
+                            </strong>
+                          </div>
+
+                          <div>
+                            <span className="attempt-detail-label">Band</span>
+
+                            <strong>
+                              {attempt.status === "error"
+                                ? "Not graded"
+                                : attempt.status === "uploaded" ||
+                                  attempt.status === "processing"
+                                  ? "Processing"
+                                  : attempt.achieved_band || "Pending"}
+                            </strong>
+                          </div>
+
+                          <div>
+                            <span className="attempt-detail-label" >Submitted</span>
+
+                            <strong>
+                              {new Date(
+                                attempt.submitted_at,
+                              ).toLocaleString()}
+                            </strong>
+                          </div>
+                        </div>
+                        {attempt.feedback && (
+                          <div className="latest-feedback">
+                            <span className="attempt-detail-label">
+                              Feedback
+                            </span>
+
+                            <p>{attempt.feedback}</p>
+                          </div>
+                        )}
+
+
+                      </article>
+                    ))}
+                  </div>
+                )}
+              </section>
+            )}
+
+          </>
         )}
 
-
-
-        {attempts.length > 1 && (
-          <section
-            className="submission-history"
-            aria-label="Previous submission attempts"
-          >
-            <div className="submission-history-header">
-              <div>
-                <h2>Previous Attempts</h2>
-
-                <p>
-                  Review your earlier submissions and grading results.
-                </p>
+        {context.is_instructor && activeTab === "instructor" && (
+          <section>
+            {isLoadingInstructor ? (
+              <div className="content-card" style={{ padding: "24px" }}>
+                Loading instructor submission records...
               </div>
-            </div>
-
-            {attempts.length === 0 ? (
-              <p className="submission-history-empty">
-                No previous attempts yet.
-              </p>
             ) : (
-              <div className="submission-history-list">
-                {attempts.slice(1).map((attempt) => (
-                  <article
-                    key={attempt.id}
-                    className="submission-attempt-card"
+              <>
+                {instructorError && (
+                  <p role="alert" className="error-message">
+                    {instructorError}
+                  </p>
+                )}
+
+                <section
+                  className="content-card"
+                  style={{ marginBottom: "24px" }}
+                >
+                  <div
+                    className="content-card-header"
+                    style={{ padding: "20px 24px" }}
                   >
-                    <div className="attempt-card-header">
-                      <div>
-                        <span className="attempt-number">
-                          Attempt {attempt.attempt_number}
-                        </span>
+                    <div className="content-title">
+                      <h2>Assignment Due Date</h2>
+                      <p>
+                        Learners cannot submit after this date.
+                        Extend it here to reopen submissions.
+                      </p>
+                    </div>
+                  </div>
 
-                        <strong className="attempt-filename">
-                          {attempt.original_filename}
-                        </strong>
-                      </div>
+                  <div
+                    style={{
+                      padding: "0 24px 24px",
+                      display: "flex",
+                      gap: "12px",
+                      alignItems: "end",
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <div className="form-group">
+                      <label htmlFor="instructor-due-date">
+                        Due date
+                      </label>
 
-                      <span
-                        className={`attempt-status status-${attempt.status}`}
-                      >
-                        {attempt.status}
-                      </span>
+                      <input
+                        id="instructor-due-date"
+                        type="datetime-local"
+                        value={instructorDueDate}
+                        onChange={(event) =>
+                          setInstructorDueDate(event.target.value)
+                        }
+                      />
                     </div>
 
-                    <div className="attempt-details">
+                    <button
+                      type="button"
+                      className="btn-primary"
+                      disabled={isSavingInstructorDueDate}
+                      onClick={() =>
+                        void saveInstructorDueDate()
+                      }
+                    >
+                      {isSavingInstructorDueDate
+                        ? "Saving..."
+                        : instructorData?.mapping.due_date
+                          ? "Update Due Date"
+                          : "Set Due Date"}
+                    </button>
+                  </div>
+                </section>
 
+                <section className="submission-record-metrics">
+                  <div className="submission-record-metric">
+                    <span>Learners submitted</span>
+                    <strong>
+                      {instructorData?.learners.length ?? 0}
+                    </strong>
+                  </div>
 
-                      <div>
-                        <span className="attempt-detail-label">
-                          Track
-                        </span>
+                  <div className="submission-record-metric">
+                    <span>Total attempts</span>
+                    <strong>
+                      {instructorData?.learners.reduce(
+                        (total, learner) =>
+                          total + learner.attempts.length,
+                        0,
+                      ) ?? 0}
+                    </strong>
+                  </div>
 
-                        <strong className="attempt-detail-value">
-                          {attempt.submission_track === "basic"
-                            ? "Basic"
-                            : "Advanced"}
-                        </strong>
-                      </div>
+                  <div className="submission-record-metric">
+                    <span>Current due date</span>
+                    <strong>
+                      {formatInstructorDate(
+                        instructorData?.mapping.due_date ?? null,
+                      )}
+                    </strong>
+                  </div>
+                </section>
 
-                      <div>
-                        <span className="attempt-detail-label">Score</span>
-
-                        <strong>
-                          {attempt.status === "error"
-                            ? "Unavailable"
-                            : attempt.status === "uploaded" ||
-                              attempt.status === "processing"
-                              ? "Processing"
-                              : attempt.final_score !== null &&
-                                attempt.maximum_score !== null &&
-                                Number(attempt.maximum_score) > 0
-                                ? `${(
-                                  (Number(attempt.final_score) /
-                                    Number(attempt.maximum_score)) *
-                                  100
-                                ).toFixed(2)} / 100`
-                                : "Pending"}
-                        </strong>
-                      </div>
-
-                      <div>
-                        <span className="attempt-detail-label">Band</span>
-
-                        <strong>
-                          {attempt.status === "error"
-                            ? "Not graded"
-                            : attempt.status === "uploaded" ||
-                              attempt.status === "processing"
-                              ? "Processing"
-                              : attempt.achieved_band || "Pending"}
-                        </strong>
-                      </div>
-
-                      <div>
-                        <span className="attempt-detail-label" >Submitted</span>
-
-                        <strong>
-                          {new Date(
-                            attempt.submitted_at,
-                          ).toLocaleString()}
-                        </strong>
-                      </div>
+                <section className="submission-record-list">
+                  {!instructorData ||
+                    instructorData.learners.length === 0 ? (
+                    <div className="empty-state">
+                      No learner submissions yet.
                     </div>
-                    {attempt.feedback && (
-                      <div className="latest-feedback">
-                        <span className="attempt-detail-label">
-                          Feedback
-                        </span>
+                  ) : (
+                    instructorData.learners.map((learner) => {
+                      const open =
+                        expandedInstructorLearners.includes(
+                          learner.id,
+                        );
 
-                        <p>{attempt.feedback}</p>
-                      </div>
-                    )}
+                      return (
+                        <article
+                          key={learner.id}
+                          className="submission-cohort-card content-card"
+                        >
+                          <button
+                            type="button"
+                            className="submission-learner-heading"
+                            onClick={() =>
+                              toggleInstructorLearner(learner.id)
+                            }
+                          >
+                            <span className="submission-heading-icon">
+                              {open ? "▼" : "▶"}
+                            </span>
 
+                            <span className="submission-learner-identity">
+                              <strong>{learner.learner_id}</strong>
+                              <span>{learner.name}</span>
+                              {learner.email && (
+                                <small>{learner.email}</small>
+                              )}
+                            </span>
 
-                  </article>
-                ))}
-              </div>
+                            <span className="submission-attempt-count">
+                              {learner.attempts.length} attempt
+                              {learner.attempts.length === 1
+                                ? ""
+                                : "s"}
+                            </span>
+                          </button>
+
+                          {open && (
+                            <div className="submission-attempt-table-wrap">
+                              <table className="submission-attempt-table">
+                                <thead>
+                                  <tr>
+                                    <th>Attempt</th>
+                                    <th>Path</th>
+                                    <th>Status</th>
+                                    <th>Result</th>
+                                    <th>Band</th>
+                                    <th>Submitted</th>
+                                  </tr>
+                                </thead>
+
+                                <tbody>
+                                  {learner.attempts.map((attempt) => (
+                                    <Fragment key={attempt.id}>
+                                      <tr>
+                                        <td>#{attempt.attempt_number}</td>
+                                        <td>
+                                          <span className="submission-level-pill">
+                                            {attempt.level_name ||
+                                              attempt.level_code}
+                                          </span>
+                                        </td>
+                                        <td>{attempt.status_display}</td>
+                                        <td>
+                                          <strong>
+                                            {formatInstructorResult(
+                                              attempt.final_score,
+                                              attempt.maximum_score,
+                                            )}
+                                          </strong>
+                                        </td>
+                                        <td>
+                                          {attempt.achieved_band || "—"}
+                                        </td>
+                                        <td>
+                                          {formatInstructorDate(
+                                            attempt.submitted_at,
+                                          )}
+                                        </td>
+                                      </tr>
+
+                                      <tr className="submission-feedback-row">
+                                        <td colSpan={6}>
+                                          <div className="submission-feedback">
+                                            <span>Overall Feedback</span>
+                                            <p>
+                                              {attempt.feedback ||
+                                                "No feedback available."}
+                                            </p>
+
+                                            {attempt.criterion_results.length >
+                                              0 && (
+                                                <details>
+                                                  <summary>
+                                                    Detailed Feedback
+                                                  </summary>
+                                                  <div
+                                                    style={{
+                                                      marginTop: "12px",
+                                                    }}
+                                                  >
+                                                    {attempt.criterion_results.map(
+                                                      (
+                                                        criterion,
+                                                        index,
+                                                      ) => (
+                                                        <div
+                                                          key={criterion.id}
+                                                          style={{
+                                                            marginBottom:
+                                                              "14px",
+                                                          }}
+                                                        >
+                                                          <strong>
+                                                            Criterion{" "}
+                                                            {index + 1}
+                                                          </strong>
+                                                          <p>
+                                                            {
+                                                              criterion.feedback
+                                                            }
+                                                          </p>
+                                                        </div>
+                                                      ),
+                                                    )}
+                                                  </div>
+                                                </details>
+                                              )}
+                                          </div>
+                                        </td>
+                                      </tr>
+                                    </Fragment>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          )}
+                        </article>
+                      );
+                    })
+                  )}
+                </section>
+              </>
             )}
           </section>
         )}
 
 
       </div>
+      {(isSubmitting || isWaitingForGrading) && (
+        <div
+          className="grading-modal-backdrop"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="grading-modal-title"
+        >
+          <div className="grading-modal">
+            <div
+              className="grading-spinner"
+              aria-hidden="true"
+            />
+
+            <h2 id="grading-modal-title">
+              Grading your submission
+            </h2>
+
+            <p className="grading-progress-message">
+              {gradingMessages[gradingMessageIndex]}
+            </p>
+
+            <p className="grading-modal-description">
+              Your assignment has been submitted successfully
+              and is now being graded.
+            </p>
+
+            <p className="grading-modal-note">
+              Grading may take a few minutes. Please keep this
+              page open until the result is ready.
+            </p>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
