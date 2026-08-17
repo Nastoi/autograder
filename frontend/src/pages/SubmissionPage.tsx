@@ -367,7 +367,7 @@ export function SubmissionPage() {
 
           <div className="summary-item">
             <span className="summary-label">Cohort</span>
-            <strong>{context.cohort.name}</strong>
+            <strong>{context.cohort.code}</strong>
           </div>
 
           <div className="summary-item">
@@ -379,7 +379,7 @@ export function SubmissionPage() {
 
           <div className="summary-item">
             <span className="summary-label">Assignment</span>
-            <strong>{context.assignment.title}</strong>
+            <strong>{context.assignment.code}</strong>
           </div>
 
           <div className="summary-item">
@@ -388,6 +388,24 @@ export function SubmissionPage() {
           </div>
         </section>
       </div>
+      {isSubmitting && (
+  <div className="grading-modal-backdrop">
+    <div className="grading-modal">
+      <div className="grading-spinner" />
+
+      <h2>Grading your submission</h2>
+
+      <p>
+        AutoGrad3r is reviewing your submission against the
+        assignment tasks and rubric.
+      </p>
+
+      <p className="grading-modal-note">
+        This may take a few minutes. Please keep this page open.
+      </p>
+    </div>
+  </div>
+)}
     </main>
   );
 }

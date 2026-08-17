@@ -131,7 +131,7 @@ class CurrentUserView(APIView):
 
 
 class ManagedUserListCreateView(APIView):
-    permission_classes = [IsSuperUserOrStaff]
+    permission_classes = [IsAdminUser]
 
     def get(self, request):
         users = (

@@ -15,6 +15,7 @@ export type User = {
     | null;
   lms_user_id: string;
   must_change_password: boolean;
+  is_superuser: boolean;
 };
 
 type LoginResponse = {
@@ -128,7 +129,8 @@ function isUser(data: User | ErrorResponse): data is User {
     "last_name" in data &&
     "role" in data &&
     "lms_user_id" in data &&
-    "must_change_password" in data
+    "must_change_password" in data &&
+    "is_superuser" in data
   );
 }
 

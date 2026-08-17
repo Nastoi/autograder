@@ -199,7 +199,8 @@ export function CohortsPage() {
 
   function copyLtiUrl(mappingId: string) {
     const publicUrl =
-      import.meta.env.VITE_AUTOGRADER_PUBLIC_URL;
+      import.meta.env.VITE_AUTOGRADER_PUBLIC_URL ||
+      window.location.origin;
 
     const ltiUrl =
       `${publicUrl}/api/lms/lti/launch/${mappingId}/`;
@@ -1052,7 +1053,7 @@ export function CohortsPage() {
                               fontSize: "13px",
                             }}
                           >
-                            {`${import.meta.env.VITE_AUTOGRADER_PUBLIC_URL}/api/lms/lti/launch/${mapping.id}/`}
+                            {`${import.meta.env.VITE_AUTOGRADER_PUBLIC_URL || window.location.origin}/api/lms/lti/launch/${mapping.id}/`}
                           </span>
                         </td>
 

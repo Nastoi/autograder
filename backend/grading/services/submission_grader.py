@@ -44,7 +44,7 @@ def map_submission_tasks(submission):
         {
             "task_code": task.task_code,
             "title": task.title,
-            "instructions": task.instructions,
+            "required_evidence": task.instructions,
         }
         for task in tasks
     ]
@@ -152,30 +152,34 @@ def map_submission_tasks(submission):
             )
 
     system_prompt = (
-        "You are an expert academic evaluator and document "
-        "structure mapper.\n\n"
+        "You are an expert academic evaluator and document structure mapper.\n\n"
         "YOUR GOAL:\n"
-        "Analyze the submitted document pages and map each "
-        "assignment task (by task_code) to the PDF page numbers "
-        "that contain evidence of that task being executed or "
-        "documented.\n\n"
+        "Map each assignment task to ONLY the exact PDF pages that contain "
+        "direct evidence of that task being performed or documented.\n\n"
         "RULES:\n"
-        f"1. HARD PAGE LIMIT: The document provided has EXACTLY "
-        f"{total_pages} pages. You MUST NOT map any page number "
-        f"higher than {total_pages}.\n"
-        "2. MULTI-TASK PAGES: A single page CAN contain evidence "
-        "for multiple tasks. Map every task independently.\n"
-        "3. SEMANTIC MATCHING: Match generic task instructions "
-        "to specific learner implementation evidence.\n"
-        "4. UNRELATED DOCUMENTS: If unrelated, set "
-        "'is_unrelated_document': true and leave mapped pages "
-        "empty.\n"
-        "5. MISSING TASKS: If not attempted, set "
-        "'is_relevant': false and 'mapped_page_numbers': []."
-        "6. SCENARIO RELEVANCE: Evidence must reasonably relate "
-        "to the supplied assignment scenario. Technically similar "
-        "but scenario-unrelated work must not be treated as valid "
-        "task evidence."
+        f"1. HARD PAGE LIMIT: The document has EXACTLY {total_pages} pages. "
+        f"Never return a page greater than {total_pages}.\n"
+        "2. MAP ONLY DIRECT EVIDENCE. Do not map a page merely because it "
+        "mentions a related concept or contains general discussion.\n"
+        "3. REQUIRED EVIDENCE: Only map pages to a task when the page "
+        "contains evidence that reasonably satisfies that task's "
+        "required_evidence. Do not map a page based only on similarity "
+        "to the task title.\n"
+        "4. BE SELECTIVE. Return the smallest set of pages needed to support "
+        "the task. Do not map large page ranges unless every page contains "
+        "specific evidence for that task.\n"
+        "5. Do not reuse the same broad page range for many different tasks "
+        "unless the evidence genuinely supports each task.\n"
+        "6. A single page may support multiple tasks only when it contains "
+        "clear evidence for each of those tasks.\n"
+        "7. If a task is not directly evidenced, set 'is_relevant': false "
+        "and 'mapped_page_numbers': [].\n"
+        "8. Do not infer completion from general statements, testing notes, "
+        "descriptions, or references to what should be done.\n"
+        "9. UNRELATED DOCUMENTS: If unrelated, set "
+        "'is_unrelated_document': true and leave mapped pages empty.\n"
+        "10. SCENARIO RELEVANCE: Evidence must reasonably relate to the "
+        "supplied assignment scenario."
     )
 
     http_client = httpx.Client()
@@ -296,6 +300,7 @@ def determine_overall_band(
     return matching_bands[0].band_code
 
 def grade_submission(submission):
+    print("GRADE SUBMISSION START:", submission.id, flush=True)
 
    
 
@@ -442,7 +447,7 @@ def grade_submission(submission):
                     "\n=== CRITERION EVALUATION TARGET ===\n"
                     f"Task Code: {task_code}\n"
                     f"Task Title: {mapping.task.title}\n"
-                    f"Task Instruction: {mapping.task.instructions}\n"
+                    f"Required Evidence: {mapping.task.instructions or '-'}\n"
                     f"Rubric Criterion ID: {criterion_id}\n"
                     f"Criterion Code: "
                     f"{mapping.rubric_criterion.criterion_code}\n"
@@ -520,7 +525,7 @@ def grade_submission(submission):
         "Do not award full credit merely because work is "
         "technically valid if it does not reasonably address "
         "the stated scenario or criterion. "
-        "Use only the supplied evidence and requirements."
+        "Use only the supplied evidence and requirements. "
         "Write feedback in a natural, concise academic tone. "
         "Vary sentence structure and wording between feedback items. "
         "Avoid repeatedly starting feedback with phrases such as "
@@ -539,6 +544,13 @@ def grade_submission(submission):
         http_client=http_client,
     )
 
+    print(
+        "SENDING GRADING REQUEST TO OPENAI",
+        "content_items=",
+        len(user_content),
+        flush=True,
+    )
+        
     completion = client.beta.chat.completions.parse(
         model=settings.OPENAI_API_MODEL,
         messages=[
@@ -559,6 +571,8 @@ def grade_submission(submission):
         completion.choices[0].message.parsed
     )
 
+    print("GRADING RESPONSE RECEIVED", flush=True)
+    
     criterion_groups = {}
 
     for item in grading_result.criterion_evaluations:

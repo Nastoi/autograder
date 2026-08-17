@@ -7,6 +7,8 @@ import {
   type Submission,
 } from "../api/submissions";
 
+import { jsPDF } from "jspdf";
+
 export function ResultPage() {
   const navigate = useNavigate();
   const { submissionId } = useParams();
@@ -51,6 +53,89 @@ export function ResultPage() {
 
   if (!submission) {
     return <main className="admin-container">Loading submission...</main>;
+  }
+
+  function downloadFeedbackPdf() {
+    if (!submission) return;
+
+    const doc = new jsPDF();
+
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const margin = 18;
+    const maxWidth = pageWidth - margin * 2;
+
+    let y = 20;
+
+    function addText(
+      text: string,
+      size = 11,
+      bold = false,
+      spacing = 6,
+    ) {
+      doc.setFontSize(size);
+      doc.setFont("helvetica", bold ? "bold" : "normal");
+
+      const lines = doc.splitTextToSize(text || "—", maxWidth);
+
+      for (const line of lines) {
+        if (y > 275) {
+          doc.addPage();
+          y = 20;
+        }
+
+        doc.text(line, margin, y);
+        y += spacing;
+      }
+    }
+
+    addText("AutoGrad3r Detailed Feedback", 16, true, 8);
+
+    addText(`Assignment: ${submission.assignment_code}`, 11, true);
+    addText(`Attempt: ${submission.attempt_number}`);
+    addText(
+      `Score: ${submission.final_score ?? "—"} / ${submission.maximum_score ?? "—"
+      }`,
+    );
+    addText(`Band: ${submission.achieved_band || "—"}`);
+
+    y += 4;
+
+    addText("Overall Feedback", 13, true, 8);
+    addText(submission.feedback || "No overall feedback provided.");
+
+    y += 6;
+
+    addText("Detailed Criterion Feedback", 13, true, 8);
+
+    submission.criterion_results.forEach((criterion, index) => {
+      if (y > 250) {
+        doc.addPage();
+        y = 20;
+      }
+
+      addText(`Criterion ${index + 1}`, 12, true);
+
+      addText(
+        `Awarded marks: ${criterion.awarded_marks}`,
+      );
+
+      if (criterion.achievement_band) {
+        addText(
+          `Band: ${criterion.achievement_band}`,
+        );
+      }
+
+      addText(
+        criterion.feedback ||
+        "No detailed feedback was provided.",
+      );
+
+      y += 6;
+    });
+
+    doc.save(
+      `${submission.assignment_code}-attempt-${submission.attempt_number}-feedback.pdf`,
+    );
   }
 
   return (
@@ -113,6 +198,13 @@ export function ResultPage() {
                 <h3>Feedback</h3>
                 <p>{submission.feedback}</p>
               </div>
+              <button
+                type="button"
+                className="submit-again-btn"
+                onClick={downloadFeedbackPdf}
+              >
+                Download Detailed Feedback PDF
+              </button>
             </>
           )}
 

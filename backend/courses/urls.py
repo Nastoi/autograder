@@ -7,11 +7,14 @@ from .assignment_delete import (
 from .views import (
     AssignmentLevelDetailView,
     AssignmentLevelListCreateView,
+    CohortDeleteImpactView,
     CohortDetailView,
     CohortListCreateView,
     ModuleAssignmentListCreateView,
+    ModuleDeleteImpactView,
     ModuleDetailView,
     ModuleListCreateView,
+    QualificationDeleteImpactView,
     QualificationDetailView,
     QualificationListCreateView,
 )
@@ -71,5 +74,20 @@ urlpatterns = [
         "assignment-levels/<uuid:id>/",
         AssignmentLevelDetailView.as_view(),
         name="assignment-level-detail",
+    ),
+    path(
+        "qualifications/<uuid:id>/delete-impact/",
+        QualificationDeleteImpactView.as_view(),
+        name="qualification-delete-impact",
+    ),
+    path(
+        "modules/<uuid:id>/delete-impact/",
+        ModuleDeleteImpactView.as_view(),
+        name="module-delete-impact",
+    ),
+    path(
+        "cohorts/<uuid:id>/delete-impact/",
+        CohortDeleteImpactView.as_view(),
+        name="cohort-delete-impact",
     ),
 ]

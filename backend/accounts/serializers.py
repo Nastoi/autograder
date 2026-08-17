@@ -113,6 +113,7 @@ class CurrentUserSerializer(serializers.ModelSerializer):
             "role",
             "lms_user_id",
             "must_change_password",
+            "is_superuser",
         )
 
     def get_must_change_password(self, user):

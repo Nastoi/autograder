@@ -5,9 +5,7 @@ import {
   GraduationCap,
   Users,
   ClipboardList,
-  LayoutDashboard,
   FileText,
-  UserCog,
 } from "lucide-react";
 
 export function Header() {
@@ -97,19 +95,20 @@ export function Header() {
             </div>
             
           </div>
-          <Link
-              to="/admin/users"
-              className="nav-link"
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "6px",
-              }}
-            >
-              
-              User Management
-            </Link>
-
+          {user?.is_superuser && (
+            <Link
+                to="/admin/users"
+                className="nav-link"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                }}
+              >
+                
+                User Management
+              </Link>
+            )}
         </div>
         <button onClick={handleLogout} className="logout-button">
           Logout
