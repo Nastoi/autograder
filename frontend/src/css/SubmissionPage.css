@@ -1007,3 +1007,21 @@
   font-size: 13px;
   line-height: 1.5;
 }
+
+.criterion-feedback-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 8px;
+}
+
+.criterion-feedback-header strong {
+  font-weight: 700;
+}
+
+.criterion-feedback-header span {
+  flex-shrink: 0;
+  font-weight: 700;
+  color: #475569;
+}

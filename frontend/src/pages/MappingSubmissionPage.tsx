@@ -753,8 +753,7 @@ export function MappingSubmissionPage() {
                 </span>
 
                 <strong>
-                  {context.cohort.code} —{" "}
-                  {context.cohort.name}
+                  {context.cohort.code}
                 </strong>
               </div>
 
@@ -811,8 +810,7 @@ export function MappingSubmissionPage() {
                 </span>
 
                 <strong>
-                  {context.assignment.code} —{" "}
-                  {context.assignment.title}
+                  {context.assignment.code}
                 </strong>
               </div>
             </section>

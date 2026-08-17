@@ -34,6 +34,7 @@ from courses.models import AssignmentLevel
 from lms.models import AssessmentMapping
 from accounts.audit import record_portal_activity
 from accounts.models import PortalActivity
+import hashlib
 
 logger = logging.getLogger(__name__)
 
@@ -342,8 +343,15 @@ class LtiLoginView(APIView):
             "target_link_uri": target_link_uri,
             "nonce": nonce,
         })
+        state_cache_key = (
+            "lti_state:"
+            + hashlib.sha256(
+                state.encode("utf-8")
+            ).hexdigest()
+        )
+
         cache.set(
-            f"lti_state:{state}",
+            state_cache_key,
             True,
             timeout=600,
         )

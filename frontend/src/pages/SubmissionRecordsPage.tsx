@@ -58,10 +58,28 @@ function formatResult(
   score: string | null,
   maximumScore: string | null,
 ) {
-  if (score === null) return "Pending";
-  if (maximumScore === null) return score;
+  if (
+    score === null ||
+    maximumScore === null
+  ) {
+    return "Pending";
+  }
 
-  return `${score} / ${maximumScore}`;
+  const numericScore = Number(score);
+  const numericMaximum = Number(maximumScore);
+
+  if (
+    !Number.isFinite(numericScore) ||
+    !Number.isFinite(numericMaximum) ||
+    numericMaximum <= 0
+  ) {
+    return "Pending";
+  }
+
+  const percentage =
+    (numericScore / numericMaximum) * 100;
+
+  return `${percentage.toFixed(2)} / 100`;
 }
 
 function percentageFromAttempt(attempt: {

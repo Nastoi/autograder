@@ -7,6 +7,7 @@ import jwt
 from django.conf import settings
 from django.core import signing
 from django.core.cache import cache
+import hashlib
 
 def get_or_create_lti_user(
     issuer,
@@ -125,7 +126,12 @@ def verify_lti_launch(id_token, state):
             status=400,
         )
 
-    state_cache_key = f"lti_state:{state}"
+    state_cache_key = (
+        "lti_state:"
+        + hashlib.sha256(
+            state.encode("utf-8")
+        ).hexdigest()
+    )
 
     if not cache.get(state_cache_key):
         return None, Response(
