@@ -139,16 +139,31 @@ def get_attempt_policy(
     attempts_used = len(limited_attempts)
 
     attempts_remaining = max(
-        MAX_ATTEMPTS_AFTER_FIRST_PASS - attempts_used,
-        0,
-    )
-
-    return AttemptPolicy(
+    #     MAX_ATTEMPTS_AFTER_FIRST_PASS - attempts_used,
+    #     0,
         can_submit=attempts_remaining > 0,
         limited_mode=True,
-        attempts_used=attempts_used,
         attempts_remaining=attempts_remaining,
         first_pass_attempt=first_pass.attempt_number,
+    )
+
+
+
+    # return AttemptPolicy(
+    #     can_submit=attempts_remaining > 0,
+    #     limited_mode=True,
+    #     attempts_used=attempts_used,
+    #     attempts_remaining=attempts_remaining,
+    #     first_pass_attempt=first_pass.attempt_number,
+    #     best_score=best_score,
+    # )
+    
+    return AttemptPolicy(
+        can_submit=True,
+        limited_mode=False,
+        attempts_used=attempts_used,
+        attempts_remaining=None,
+        first_pass_attempt=None,
         best_score=best_score,
     )
 

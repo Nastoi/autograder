@@ -53,8 +53,8 @@ export function MappingSubmissionPage() {
     useState(false);
 
   const latestAttempt = attempts[0];
-  const hasNoAttemptsRemaining =
-    attemptPolicy?.can_submit === false;
+  // const hasNoAttemptsRemaining =
+  //   attemptPolicy?.can_submit === false;
   const isWaitingForGrading =
     latestAttempt?.status === "uploaded" ||
     latestAttempt?.status === "processing";
@@ -471,7 +471,7 @@ export function MappingSubmissionPage() {
               Attempts
             </span>
 
-            <strong>
+            {/* <strong>
               {attempts.length === 0
                 ? "-"
                 : attemptPolicy?.limited_mode
@@ -482,6 +482,12 @@ export function MappingSubmissionPage() {
                       : "attempts"
                     } remaining`
                   : "Resubmit and try again"}
+            </strong> */}
+            <strong>
+              {attempts.length === 0
+                ? "No attempts yet"
+                : `${attempts.length} ${attempts.length === 1 ? "attempt" : "attempts"
+                }`}
             </strong>
           </div>
 
@@ -497,7 +503,7 @@ export function MappingSubmissionPage() {
           </div>
         </section>
 
-        {attemptPolicy?.limited_mode && (
+        {/* {attemptPolicy?.limited_mode && (
           <div className="grading-wait-message">
             <strong>
               {attemptPolicy.attempts_remaining === 0
@@ -513,7 +519,7 @@ export function MappingSubmissionPage() {
               {attemptPolicy.attempts_used} of 3 attempts.
             </p>
           </div>
-        )}
+        )} */}
 
         <div className="new-attempt-heading">
           <h2>
@@ -527,7 +533,7 @@ export function MappingSubmissionPage() {
             your completed assignment.
           </p>
         </div>
-
+        {/* 
         {isWaitingForGrading && (
           <div className="grading-wait-message">
             <strong>
@@ -539,7 +545,14 @@ export function MappingSubmissionPage() {
               grading is complete.
             </p>
           </div>
-        )}
+        )} */}
+        {isWaitingForGrading
+          ? "Waiting for Grading"
+          : isSubmitting
+            ? "Submitting..."
+            : attempts.length > 0
+              ? "Submit New Attempt"
+              : "Submit Assignment"}
 
 
         <form
@@ -564,8 +577,8 @@ export function MappingSubmissionPage() {
                 }
                 disabled={
                   isSubmitting ||
-                  isWaitingForGrading ||
-                  hasNoAttemptsRemaining
+                  isWaitingForGrading
+                  // hasNoAttemptsRemaining
                 }
                 required
               />
@@ -590,8 +603,8 @@ export function MappingSubmissionPage() {
                 }
                 disabled={
                   isSubmitting ||
-                  isWaitingForGrading ||
-                  hasNoAttemptsRemaining
+                  isWaitingForGrading
+                  // hasNoAttemptsRemaining
                 }
                 required
               />
@@ -612,8 +625,8 @@ export function MappingSubmissionPage() {
                 ? "file-upload-box-dragging"
                 : "",
               isSubmitting ||
-                isWaitingForGrading ||
-                hasNoAttemptsRemaining
+                isWaitingForGrading
+                // hasNoAttemptsRemaining
                 ? "file-upload-box-disabled"
                 : "",
             ]
@@ -653,8 +666,8 @@ export function MappingSubmissionPage() {
             onChange={handleFileChange}
             disabled={
               isSubmitting ||
-              isWaitingForGrading ||
-              hasNoAttemptsRemaining
+              isWaitingForGrading
+              // hasNoAttemptsRemaining
             }
             ref={fileInputRef}
             required
@@ -688,8 +701,9 @@ export function MappingSubmissionPage() {
                   }
                 }}
                 disabled={isSubmitting ||
-                  isWaitingForGrading ||
-                  hasNoAttemptsRemaining}
+                  isWaitingForGrading
+                  // hasNoAttemptsRemaining
+                }
               >
                 Remove
               </button>
@@ -713,13 +727,15 @@ export function MappingSubmissionPage() {
                 !selectedFile ||
                 !submissionTrack ||
                 isSubmitting ||
-                isWaitingForGrading ||
-                hasNoAttemptsRemaining
+                isWaitingForGrading
+                // hasNoAttemptsRemaining
               }
             >
-              {hasNoAttemptsRemaining
-                ? "No Attempts Remaining"
-                : isWaitingForGrading
+              {
+                // hasNoAttemptsRemaining
+                //   ? "No Attempts Remaining"
+                //   : 
+                isWaitingForGrading
                   ? "Waiting for Grading"
                   : isSubmitting
                     ? "Submitting..."
@@ -835,44 +851,44 @@ export function MappingSubmissionPage() {
             )}
 
             {attempts[0].status === "completed" &&
-  attempts[0].criterion_results.length > 0 && (
-    <details className="latest-feedback detailed-feedback-collapse">
-      <summary>
-        Detailed Feedback
-      </summary>
+              attempts[0].criterion_results.length > 0 && (
+                <details className="latest-feedback detailed-feedback-collapse">
+                  <summary>
+                    Detailed Feedback
+                  </summary>
 
-      <div className="detailed-feedback-content">
-        {attempts[0].criterion_results.map(
-          (criterion, index) => (
-            <div
-              key={criterion.id}
-              className="criterion-feedback-item"
-            >
-              <div className="criterion-feedback-header">
-                <strong>
-                  Criterion {index + 1}
-                </strong>
+                  <div className="detailed-feedback-content">
+                    {attempts[0].criterion_results.map(
+                      (criterion, index) => (
+                        <div
+                          key={criterion.id}
+                          className="criterion-feedback-item"
+                        >
+                          <div className="criterion-feedback-header">
+                            <strong>
+                              Criterion {index + 1}
+                            </strong>
 
-                <span>
-                  {criterion.awarded_marks} marks
-                </span>
-              </div>
+                            <span>
+                              {criterion.awarded_marks} marks
+                            </span>
+                          </div>
 
-              {criterion.achievement_band && (
-                <div className="criterion-feedback-band">
-                  {criterion.achievement_band}
-                </div>
+                          {criterion.achievement_band && (
+                            <div className="criterion-feedback-band">
+                              {criterion.achievement_band}
+                            </div>
+                          )}
+
+                          <p className="criterion-feedback-text">
+                            {criterion.feedback}
+                          </p>
+                        </div>
+                      ),
+                    )}
+                  </div>
+                </details>
               )}
-
-              <p className="criterion-feedback-text">
-                {criterion.feedback}
-              </p>
-            </div>
-          ),
-        )}
-      </div>
-    </details>
-  )}
 
             {attempts[0].status === "completed" && (
               <button

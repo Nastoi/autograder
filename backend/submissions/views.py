@@ -261,31 +261,31 @@ class SubmissionCreateView(APIView):
             assignment=assignment,
         )
 
-        if not attempt_policy.can_submit:
-            return Response(
-                {
-                    "detail": (
-                        "You have used all 3 attempts available "
-                        "after achieving your first passing grade."
-                    ),
-                    "attempt_policy": {
-                        "limited_mode": True,
-                        "attempts_used": (
-                            attempt_policy.attempts_used
-                        ),
-                        "attempts_remaining": 0,
-                        "first_pass_attempt": (
-                            attempt_policy.first_pass_attempt
-                        ),
-                        "best_score": (
-                            str(attempt_policy.best_score)
-                            if attempt_policy.best_score is not None
-                            else None
-                        ),
-                    },
-                },
-                status=status.HTTP_409_CONFLICT,
-            )
+        # if not attempt_policy.can_submit:
+        #     return Response(
+        #         {
+        #             "detail": (
+        #                 "You have used all 3 attempts available "
+        #                 "after achieving your first passing grade."
+        #             ),
+        #             "attempt_policy": {
+        #                 "limited_mode": True,
+        #                 "attempts_used": (
+        #                     attempt_policy.attempts_used
+        #                 ),
+        #                 "attempts_remaining": 0,
+        #                 "first_pass_attempt": (
+        #                     attempt_policy.first_pass_attempt
+        #                 ),
+        #                 "best_score": (
+        #                     str(attempt_policy.best_score)
+        #                     if attempt_policy.best_score is not None
+        #                     else None
+        #                 ),
+        #             },
+        #         },
+        #         status=status.HTTP_409_CONFLICT,
+        #     )
 
         previous_attempts = LearnerSubmission.objects.filter(
             learner=request.user,
