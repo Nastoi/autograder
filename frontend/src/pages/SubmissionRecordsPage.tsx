@@ -21,7 +21,7 @@ import {
   getAdminSubmissionRecords,
   type AdminSubmissionRecordsResponse,
 } from "../api/adminSubmissionRecords";
-
+import { jsPDF } from "jspdf";
 type RecordsTab = "records" | "gradebook";
 
 function formatDate(value: string | null) {

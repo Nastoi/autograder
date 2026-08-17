@@ -19,6 +19,8 @@ import {
 
 type SubmissionTrack = "basic" | "advanced";
 
+
+
 export function SubmissionPage() {
   const { contextId } = useParams();
   const navigate = useNavigate();
@@ -217,7 +219,7 @@ export function SubmissionPage() {
             <div>
               <h2>Submit your assignment</h2>
               <p>
-                Accepted formats: DOC, DOCX, PDF, PBIX and ZIP.
+                Accepted formats: PDF or ZIP containing one PDF.
               </p>
             </div>
           </div>
@@ -313,7 +315,6 @@ export function SubmissionPage() {
               name="submitted_file"
               className="file-input"
               type="file"
-              // accept=".doc,.docx,.pdf,.pbix,.zip"
               accept=".pdf,.zip"
               onChange={handleFileChange}
               disabled={isSubmitting}
@@ -388,24 +389,26 @@ export function SubmissionPage() {
           </div>
         </section>
       </div>
+
+      
       {isSubmitting && (
-  <div className="grading-modal-backdrop">
-    <div className="grading-modal">
-      <div className="grading-spinner" />
+        <div className="grading-modal-backdrop">
+          <div className="grading-modal">
+            <div className="grading-spinner" />
 
-      <h2>Grading your submission</h2>
+            <h2>Grading your submission</h2>
 
-      <p>
-        AutoGrad3r is reviewing your submission against the
-        assignment tasks and rubric.
-      </p>
+            <p>
+              AutoGrad3r is reviewing your submission against the
+              assignment tasks and rubric.
+            </p>
 
-      <p className="grading-modal-note">
-        This may take a few minutes. Please keep this page open.
-      </p>
-    </div>
-  </div>
-)}
+            <p className="grading-modal-note">
+              This may take a few minutes. Please keep this page open.
+            </p>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

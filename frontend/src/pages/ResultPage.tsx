@@ -195,9 +195,38 @@ export function ResultPage() {
               </div>
 
               <div className="feedback-box">
-                <h3>Feedback</h3>
+                <h3>Overall Feedback</h3>
                 <p>{submission.feedback}</p>
               </div>
+
+              {submission.criterion_results.length > 0 && (
+                <div className="feedback-box">
+                  <h3>Detailed Feedback</h3>
+
+                  {submission.criterion_results.map((criterion, index) => (
+                    <div
+                      key={criterion.id}
+                      className="criterion-feedback-item"
+                    >
+                      <div className="criterion-feedback-header">
+                        <strong>Criterion {index + 1}</strong>
+                        <span>{criterion.awarded_marks} marks</span>
+                      </div>
+
+                      {criterion.achievement_band && (
+                        <div className="criterion-feedback-band">
+                          {criterion.achievement_band}
+                        </div>
+                      )}
+
+                      <p className="criterion-feedback-text">
+                        {criterion.feedback}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+
               <button
                 type="button"
                 className="submit-again-btn"

@@ -25,13 +25,11 @@ import {
   type Submission,
 } from "../api/submissions";
 
+import { jsPDF } from "jspdf";
 
 
 
-
-
-
-
+type SubmissionTrack = "basic" | "advanced";
 
 export function MappingSubmissionPage() {
   const [attempts, setAttempts] = useState<Submission[]>([]);
@@ -63,13 +61,9 @@ export function MappingSubmissionPage() {
   const MAX_FILE_SIZE = 50 * 1024 * 1024;
 
   const ALLOWED_EXTENSIONS = [
-    ".doc",
-    ".docx",
     ".pdf",
-    ".pbix",
     ".zip",
   ];
-  type SubmissionTrack = "basic" | "advanced";
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -145,6 +139,87 @@ export function MappingSubmissionPage() {
       window.clearInterval(intervalId);
     };
   }, [mappingId, attempts]);
+
+  function downloadFeedbackPdf(attempt: Submission) {
+    const doc = new jsPDF();
+
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const margin = 18;
+    const maxWidth = pageWidth - margin * 2;
+
+    let y = 20;
+
+    function addText(
+      text: string,
+      size = 11,
+      bold = false,
+      spacing = 6,
+    ) {
+      doc.setFontSize(size);
+      doc.setFont("helvetica", bold ? "bold" : "normal");
+
+      const lines = doc.splitTextToSize(
+        text || "—",
+        maxWidth,
+      );
+
+      for (const line of lines) {
+        if (y > 275) {
+          doc.addPage();
+          y = 20;
+        }
+
+        doc.text(line, margin, y);
+        y += spacing;
+      }
+    }
+
+    addText("AutoGrad3r Detailed Feedback", 16, true, 8);
+    addText(`Assignment: ${attempt.assignment_code}`, 11, true);
+    addText(`Attempt: ${attempt.attempt_number}`);
+    addText(
+      `Score: ${attempt.final_score ?? "—"} / ${attempt.maximum_score ?? "—"}`,
+    );
+    addText(`Band: ${attempt.achieved_band || "—"}`);
+
+    y += 4;
+
+    addText("Overall Feedback", 13, true, 8);
+    addText(
+      attempt.feedback || "No overall feedback provided.",
+    );
+
+    y += 6;
+
+    addText("Detailed Criterion Feedback", 13, true, 8);
+
+    attempt.criterion_results.forEach(
+      (criterion, index) => {
+        if (y > 250) {
+          doc.addPage();
+          y = 20;
+        }
+
+        addText(`Criterion ${index + 1}`, 12, true);
+        addText(`Awarded marks: ${criterion.awarded_marks}`);
+
+        if (criterion.achievement_band) {
+          addText(`Band: ${criterion.achievement_band}`);
+        }
+
+        addText(
+          criterion.feedback ||
+          "No detailed feedback was provided.",
+        );
+
+        y += 6;
+      },
+    );
+
+    doc.save(
+      `${attempt.assignment_code}-attempt-${attempt.attempt_number}-feedback.pdf`,
+    );
+  }
 
   function handleFileChange(
     event: ChangeEvent<HTMLInputElement>,
@@ -314,7 +389,7 @@ export function MappingSubmissionPage() {
     if (!ALLOWED_EXTENSIONS.includes(extension)) {
       setSelectedFile(null);
       setError(
-        "Unsupported file type. Allowed types: DOC, DOCX, PDF, PBIX, ZIP.",
+        "Unsupported file type. Please upload a PDF or ZIP containing one PDF.",
       );
       return false;
     }
@@ -561,7 +636,7 @@ export function MappingSubmissionPage() {
 
             <span className="upload-help">
               or browse your computer.
-              DOC, DOCX, PDF, PBIX, ZIP — maximum 50 MB.
+              PDF or ZIP containing one PDF — maximum 50 MB.
             </span>
 
             <span className="file-button">
@@ -574,7 +649,7 @@ export function MappingSubmissionPage() {
             name="submitted_file"
             className="file-input"
             type="file"
-            accept=".doc,.docx,.pdf,.pbix,.zip"
+            accept=".pdf,.zip"
             onChange={handleFileChange}
             disabled={
               isSubmitting ||
@@ -752,11 +827,63 @@ export function MappingSubmissionPage() {
             {attempts[0].feedback && (
               <div className="latest-feedback">
                 <span className="attempt-detail-label">
-                  Feedback
+                  Overall Feedback
                 </span>
 
                 <p>{attempts[0].feedback}</p>
               </div>
+            )}
+
+            {attempts[0].status === "completed" &&
+  attempts[0].criterion_results.length > 0 && (
+    <details className="latest-feedback detailed-feedback-collapse">
+      <summary>
+        Detailed Feedback
+      </summary>
+
+      <div className="detailed-feedback-content">
+        {attempts[0].criterion_results.map(
+          (criterion, index) => (
+            <div
+              key={criterion.id}
+              className="criterion-feedback-item"
+            >
+              <div className="criterion-feedback-header">
+                <strong>
+                  Criterion {index + 1}
+                </strong>
+
+                <span>
+                  {criterion.awarded_marks} marks
+                </span>
+              </div>
+
+              {criterion.achievement_band && (
+                <div className="criterion-feedback-band">
+                  {criterion.achievement_band}
+                </div>
+              )}
+
+              <p className="criterion-feedback-text">
+                {criterion.feedback}
+              </p>
+            </div>
+          ),
+        )}
+      </div>
+    </details>
+  )}
+
+            {attempts[0].status === "completed" && (
+              <button
+                type="button"
+                className="btn-primary feedback-download-btn"
+                onClick={() =>
+                  downloadFeedbackPdf(attempts[0])
+                }
+              >
+                Download Detailed Feedback PDF
+              </button>
             )}
 
             {attempts[0].status === "manual_review" && (
