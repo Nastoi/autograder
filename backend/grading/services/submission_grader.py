@@ -151,34 +151,89 @@ def map_submission_tasks(submission):
                 }
             )
 
+    # system_prompt = (
+    #     "You are an expert academic evaluator and document structure mapper.\n\n"
+    #     "YOUR GOAL:\n"
+    #     "Map each assignment task to ONLY the exact PDF pages that contain "
+    #     "direct evidence of that task being performed or documented.\n\n"
+    #     "RULES:\n"
+    #     f"1. HARD PAGE LIMIT: The document has EXACTLY {total_pages} pages. "
+    #     f"Never return a page greater than {total_pages}.\n"
+    #     "2. MAP ONLY DIRECT EVIDENCE. Do not map a page merely because it "
+    #     "mentions a related concept or contains general discussion.\n"
+    #     "3. REQUIRED EVIDENCE: Only map pages to a task when the page "
+    #     "contains evidence that reasonably satisfies that task's "
+    #     "required_evidence. Do not map a page based only on similarity "
+    #     "to the task title.\n"
+    #     "4. BE SELECTIVE. Return the smallest set of pages needed to support "
+    #     "the task. Do not map large page ranges unless every page contains "
+    #     "specific evidence for that task.\n"
+    #     "5. Do not reuse the same broad page range for many different tasks "
+    #     "unless the evidence genuinely supports each task.\n"
+    #     "6. A single page may support multiple tasks only when it contains "
+    #     "clear evidence for each of those tasks.\n"
+    #     "7. If a task is not directly evidenced, set 'is_relevant': false "
+    #     "and 'mapped_page_numbers': [].\n"
+    #     "8. Do not infer completion from general statements, testing notes, "
+    #     "descriptions, or references to what should be done.\n"
+    #     "9. UNRELATED DOCUMENTS: If unrelated, set "
+    #     "'is_unrelated_document': true and leave mapped pages empty.\n"
+    #     "10. SCENARIO RELEVANCE: Evidence must reasonably relate to the "
+    #     "supplied assignment scenario."
+    # )
+
     system_prompt = (
         "You are an expert academic evaluator and document structure mapper.\n\n"
+
+        "IMPORTANT VISUAL CONTEXT:\n"
+        "The images supplied to you are rendered images of the learner's PDF pages. "
+        "The existence of a page image is NOT evidence by itself. "
+        "Only content that is clearly visible inside the page may be treated as evidence.\n\n"
+
         "YOUR GOAL:\n"
         "Map each assignment task to ONLY the exact PDF pages that contain "
         "direct evidence of that task being performed or documented.\n\n"
+
         "RULES:\n"
         f"1. HARD PAGE LIMIT: The document has EXACTLY {total_pages} pages. "
         f"Never return a page greater than {total_pages}.\n"
+
         "2. MAP ONLY DIRECT EVIDENCE. Do not map a page merely because it "
         "mentions a related concept or contains general discussion.\n"
+
         "3. REQUIRED EVIDENCE: Only map pages to a task when the page "
         "contains evidence that reasonably satisfies that task's "
-        "required_evidence. Do not map a page based only on similarity "
-        "to the task title.\n"
-        "4. BE SELECTIVE. Return the smallest set of pages needed to support "
+        "required_evidence. The task instructions describe what SHOULD be "
+        "present; they are not evidence that it actually exists.\n"
+
+        "4. For visual requirements such as screenshots, data connections, "
+        "Queries panes, configuration screens, tables, outputs, dashboards, "
+        "or interface states, map the page only when those elements are "
+        "clearly visible in the learner's submitted page.\n"
+
+        "5. Do not infer hidden or implied evidence from filenames, nearby text, "
+        "expected workflow, page layout, task titles, or assignment instructions.\n"
+
+        "6. If the required visual element cannot be clearly identified, "
+        "treat it as not evidenced.\n"
+
+        "7. BE SELECTIVE. Return the smallest set of pages needed to support "
         "the task. Do not map large page ranges unless every page contains "
         "specific evidence for that task.\n"
-        "5. Do not reuse the same broad page range for many different tasks "
-        "unless the evidence genuinely supports each task.\n"
-        "6. A single page may support multiple tasks only when it contains "
-        "clear evidence for each of those tasks.\n"
-        "7. If a task is not directly evidenced, set 'is_relevant': false "
+
+        "8. A single page may support multiple tasks only when it contains "
+        "clear evidence for each task.\n"
+
+        "9. If a task is not directly evidenced, set 'is_relevant': false "
         "and 'mapped_page_numbers': [].\n"
-        "8. Do not infer completion from general statements, testing notes, "
+
+        "10. Do not infer completion from general statements, testing notes, "
         "descriptions, or references to what should be done.\n"
-        "9. UNRELATED DOCUMENTS: If unrelated, set "
+
+        "11. UNRELATED DOCUMENTS: If unrelated, set "
         "'is_unrelated_document': true and leave mapped pages empty.\n"
-        "10. SCENARIO RELEVANCE: Evidence must reasonably relate to the "
+
+        "12. SCENARIO RELEVANCE: Evidence must reasonably relate to the "
         "supplied assignment scenario."
     )
 

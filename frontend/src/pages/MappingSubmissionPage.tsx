@@ -88,9 +88,9 @@ export function MappingSubmissionPage() {
 
   const gradingMessages = [
     "Reading your submission...",
-    "Extracting evidence from your PDF...",
+    "Extracting evidence...",
     "Matching evidence to assignment tasks...",
-    "Reviewing your work against the rubric...",
+    "Reviewing your work...",
     "Checking criterion coverage...",
     "Preparing grading feedback...",
     "Calculating your result...",
@@ -289,7 +289,10 @@ export function MappingSubmissionPage() {
     addText(`Assignment: ${attempt.assignment_code}`, 11, true);
     addText(`Attempt: ${attempt.attempt_number}`);
     addText(
-      `Score: ${attempt.final_score ?? "—"} / ${attempt.maximum_score ?? "—"}`,
+      `Score: ${formatScoreOutOf100(
+        attempt.final_score,
+        attempt.maximum_score,
+      )}`,
     );
     addText(`Band: ${attempt.achieved_band || "—"}`);
 
@@ -331,6 +334,38 @@ export function MappingSubmissionPage() {
       `${attempt.assignment_code}-attempt-${attempt.attempt_number}-feedback.pdf`,
     );
   }
+
+
+  function formatScoreOutOf100(
+    score: string | number | null | undefined,
+    maximumScore: string | number | null | undefined,
+  ) {
+    if (
+      score === null ||
+      score === undefined ||
+      maximumScore === null ||
+      maximumScore === undefined
+    ) {
+      return "—";
+    }
+
+    const numericScore = Number(score);
+    const numericMaximum = Number(maximumScore);
+
+    if (
+      !Number.isFinite(numericScore) ||
+      !Number.isFinite(numericMaximum) ||
+      numericMaximum <= 0
+    ) {
+      return "—";
+    }
+
+    return `${(
+      (numericScore / numericMaximum) *
+      100
+    ).toFixed(2)} / 100`;
+  }
+
 
   function handleFileChange(
     event: ChangeEvent<HTMLInputElement>,
@@ -1561,7 +1596,10 @@ export function MappingSubmissionPage() {
                                           </strong>
                                         </td>
                                         <td>
-                                          {attempt.achieved_band || "—"}
+                                          {attempt.achieved_band
+                                            ? attempt.achieved_band.charAt(0).toUpperCase() +
+                                            attempt.achieved_band.slice(1)
+                                            : "Pending"}
                                         </td>
                                         <td>
                                           {formatInstructorDate(
