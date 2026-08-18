@@ -9,7 +9,7 @@ from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
-from .tasks import grade_submission_task
+from config.celery import app as celery_app
 from .models import LearnerSubmission, SubmissionContext, SubmissionPage
 from .serializers import (
     LearnerSubmissionSerializer,
@@ -339,8 +339,9 @@ class SubmissionCreateView(APIView):
         # accepted attempt. Queue grading in Celery so the HTTP request
         # does not wait for extraction/AI grading to finish.
         try:
-            grade_submission_task.delay(
-                str(submission.id)
+            celery_app.send_task(
+                "submissions.tasks.grade_submission_task",
+                args=[str(submission.id)],
             )
         except Exception:
             logger.exception(

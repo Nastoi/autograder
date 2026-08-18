@@ -41,7 +41,10 @@ def grade_submission_task(
             # This can happen if a worker redelivers an already-completed task.
             # Queue AGS again safely; the passback task will verify this is
             # still the latest accepted attempt before sending anything.
-            push_submission_grade_task.delay(str(submission.id))
+            self.app.send_task(
+                "submissions.tasks.push_submission_grade_task",
+                args=[str(submission.id)],
+            )
             return
 
         logger.info(
@@ -66,7 +69,10 @@ def grade_submission_task(
         # AGS passback happens only after this grading run has finished.
         # The passback task sends the real percentage for a valid completed
         # grade, otherwise 0/100 for this accepted latest attempt.
-        push_submission_grade_task.delay(str(submission.id))
+        self.app.send_task(
+            "submissions.tasks.push_submission_grade_task",
+            args=[str(submission.id)],
+        )
 
     except Exception:
         logger.exception(
@@ -83,7 +89,10 @@ def grade_submission_task(
         # Once grading has ended in error, queue AGS passback. If this is
         # still the latest attempt, the passback task will send 0/100.
         try:
-            push_submission_grade_task.delay(str(submission.id))
+            self.app.send_task(
+                "submissions.tasks.push_submission_grade_task",
+                args=[str(submission.id)],
+            )
         except Exception:
             logger.exception(
                 "Could not queue AGS passback for failed submission %s.",
