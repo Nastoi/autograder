@@ -33,6 +33,10 @@ from .services import (
     run_ai_grading,
     prepare_submission_file,
 )
+import logging
+
+logger = logging.getLogger(__name__)
+
 ALLOWED_EXTENSIONS = {
     # ".doc",
     # ".docx",
