@@ -124,6 +124,8 @@ export function SubmissionRecordsPage() {
 
   const [expandedCohorts, setExpandedCohorts] =
     useState<string[]>([]);
+  const [expandedGradebookCohorts, setExpandedGradebookCohorts] =
+    useState<string[]>([]);
   const [expandedAssignments, setExpandedAssignments] =
     useState<string[]>([]);
   const [expandedLearners, setExpandedLearners] =
@@ -236,40 +238,63 @@ export function SubmissionRecordsPage() {
 
     const query = search.trim().toLowerCase();
 
-    return data.cohorts
-      .filter(
-        (cohort) =>
-          !cohortFilter || cohort.id === cohortFilter,
-      )
+    const cohortMap = new Map<
+      string,
+      {
+        id: string;
+        code: string;
+        name: string;
+        mappedAssignments: Array<{
+          id: string;
+          mappingId: string;
+          code: string;
+          title: string;
+          isSummative: boolean;
+          contributesToFinalMark: boolean;
+          weight: number;
+        }>;
+      }
+    >();
+
+    // Build the gradebook columns from AssessmentMappings, not from
+    // submissions. This keeps every mapped assessment visible even when
+    // nobody has submitted it yet.
+    mappings.forEach((mapping) => {
+      const cohortId = mapping.cohort.toString();
+
+      if (cohortFilter && cohortId !== cohortFilter) {
+        return;
+      }
+
+      if (!cohortMap.has(cohortId)) {
+        cohortMap.set(cohortId, {
+          id: cohortId,
+          code: mapping.cohort_code,
+          name: mapping.cohort_name,
+          mappedAssignments: [],
+        });
+      }
+
+      cohortMap.get(cohortId)!.mappedAssignments.push({
+        id: mapping.assignment,
+        mappingId: mapping.id,
+        code: mapping.assignment_code,
+        title: mapping.assignment_title,
+        isSummative: mapping.assignment_is_summative,
+        contributesToFinalMark:
+          mapping.assignment_contributes_to_final_mark,
+        weight: Number(mapping.final_mark_weight || 0),
+      });
+    });
+
+    return Array.from(cohortMap.values())
       .map((cohort) => {
-        const cohortMappings = mappings.filter(
-          (mapping) =>
-            mapping.cohort.toString() === cohort.id &&
-            mapping.assignment_contributes_to_final_mark &&
-            Number(mapping.final_mark_weight || 0) > 0,
+        const submissionCohort = data.cohorts.find(
+          (item) => item.id === cohort.id,
         );
-
-        const contributingAssignments = cohortMappings
-          .map((mapping) => {
-            const assignment = cohort.assignments.find(
-              (item) => item.id === mapping.assignment,
-            );
-
-            if (!assignment) return null;
-
-            return {
-              ...assignment,
-              weight: Number(
-                mapping.final_mark_weight || 0,
-              ),
-            };
-          })
-          .filter(
-            (
-              assignment,
-            ): assignment is NonNullable<typeof assignment> =>
-              assignment !== null,
-          );
+        const gradebookCohort = data.gradebook_cohorts.find(
+          (item) => item.id === cohort.id,
+        );
 
         const learnerMap = new Map<
           string,
@@ -281,12 +306,6 @@ export function SubmissionRecordsPage() {
           }
         >();
 
-        // Final Gradebook uses the cohort learner list returned by the
-        // backend, so learners with no submissions still appear with 0.
-        const gradebookCohort = data.gradebook_cohorts.find(
-          (item) => item.id === cohort.id,
-        );
-
         gradebookCohort?.learners.forEach((learner) => {
           learnerMap.set(learner.id, {
             id: learner.id,
@@ -296,9 +315,9 @@ export function SubmissionRecordsPage() {
           });
         });
 
-        // Keep submission learners as a safe fallback in case an older
-        // context record is missing from gradebook_cohorts.
-        cohort.assignments.forEach((assignment) => {
+        // Submission learners are retained as a fallback for older data
+        // where a submission exists but its active context is unavailable.
+        submissionCohort?.assignments.forEach((assignment) => {
           assignment.learners.forEach((learner) => {
             if (!learnerMap.has(learner.id)) {
               learnerMap.set(learner.id, {
@@ -311,63 +330,77 @@ export function SubmissionRecordsPage() {
           });
         });
 
-        const learners = Array.from(
-          learnerMap.values(),
-        )
+        const learners = Array.from(learnerMap.values())
           .map((learner) => {
-            const assignmentScores =
-              contributingAssignments.map((assignment) => {
+            const assignmentScores = cohort.mappedAssignments.map(
+              (mappedAssignment) => {
+                const submissionAssignment =
+                  submissionCohort?.assignments.find(
+                    (item) => item.id === mappedAssignment.id,
+                  );
                 const assignmentLearner =
-                  assignment.learners.find(
+                  submissionAssignment?.learners.find(
                     (item) => item.id === learner.id,
                   );
 
-                const bestPercentage = assignmentLearner
-                  ? assignmentLearner.attempts.reduce(
-                    (best, attempt) => {
-                      const percentage =
-                        percentageFromAttempt(attempt);
+                const latestAttempt = assignmentLearner?.attempts
+                  .slice()
+                  .sort((a, b) => {
+                    if (a.attempt_number !== b.attempt_number) {
+                      return b.attempt_number - a.attempt_number;
+                    }
 
-                      if (percentage === null) {
-                        return best;
-                      }
+                    return (
+                      new Date(b.submitted_at).getTime() -
+                      new Date(a.submitted_at).getTime()
+                    );
+                  })[0];
 
-                      return Math.max(
-                        best,
-                        percentage,
-                      );
-                    },
-                    0,
-                  )
+                const percentage = latestAttempt
+                  ? percentageFromAttempt(latestAttempt) ?? 0
                   : 0;
 
-                return {
-                  assignmentId: assignment.id,
-                  percentage: bestPercentage,
-                  weightedContribution:
-                    bestPercentage *
-                    (assignment.weight / 100),
-                };
-              });
+                const weightedContribution =
+                  mappedAssignment.contributesToFinalMark &&
+                  mappedAssignment.weight > 0
+                    ? percentage * (mappedAssignment.weight / 100)
+                    : 0;
 
-            const finalScore = assignmentScores.reduce(
-              (total, item) =>
-                total + item.weightedContribution,
-              0,
+                return {
+                  assignmentId: mappedAssignment.id,
+                  percentage,
+                  weightedContribution,
+                };
+              },
             );
 
             return {
               ...learner,
               assignmentScores,
-              finalScore,
+              finalScore: assignmentScores.reduce(
+                (total, item) => total + item.weightedContribution,
+                0,
+              ),
             };
           })
           .filter((learner) => {
             if (!query) return true;
 
-            return [
+            const cohortOrAssignmentMatch = [
               cohort.code,
               cohort.name,
+              ...cohort.mappedAssignments.flatMap((assignment) => [
+                assignment.code,
+                assignment.title,
+              ]),
+            ]
+              .join(" ")
+              .toLowerCase()
+              .includes(query);
+
+            if (cohortOrAssignmentMatch) return true;
+
+            return [
               learner.learner_id,
               learner.name,
               learner.email,
@@ -379,14 +412,30 @@ export function SubmissionRecordsPage() {
 
         return {
           ...cohort,
-          contributingAssignments,
+          mappedAssignments: [...cohort.mappedAssignments].sort((a, b) =>
+            a.code.localeCompare(b.code),
+          ),
           learners,
         };
       })
-      .filter(
-        (cohort) =>
-          cohort.contributingAssignments.length > 0,
-      );
+      .filter((cohort) => {
+        if (!query) return true;
+
+        const cohortOrAssignmentMatch = [
+          cohort.code,
+          cohort.name,
+          ...cohort.mappedAssignments.flatMap((assignment) => [
+            assignment.code,
+            assignment.title,
+          ]),
+        ]
+          .join(" ")
+          .toLowerCase()
+          .includes(query);
+
+        return cohortOrAssignmentMatch || cohort.learners.length > 0;
+      })
+      .sort((a, b) => a.code.localeCompare(b.code));
   }, [data, mappings, search, cohortFilter]);
 
   function toggleItem(
@@ -785,24 +834,45 @@ export function SubmissionRecordsPage() {
             <section className="submission-record-list">
               {gradebookCohorts.length === 0 ? (
                 <div className="empty-state">
-                  No contributing assignments are configured for the
-                  selected cohort.
+                  No assessment mappings are configured for the selected
+                  cohort.
                 </div>
               ) : (
                 gradebookCohorts.map((cohort) => {
-                  const allocation =
-                    cohort.contributingAssignments.reduce(
-                      (total, assignment) =>
-                        total + assignment.weight,
-                      0,
-                    );
+                  const isExpanded =
+                    expandedGradebookCohorts.includes(cohort.id);
+                  const allocation = cohort.mappedAssignments.reduce(
+                    (total, assignment) =>
+                      assignment.contributesToFinalMark
+                        ? total + assignment.weight
+                        : total,
+                    0,
+                  );
 
                   return (
                     <article
                       key={cohort.id}
                       className="submission-cohort-card content-card"
                     >
-                      <div className="submission-group-heading">
+                      <button
+                        type="button"
+                        className="submission-group-heading"
+                        onClick={() =>
+                          toggleItem(
+                            cohort.id,
+                            setExpandedGradebookCohorts,
+                          )
+                        }
+                        aria-expanded={isExpanded}
+                      >
+                        <span className="submission-heading-icon">
+                          {isExpanded ? (
+                            <ChevronDown size={18} />
+                          ) : (
+                            <ChevronRight size={18} />
+                          )}
+                        </span>
+
                         <span>
                           <small>Cohort</small>
                           <strong>
@@ -811,92 +881,123 @@ export function SubmissionRecordsPage() {
                         </span>
 
                         <span className="submission-heading-count">
-                          Allocation: {allocation.toFixed(2)}%
+                          {cohort.mappedAssignments.length} mapped assessment
+                          {cohort.mappedAssignments.length === 1 ? "" : "s"}
+                          {" · "}
+                          {cohort.learners.length} learner
+                          {cohort.learners.length === 1 ? "" : "s"}
+                          {" · "}
+                          Final allocation: {allocation.toFixed(2)}%
                         </span>
-                      </div>
+                      </button>
 
-                      <div
-                        className="table-container"
-                        style={{ overflowX: "auto" }}
-                      >
-                        <table className="modern-table">
-                          <thead>
-                            <tr>
-                              <th>Learner</th>
-                              {cohort.contributingAssignments.map(
-                                (assignment) => (
-                                  <th key={assignment.id}>
-                                    {assignment.code}
-                                    <small
-                                      className="table-subtext"
-                                      style={{ display: "block" }}
-                                    >
-                                      {assignment.weight.toFixed(2)}%
-                                    </small>
-                                  </th>
-                                ),
-                              )}
-                              <th>Final</th>
-                            </tr>
-                          </thead>
-
-                          <tbody>
-                            {cohort.learners.length === 0 ? (
+                      {isExpanded && (
+                        <div
+                          className="table-container"
+                          style={{ overflowX: "auto" }}
+                        >
+                          <table className="modern-table">
+                            <thead>
                               <tr>
-                                <td
-                                  colSpan={
-                                    cohort.contributingAssignments.length +
-                                    2
-                                  }
-                                >
-                                  No learners with submission records.
-                                </td>
+                                <th>Learner</th>
+                                {cohort.mappedAssignments.map(
+                                  (assignment) => (
+                                    <th key={assignment.mappingId}>
+                                      <strong>{assignment.code}</strong>
+                                      <small
+                                        className="table-subtext"
+                                        style={{ display: "block" }}
+                                      >
+                                        {assignment.title}
+                                      </small>
+                                      {assignment.isSummative && (
+                                        <small
+                                          className="table-subtext"
+                                          style={{
+                                            display: "block",
+                                            fontWeight: 700,
+                                          }}
+                                        >
+                                          Summative
+                                        </small>
+                                      )}
+                                      {assignment.contributesToFinalMark &&
+                                        assignment.weight > 0 && (
+                                          <small
+                                            className="table-subtext"
+                                            style={{ display: "block" }}
+                                          >
+                                            Weight: {assignment.weight.toFixed(2)}%
+                                          </small>
+                                        )}
+                                    </th>
+                                  ),
+                                )}
+                                <th>Final</th>
                               </tr>
-                            ) : (
-                              cohort.learners.map((learner) => (
-                                <tr key={learner.id}>
-                                  <td>
-                                    <strong>
-                                      {learner.learner_id}
-                                    </strong>
-                                    <span
-                                      className="table-subtext"
-                                      style={{ display: "block" }}
-                                    >
-                                      {learner.name}
-                                    </span>
-                                  </td>
+                            </thead>
 
-                                  {cohort.contributingAssignments.map(
-                                    (assignment) => {
-                                      const score =
-                                        learner.assignmentScores.find(
-                                          (item) =>
-                                            item.assignmentId ===
-                                            assignment.id,
-                                        );
-
-                                      return (
-                                        <td key={assignment.id}>
-                                          {(
-                                            score?.percentage ?? 0
-                                          ).toFixed(2)}%
-                                        </td>
-                                      );
-                                    },
-                                  )}
-
-                                  <td>
-                                    <strong>
-                                      {learner.finalScore.toFixed(2)}%
-                                    </strong>
+                            <tbody>
+                              {cohort.learners.length === 0 ? (
+                                <tr>
+                                  <td
+                                    colSpan={
+                                      cohort.mappedAssignments.length + 2
+                                    }
+                                  >
+                                    No learners have launched an assessment for
+                                    this cohort yet.
                                   </td>
                                 </tr>
-                              ))
-                            )}
-                          </tbody>
-                        </table>
-                      </div>
+                              ) : (
+                                cohort.learners.map((learner) => (
+                                  <tr key={learner.id}>
+                                    <td>
+                                      <strong>{learner.name}</strong>
+                                      <span
+                                        className="table-subtext"
+                                        style={{ display: "block" }}
+                                      >
+                                        {learner.learner_id}
+                                      </span>
+                                      {learner.email && (
+                                        <span
+                                          className="table-subtext"
+                                          style={{ display: "block" }}
+                                        >
+                                          {learner.email}
+                                        </span>
+                                      )}
+                                    </td>
+
+                                    {cohort.mappedAssignments.map(
+                                      (assignment) => {
+                                        const score =
+                                          learner.assignmentScores.find(
+                                            (item) =>
+                                              item.assignmentId === assignment.id,
+                                          );
+
+                                        return (
+                                          <td key={assignment.mappingId}>
+                                            {(score?.percentage ?? 0).toFixed(2)}
+                                          </td>
+                                        );
+                                      },
+                                    )}
+
+                                    <td>
+                                      <strong>
+                                        {learner.finalScore.toFixed(2)}
+                                      </strong>
+                                    </td>
+                                  </tr>
+                                ))
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
                     </article>
                   );
                 })

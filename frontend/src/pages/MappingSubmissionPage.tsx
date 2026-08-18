@@ -55,6 +55,8 @@ export function MappingSubmissionPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [showSubmissionReceivedModal, setShowSubmissionReceivedModal] =
+    useState(false);
   const [activeTab, setActiveTab] =
     useState<"submission" | "instructor">("submission");
   const [instructorData, setInstructorData] =
@@ -87,21 +89,16 @@ export function MappingSubmissionPage() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const gradingMessages = [
-    "Reading your submission...",
-    "Extracting evidence...",
-    "Matching evidence to assignment tasks...",
-    "Reviewing your work...",
-    "Checking criterion coverage...",
-    "Preparing grading feedback...",
-    "Calculating your result...",
-    "Finalising your feedback...",
+    "Uploading your file...",
+    "Registering your submission...",
+    "Preparing background grading...",
   ];
 
   const [gradingMessageIndex, setGradingMessageIndex] =
     useState(0);
 
   useEffect(() => {
-    if (!isSubmitting && !isWaitingForGrading) {
+    if (!isSubmitting) {
       setGradingMessageIndex(0);
       return;
     }
@@ -115,7 +112,7 @@ export function MappingSubmissionPage() {
     return () => {
       window.clearInterval(intervalId);
     };
-  }, [isSubmitting, isWaitingForGrading]);
+  }, [isSubmitting]);
 
   useEffect(() => {
     async function loadMapping() {
@@ -444,10 +441,24 @@ export function MappingSubmissionPage() {
     score: string | null,
     maximumScore: string | null,
   ) {
-    if (score === null) return "Pending";
-    if (maximumScore === null) return score;
+    if (score === null || maximumScore === null) {
+      return "Pending";
+    }
 
-    return `${score} / ${maximumScore}`;
+    const numericScore = Number(score);
+    const numericMaximum = Number(maximumScore);
+
+    if (
+      !Number.isFinite(numericScore) ||
+      !Number.isFinite(numericMaximum) ||
+      numericMaximum <= 0
+    ) {
+      return "Pending";
+    }
+
+    const percentage = (numericScore / numericMaximum) * 100;
+
+    return `${percentage.toFixed(2)} / 100`;
   }
 
   async function saveInstructorDueDate() {
@@ -534,6 +545,7 @@ export function MappingSubmissionPage() {
 
     setError("");
     setNotice("");
+    setShowSubmissionReceivedModal(false);
     setIsSubmitting(true);
 
     try {
@@ -561,6 +573,7 @@ export function MappingSubmissionPage() {
           selectedFile,
           submissionTrack,
         );
+        setShowSubmissionReceivedModal(true);
       } catch (submissionError) {
         try {
           const verificationHistory =
@@ -590,8 +603,9 @@ export function MappingSubmissionPage() {
             setNotice(
               latestSubmission.status === "completed"
                 ? "Your submission was graded successfully."
-                : "Your submission was received successfully. Please refresh the page shortly to view the latest grading result.",
+                : "Your submission was received successfully. Grading will continue in the background. You may leave this page and return later to view your result.",
             );
+            setShowSubmissionReceivedModal(true);
 
             return;
           }
@@ -610,9 +624,21 @@ export function MappingSubmissionPage() {
         setAttemptPolicy(
           updatedHistory.attempt_policy,
         );
+
+        const latestSubmission =
+          updatedHistory.submissions[0];
+
+        if (
+          latestSubmission?.status === "uploaded" ||
+          latestSubmission?.status === "processing"
+        ) {
+          setNotice(
+            "Your submission was received successfully. Grading will continue in the background. You may leave this page and return later to view your result.",
+          );
+        }
       } catch {
         setNotice(
-          "Your submission was received successfully. Please refresh the page shortly to view the latest grading result.",
+          "Your submission was received successfully. Grading will continue in the background. You may leave this page and return later to view your result.",
         );
       }
 
@@ -1546,11 +1572,13 @@ export function MappingSubmissionPage() {
                             </span>
 
                             <span className="submission-learner-identity">
-                              <strong>{learner.learner_id}</strong>
-                              <span>{learner.name}</span>
+                              <strong>
+                                {learner.name || learner.learner_id}
+                              </strong>
                               {learner.email && (
-                                <small>{learner.email}</small>
+                                <span>{learner.email}</span>
                               )}
+                              <small>{learner.learner_id}</small>
                             </span>
 
                             <span className="submission-attempt-count">
@@ -1676,7 +1704,7 @@ export function MappingSubmissionPage() {
 
 
       </div>
-      {(isSubmitting || isWaitingForGrading) && (
+      {isSubmitting && (
         <div
           className="grading-modal-backdrop"
           role="dialog"
@@ -1690,7 +1718,7 @@ export function MappingSubmissionPage() {
             />
 
             <h2 id="grading-modal-title">
-              Grading your submission
+              Submitting your assignment
             </h2>
 
             <p className="grading-progress-message">
@@ -1698,14 +1726,49 @@ export function MappingSubmissionPage() {
             </p>
 
             <p className="grading-modal-description">
-              Your assignment has been submitted successfully
-              and is now being graded.
+              Your file is being uploaded and registered.
+              Grading will continue in the background once the
+              submission is accepted.
             </p>
 
             <p className="grading-modal-note">
-              Grading may take a few minutes. Please keep this
-              page open until the result is ready.
+              Please keep this page open until the upload is
+              accepted. After that, you may leave and return later.
             </p>
+          </div>
+        </div>
+      )}
+      {!isSubmitting && showSubmissionReceivedModal && (
+        <div
+          className="grading-modal-backdrop"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="submission-received-modal-title"
+        >
+          <div className="grading-modal">
+            <h2 id="submission-received-modal-title">
+              Submission received
+            </h2>
+
+            <p className="grading-modal-description">
+              Your submission was received successfully.
+              Grading will continue in the background.
+            </p>
+
+            <p className="grading-modal-note">
+              You may leave this page and return later to view
+              your result.
+            </p>
+
+            <button
+              type="button"
+              className="btn-primary"
+              onClick={() =>
+                setShowSubmissionReceivedModal(false)
+              }
+            >
+              Continue
+            </button>
           </div>
         </div>
       )}

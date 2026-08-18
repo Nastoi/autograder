@@ -16,6 +16,11 @@ export type User = {
   lms_user_id: string;
   must_change_password: boolean;
   is_superuser: boolean;
+  can_access_user_management: boolean;
+  can_create_users: boolean;
+  can_reset_passwords: boolean;
+  can_toggle_users: boolean;
+  can_view_logs: boolean;
 };
 
 type LoginResponse = {
@@ -130,7 +135,12 @@ function isUser(data: User | ErrorResponse): data is User {
     "role" in data &&
     "lms_user_id" in data &&
     "must_change_password" in data &&
-    "is_superuser" in data
+    "is_superuser" in data &&
+    "can_access_user_management" in data &&
+    "can_create_users" in data &&
+    "can_reset_passwords" in data &&
+    "can_toggle_users" in data &&
+    "can_view_logs" in data
   );
 }
 
@@ -176,7 +186,13 @@ export type ManagedUser = {
     | "learner"
     | null;
   is_active: boolean;
+  is_superuser: boolean;
   must_change_password: boolean;
+  can_access_user_management: boolean;
+  can_create_users: boolean;
+  can_reset_passwords: boolean;
+  can_toggle_users: boolean;
+  can_view_logs: boolean;
   date_joined: string;
 };
 
@@ -327,6 +343,46 @@ export async function toggleManagedUserActive(
       typeof data?.detail === "string"
         ? data.detail
         : "Unable to update user status.",
+    );
+  }
+
+  return data as ManagedUser;
+}
+
+export type ManagedUserPermissions = {
+  can_access_user_management: boolean;
+  can_create_users: boolean;
+  can_reset_passwords: boolean;
+  can_toggle_users: boolean;
+  can_view_logs: boolean;
+};
+
+export async function updateManagedUserPermissions(
+  userId: number,
+  permissions: ManagedUserPermissions,
+): Promise<ManagedUser> {
+  const csrfToken = await getCsrfToken();
+
+  const response = await fetch(
+    `${API_BASE_URL}/auth/users/${userId}/permissions/`,
+    {
+      method: "PATCH",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRFToken": csrfToken,
+      },
+      body: JSON.stringify(permissions),
+    },
+  );
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(
+      typeof data?.detail === "string"
+        ? data.detail
+        : "Unable to update permissions.",
     );
   }
 

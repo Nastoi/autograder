@@ -62,6 +62,27 @@ def submission_is_pass(submission: LearnerSubmission) -> bool:
     )
 
 
+
+def get_latest_submission(
+    *,
+    learner,
+    cohort,
+    assignment,
+):
+    """Return the latest accepted attempt for this learner/assignment."""
+    return (
+        get_assignment_submissions(
+            learner=learner,
+            cohort=cohort,
+            assignment=assignment,
+        )
+        .order_by(
+            "-attempt_number",
+            "-submitted_at",
+        )
+        .first()
+    )
+
 def get_attempt_policy(
     *,
     learner,
@@ -94,13 +115,19 @@ def get_attempt_policy(
         )
     ]
 
-    best_score = None
+    latest_submission = get_latest_submission(
+        learner=learner,
+        cohort=cohort,
+        assignment=assignment,
+    )
 
-    if completed_submissions:
-        best_score = max(
-            submission.final_score
-            for submission in completed_submissions
-        )
+    # Kept as "best_score" for API compatibility. It now represents
+    # the latest attempt's score, because the latest attempt is authoritative.
+    best_score = (
+        latest_submission.final_score
+        if latest_submission is not None
+        else None
+    )
 
     attempts_used = len(completed_submissions)
 
@@ -165,14 +192,10 @@ def clean_up_submission_files(
     assignment,
 ) -> None:
     """
-    Retain physical files only for:
+    Retain the physical uploaded file only for the
+    latest submission attempt.
 
-    1. The latest completed graded submission.
-    2. The highest-scoring completed graded submission.
-
-    All LearnerSubmission database records remain intact.
-
-    If latest == best, only one physical file is retained.
+    All LearnerSubmission database/history rows remain intact.
     """
 
     submissions = list(
@@ -180,10 +203,6 @@ def clean_up_submission_files(
             learner=learner,
             cohort=cohort,
             assignment=assignment,
-        )
-        .filter(
-            status=LearnerSubmission.Status.COMPLETED,
-            final_score__isnull=False,
         )
         .order_by(
             "attempt_number",
@@ -202,32 +221,19 @@ def clean_up_submission_files(
         ),
     )
 
-    # In a score tie, prefer the newer submission.
-    best_submission = max(
-        submissions,
-        key=lambda submission: (
-            submission.final_score,
-            submission.attempt_number,
-            submission.submitted_at,
-        ),
-    )
-
-    retained_ids = {
-        latest_submission.id,
-        best_submission.id,
-    }
-
     for submission in submissions:
-        if submission.id in retained_ids:
+        if submission.id == latest_submission.id:
             continue
+
+        # Previous attempts keep their history/results, but generated
+        # PDF page images/text are no longer needed once a newer attempt exists.
+        submission.pages.all().delete()
 
         if submission.submitted_file:
             submission.submitted_file.delete(
                 save=False,
             )
 
-            # Keep the submission/history row but remove its
-            # reference to the deleted physical file.
             submission.submitted_file = ""
 
             submission.save(

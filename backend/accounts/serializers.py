@@ -101,6 +101,11 @@ class CurrentUserSerializer(serializers.ModelSerializer):
     role = serializers.SerializerMethodField()
     lms_user_id = serializers.SerializerMethodField()
     must_change_password = serializers.SerializerMethodField()
+    can_access_user_management = serializers.SerializerMethodField()
+    can_create_users = serializers.SerializerMethodField()
+    can_reset_passwords = serializers.SerializerMethodField()
+    can_toggle_users = serializers.SerializerMethodField()
+    can_view_logs = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -114,6 +119,11 @@ class CurrentUserSerializer(serializers.ModelSerializer):
             "lms_user_id",
             "must_change_password",
             "is_superuser",
+            "can_access_user_management",
+            "can_create_users",
+            "can_reset_passwords",
+            "can_toggle_users",
+            "can_view_logs",
         )
 
     def get_must_change_password(self, user):
@@ -122,6 +132,29 @@ class CurrentUserSerializer(serializers.ModelSerializer):
         except UserProfile.DoesNotExist:
             return False
         
+    def _profile_flag(self, user, field_name):
+        if user.is_superuser:
+            return True
+        try:
+            return bool(getattr(user.profile, field_name))
+        except UserProfile.DoesNotExist:
+            return False
+
+    def get_can_access_user_management(self, user):
+        return self._profile_flag(user, "can_access_user_management")
+
+    def get_can_create_users(self, user):
+        return self._profile_flag(user, "can_create_users")
+
+    def get_can_reset_passwords(self, user):
+        return self._profile_flag(user, "can_reset_passwords")
+
+    def get_can_toggle_users(self, user):
+        return self._profile_flag(user, "can_toggle_users")
+
+    def get_can_view_logs(self, user):
+        return self._profile_flag(user, "can_view_logs")
+
     def get_role(self, user):
         try:
             return user.profile.role
@@ -138,6 +171,11 @@ class CurrentUserSerializer(serializers.ModelSerializer):
 class ManagedUserSerializer(serializers.ModelSerializer):
     role = serializers.SerializerMethodField()
     must_change_password = serializers.SerializerMethodField()
+    can_access_user_management = serializers.SerializerMethodField()
+    can_create_users = serializers.SerializerMethodField()
+    can_reset_passwords = serializers.SerializerMethodField()
+    can_toggle_users = serializers.SerializerMethodField()
+    can_view_logs = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -149,7 +187,13 @@ class ManagedUserSerializer(serializers.ModelSerializer):
             "last_name",
             "role",
             "is_active",
+            "is_superuser",
             "must_change_password",
+            "can_access_user_management",
+            "can_create_users",
+            "can_reset_passwords",
+            "can_toggle_users",
+            "can_view_logs",
             "date_joined",
         )
 
@@ -164,6 +208,35 @@ class ManagedUserSerializer(serializers.ModelSerializer):
             return user.profile.must_change_password
         except UserProfile.DoesNotExist:
             return False
+
+    def _profile_flag(self, user, field_name):
+        try:
+            return bool(getattr(user.profile, field_name))
+        except UserProfile.DoesNotExist:
+            return False
+
+    def get_can_access_user_management(self, user):
+        return self._profile_flag(user, "can_access_user_management")
+
+    def get_can_create_users(self, user):
+        return self._profile_flag(user, "can_create_users")
+
+    def get_can_reset_passwords(self, user):
+        return self._profile_flag(user, "can_reset_passwords")
+
+    def get_can_toggle_users(self, user):
+        return self._profile_flag(user, "can_toggle_users")
+
+    def get_can_view_logs(self, user):
+        return self._profile_flag(user, "can_view_logs")
+
+
+class ManagedUserPermissionSerializer(serializers.Serializer):
+    can_access_user_management = serializers.BooleanField()
+    can_create_users = serializers.BooleanField()
+    can_reset_passwords = serializers.BooleanField()
+    can_toggle_users = serializers.BooleanField()
+    can_view_logs = serializers.BooleanField()
 
 
 class ManagedUserCreateSerializer(serializers.Serializer):

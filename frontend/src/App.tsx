@@ -32,6 +32,7 @@ import { SubmissionRecordsPage } from "./pages/SubmissionRecordsPage";
 import { MappingSubmissionPage } from "./pages/MappingSubmissionPage";
 import { UserManagementPage } from "./pages/UserManagementPage";
 import { ChangePasswordPage } from "./pages/ChangePasswordPage";
+import { LogsPage } from "./pages/LogsPage";
 
 export default function App() {
   return (
@@ -107,6 +108,11 @@ export default function App() {
           <Route
             path="/admin/users"
             element={<UserManagementPage />}
+          />
+
+          <Route
+            path="/admin/logs"
+            element={<LogsPage />}
           />
         </Route>
 

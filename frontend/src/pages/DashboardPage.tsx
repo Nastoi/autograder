@@ -4,7 +4,6 @@ import {
   GraduationCap,
   Users,
   ClipboardList,
-  Layers3,
   ArrowRight,
   Package,
 } from "lucide-react";
@@ -92,7 +91,7 @@ export function DashboardPage() {
             <p>Loading metrics...</p>
           ) : (
             <div className="metrics-row-5">
-              <Link to="/admin/qualifications" className="metric-card-modern">
+              <Link to="/admin/qualifications?tab=qualifications" className="metric-card-modern">
                 <div className="metric-icon-wrapper purple">
                   <GraduationCap size={24} />
                 </div>
@@ -102,7 +101,7 @@ export function DashboardPage() {
                 </div>
               </Link>
 
-              <Link to="/admin/modules" className="metric-card-modern">
+              <Link to="/admin/qualifications?tab=modules" className="metric-card-modern">
                 <div className="metric-icon-wrapper blue">
                   <Package size={24} />
                 </div>
@@ -132,15 +131,7 @@ export function DashboardPage() {
                 </div>
               </Link>
 
-              <Link to="/admin/cohorts" className="metric-card-modern">
-                <div className="metric-icon-wrapper purple">
-                  <Layers3 size={24} />
-                </div>
-                <div className="metric-content">
-                  <span className="metric-label" style={{ textTransform: 'uppercase', fontSize: '11px', fontWeight: 700 }}>Assigned Assessments</span>
-                  <span className="metric-value" style={{ marginTop: '4px' }}>{metrics.mappings}</span>
-                </div>
-              </Link>
+              
             </div>
           )}
         </section>
@@ -198,7 +189,7 @@ export function DashboardPage() {
           </div>
 
           <div className="dashboard-actions-modern">
-            <Link to="/admin/qualifications" className="btn-secondary" style={{ textDecoration: 'none' }}>
+            {/* <Link to="/admin/qualifications" className="btn-secondary" style={{ textDecoration: 'none' }}>
               <GraduationCap size={16} />
               Manage Academic Setup
             </Link>
@@ -211,6 +202,12 @@ export function DashboardPage() {
             <Link to="/admin/cohorts" className="btn-secondary" style={{ textDecoration: 'none' }}>
               <Users size={16} />
               Manage Cohorts
+            </Link> */}
+
+            <Link to="/admin/submission-records" className="btn-secondary" style={{ textDecoration: 'none' }}>
+              
+                View Submission Records
+              
             </Link>
           </div>
         </section>

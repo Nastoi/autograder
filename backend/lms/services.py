@@ -13,28 +13,104 @@ def get_or_create_lti_user(
     issuer,
     deployment_id,
     lti_user_id,
+    *,
+    preferred_username="",
+    email="",
+    given_name="",
+    family_name="",
+    full_name="",
 ):
+    """
+    Resolve an LTI learner by the stable LTI identity.
+
+    The LTI subject remains the identity key in LtiUserIdentity.
+    The LMS username/email/name are profile attributes and are refreshed
+    when the platform shares them.
+    """
     User = get_user_model()
 
-    username = f"lti_{lti_user_id}"
-
-    user, _ = User.objects.get_or_create(
-        username=username,
-        defaults={
-            "is_active": True,
-        },
+    identity = (
+        LtiUserIdentity.objects
+        .select_related("user")
+        .filter(
+            issuer=issuer,
+            deployment_id=deployment_id,
+            lti_user_id=lti_user_id,
+        )
+        .first()
     )
 
-    identity, _ = LtiUserIdentity.objects.get_or_create(
-        issuer=issuer,
-        deployment_id=deployment_id,
-        lti_user_id=lti_user_id,
-        defaults={
-            "user": user,
-        },
-    )
+    clean_preferred_username = (preferred_username or "").strip()
 
-    return identity.user
+    if identity is not None:
+        user = identity.user
+    else:
+        # Use the human-readable LMS username when Open edX shares it.
+        # The stable LTI subject is stored separately in LtiUserIdentity.
+        username = clean_preferred_username or f"lti_{lti_user_id}"
+
+        # Avoid accidentally attaching an LTI identity to an unrelated local
+        # account if that username already exists. A collision falls back to
+        # the stable generated username instead.
+        if User.objects.filter(username=username).exists():
+            username = f"lti_{lti_user_id}"
+
+        user = User.objects.create_user(
+            username=username,
+            is_active=True,
+        )
+
+        identity = LtiUserIdentity.objects.create(
+            issuer=issuer,
+            deployment_id=deployment_id,
+            lti_user_id=lti_user_id,
+            user=user,
+        )
+
+    clean_email = (email or "").strip()
+    clean_given_name = (given_name or "").strip()
+    clean_family_name = (family_name or "").strip()
+    clean_full_name = (full_name or "").strip()
+
+    # Some platforms provide only the standard `name` claim. Use it as
+    # a conservative fallback without changing the stable local username.
+    if clean_full_name and not clean_given_name and not clean_family_name:
+        name_parts = clean_full_name.split(maxsplit=1)
+        clean_given_name = name_parts[0]
+        if len(name_parts) > 1:
+            clean_family_name = name_parts[1]
+
+    changed_fields = []
+
+    # Existing LTI users created by older code may still have an lti_<sub>
+    # username. Replace it with the LMS username when it is available and
+    # not already owned by another local account.
+    if (
+        clean_preferred_username
+        and user.username != clean_preferred_username
+        and not User.objects.filter(
+            username=clean_preferred_username
+        ).exclude(pk=user.pk).exists()
+    ):
+        user.username = clean_preferred_username
+        changed_fields.append("username")
+
+    if clean_email and user.email != clean_email:
+        user.email = clean_email
+        changed_fields.append("email")
+
+    if clean_given_name and user.first_name != clean_given_name:
+        user.first_name = clean_given_name
+        changed_fields.append("first_name")
+
+    if clean_family_name and user.last_name != clean_family_name:
+        user.last_name = clean_family_name
+        changed_fields.append("last_name")
+
+    if changed_fields:
+        user.save(update_fields=changed_fields)
+
+    return user
 
 
 def get_lti_assessment_mapping(

@@ -5,6 +5,7 @@ import {
   useState,
   type FormEvent,
 } from "react";
+import { useSearchParams } from "react-router";
 import {
   GraduationCap,
   Bookmark,
@@ -43,10 +44,16 @@ import { AuditTrailButton } from "../components/AuditTrailButton";
 import { RecentDeletedAuditButton } from "../components/RecentDeletedAuditButton";
 
 export function QualificationsPage() {
+  const [searchParams] = useSearchParams();
   const [qualifications, setQualifications] = useState<Qualification[]>([]);
   const [modules, setModules] = useState<Module[]>([]);
 
-  const [activeTab, setActiveTab] = useState<'setup' | 'qualifications' | 'modules'>('setup');
+  const [activeTab, setActiveTab] = useState<'setup' | 'qualifications' | 'modules'>(() => {
+    const requestedTab = searchParams.get('tab');
+    return requestedTab === 'qualifications' || requestedTab === 'modules'
+      ? requestedTab
+      : 'setup';
+  });
 
   const [qualificationCode, setQualificationCode] = useState("");
   const [qualificationName, setQualificationName] = useState("");
@@ -87,6 +94,13 @@ export function QualificationsPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [isCreatingModule, setIsCreatingModule] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    const requestedTab = searchParams.get("tab");
+    if (requestedTab === "qualifications" || requestedTab === "modules") {
+      setActiveTab(requestedTab);
+    }
+  }, [searchParams]);
 
   const [editingModuleId, setEditingModuleId] =
     useState<string | null>(null);

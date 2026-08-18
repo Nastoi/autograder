@@ -9,8 +9,10 @@ from .views import (
     LogoutView,
     ManagedUserListCreateView,
     ManagedUserResetPasswordView,
+    ManagedUserPermissionsView,
     PortalActivityListView,
     PortalDeletedActivityListView,
+    PortalLogView,
     ManagedUserToggleActiveView,
 )
 
@@ -52,5 +54,15 @@ urlpatterns = [
         "users/<int:user_id>/toggle-active/",
         ManagedUserToggleActiveView.as_view(),
         name="managed-user-toggle-active",
+    ),
+    path(
+        "users/<int:user_id>/permissions/",
+        ManagedUserPermissionsView.as_view(),
+        name="managed-user-permissions",
+    ),
+    path(
+        "logs/",
+        PortalLogView.as_view(),
+        name="portal-logs",
     ),
 ]

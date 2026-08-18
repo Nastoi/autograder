@@ -410,6 +410,11 @@ class LtiLaunchView(APIView):
             issuer=issuer,
             deployment_id=deployment_id,
             lti_user_id=lti_user_id,
+            preferred_username=claims.get("preferred_username", ""),
+            email=claims.get("email", ""),
+            given_name=claims.get("given_name", ""),
+            family_name=claims.get("family_name", ""),
+            full_name=claims.get("name", ""),
         )
 
         login(request, user)

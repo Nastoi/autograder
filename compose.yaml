@@ -62,22 +62,22 @@ services:
       - backend
 
 
-    celery:
-  build:
-    context: ./backend
-  container_name: autograder-celery
-  command: celery -A config worker --loglevel=info --concurrency=2
-  volumes:
-    - ./backend:/app
-  env_file:
-    - .env
-  depends_on:
-    db:
-      condition: service_healthy
-    redis:
-      condition: service_started
+  celery:
+    build:
+      context: ./backend
+    container_name: autograder-celery
+    command: celery -A config worker --loglevel=info --concurrency=2
+    volumes:
+      - ./backend:/app
+    env_file:
+      - .env
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
 
-      
+
 volumes:
   postgres_data:
   frontend_node_modules:

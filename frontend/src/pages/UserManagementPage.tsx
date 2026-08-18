@@ -7,6 +7,7 @@ import {
     Plus,
     Copy,
     KeyRound,
+    ShieldCheck,
     X,
 } from "lucide-react";
 
@@ -15,10 +16,14 @@ import {
     getManagedUsers,
     resetManagedUserPassword,
     toggleManagedUserActive,
+    updateManagedUserPermissions,
     type ManagedUser,
+    type ManagedUserPermissions,
 } from "../api/auth";
+import { useAuth } from "../auth/AuthContext";
 
 export function UserManagementPage() {
+    const { user: currentUser } = useAuth();
     const [users, setUsers] = useState<ManagedUser[]>([]);
 
     const [showCreateUser, setShowCreateUser] =
@@ -46,6 +51,13 @@ export function UserManagementPage() {
 
     const [updatingUserId, setUpdatingUserId] =
         useState<number | null>(null);
+
+    const [permissionUser, setPermissionUser] =
+        useState<ManagedUser | null>(null);
+    const [permissionValues, setPermissionValues] =
+        useState<ManagedUserPermissions | null>(null);
+    const [savingPermissions, setSavingPermissions] =
+        useState(false);
 
     async function loadUsers() {
         try {
@@ -192,6 +204,71 @@ export function UserManagementPage() {
         }
     }
 
+    function openPermissions(user: ManagedUser) {
+        setPermissionUser(user);
+        setPermissionValues({
+            can_access_user_management: user.can_access_user_management,
+            can_create_users: user.can_create_users,
+            can_reset_passwords: user.can_reset_passwords,
+            can_toggle_users: user.can_toggle_users,
+            can_view_logs: user.can_view_logs,
+        });
+    }
+
+    function setPermission(
+        field: keyof ManagedUserPermissions,
+        value: boolean,
+    ) {
+        setPermissionValues((current) => {
+            if (!current) return current;
+
+            const next = { ...current, [field]: value };
+            if (field === "can_access_user_management" && !value) {
+                next.can_create_users = false;
+                next.can_reset_passwords = false;
+                next.can_toggle_users = false;
+            }
+            return next;
+        });
+    }
+
+    async function handleSavePermissions() {
+        if (!permissionUser || !permissionValues) return;
+
+        setError("");
+        setSavingPermissions(true);
+        try {
+            await updateManagedUserPermissions(
+                permissionUser.id,
+                permissionValues,
+            );
+            setPermissionUser(null);
+            setPermissionValues(null);
+            await loadUsers();
+        } catch (caughtError) {
+            setError(
+                caughtError instanceof Error
+                    ? caughtError.message
+                    : "Unable to update permissions.",
+            );
+        } finally {
+            setSavingPermissions(false);
+        }
+    }
+
+    if (
+        !currentUser ||
+        !(currentUser.is_superuser || currentUser.can_access_user_management)
+    ) {
+        return (
+            <main className="admin-container">
+                <div className="empty-state">
+                    You do not have permission to access User Management.
+                </div>
+            </main>
+        );
+    }
+
     return (
         <main className="admin-container">
             <div className="admin-header">
@@ -203,16 +280,18 @@ export function UserManagementPage() {
                     </p>
                 </div>
 
-                <button
-                    type="button"
-                    className="btn-primary"
-                    onClick={() =>
-                        setShowCreateUser((current) => !current)
-                    }
-                >
-                    <Plus size={16} />
-                    New User
-                </button>
+                {(currentUser.is_superuser || currentUser.can_create_users) && (
+                    <button
+                        type="button"
+                        className="btn-primary"
+                        onClick={() =>
+                            setShowCreateUser((current) => !current)
+                        }
+                    >
+                        <Plus size={16} />
+                        New User
+                    </button>
+                )}
             </div>
 
             {error && (
@@ -369,41 +448,170 @@ export function UserManagementPage() {
                                     </td>
 
                                     <td className="table-actions">
-                                        <button
-                                            type="button"
-                                            className="btn-table"
-                                            disabled={
-                                                resettingUserId === user.id
-                                            }
-                                            onClick={() =>
-                                                void handleResetPassword(user)
-                                            }
-                                        >
-                                            <KeyRound size={14} />
+                                        {(currentUser.is_superuser || currentUser.can_reset_passwords) && (
+                                            <button
+                                                type="button"
+                                                className="btn-table"
+                                                disabled={resettingUserId === user.id}
+                                                onClick={() =>
+                                                    void handleResetPassword(user)
+                                                }
+                                            >
+                                                <KeyRound size={14} />
+                                                {resettingUserId === user.id
+                                                    ? "Resetting..."
+                                                    : "Reset Password"}
+                                            </button>
+                                        )}
 
-                                            {resettingUserId === user.id
-                                                ? "Resetting..."
-                                                : "Reset Password"}
-                                        </button>
-                                        <button
-                                            type="button"
-                                            className="btn-table"
-                                            disabled={updatingUserId === user.id}
-                                            onClick={() =>
-                                                void handleToggleActive(user)
-                                            }
-                                        >
-                                            {updatingUserId === user.id
-                                                ? "Updating..."
-                                                : user.is_active
-                                                    ? "Disable"
-                                                    : "Enable"}
-                                        </button>
+                                        {(currentUser.is_superuser || currentUser.can_toggle_users) && (
+                                            <button
+                                                type="button"
+                                                className="btn-table"
+                                                disabled={updatingUserId === user.id}
+                                                onClick={() =>
+                                                    void handleToggleActive(user)
+                                                }
+                                            >
+                                                {updatingUserId === user.id
+                                                    ? "Updating..."
+                                                    : user.is_active
+                                                        ? "Disable"
+                                                        : "Enable"}
+                                            </button>
+                                        )}
+
+                                        {currentUser.is_superuser && !user.is_superuser && (
+                                            <button
+                                                type="button"
+                                                className="btn-table"
+                                                onClick={() => openPermissions(user)}
+                                            >
+                                                <ShieldCheck size={14} />
+                                                Permissions
+                                            </button>
+                                        )}
                                     </td>
                                 </tr>
                             ))}
                         </tbody>
                     </table>
+                </div>
+            )}
+
+            {permissionUser && permissionValues && (
+                <div className="config-modal-backdrop">
+                    <div className="config-modal">
+                        <div className="config-modal-header">
+                            <div>
+                                <h3>Permissions</h3>
+                                <p className="section-description">
+                                    User: {permissionUser.username}
+                                </p>
+                            </div>
+
+                            <button
+                                type="button"
+                                className="config-modal-close"
+                                onClick={() => {
+                                    setPermissionUser(null);
+                                    setPermissionValues(null);
+                                }}
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        <div className="detail-block">
+                            <strong>User Management</strong>
+                            <label style={{ display: "flex", gap: "10px", marginTop: "12px" }}>
+                                <input
+                                    type="checkbox"
+                                    checked={permissionValues.can_access_user_management}
+                                    onChange={(event) =>
+                                        setPermission("can_access_user_management", event.target.checked)
+                                    }
+                                />
+                                Access User Management
+                            </label>
+
+                            <div style={{ marginLeft: "28px", marginTop: "10px", display: "grid", gap: "10px" }}>
+                                <label style={{ display: "flex", gap: "10px" }}>
+                                    <input
+                                        type="checkbox"
+                                        checked={permissionValues.can_create_users}
+                                        disabled={!permissionValues.can_access_user_management}
+                                        onChange={(event) =>
+                                            setPermission("can_create_users", event.target.checked)
+                                        }
+                                    />
+                                    Create Users
+                                </label>
+                                <label style={{ display: "flex", gap: "10px" }}>
+                                    <input
+                                        type="checkbox"
+                                        checked={permissionValues.can_reset_passwords}
+                                        disabled={!permissionValues.can_access_user_management}
+                                        onChange={(event) =>
+                                            setPermission("can_reset_passwords", event.target.checked)
+                                        }
+                                    />
+                                    Reset Passwords
+                                </label>
+                                <label style={{ display: "flex", gap: "10px" }}>
+                                    <input
+                                        type="checkbox"
+                                        checked={permissionValues.can_toggle_users}
+                                        disabled={!permissionValues.can_access_user_management}
+                                        onChange={(event) =>
+                                            setPermission("can_toggle_users", event.target.checked)
+                                        }
+                                    />
+                                    Disable / Enable Users
+                                </label>
+                            </div>
+                        </div>
+
+                        <div className="detail-block" style={{ marginTop: "16px" }}>
+                            <strong>Logs</strong>
+                            <label style={{ display: "flex", gap: "10px", marginTop: "12px" }}>
+                                <input
+                                    type="checkbox"
+                                    checked={permissionValues.can_view_logs}
+                                    onChange={(event) =>
+                                        setPermission("can_view_logs", event.target.checked)
+                                    }
+                                />
+                                View Logs
+                            </label>
+                        </div>
+
+                        <p className="section-description" style={{ marginTop: "16px" }}>
+                            Only superusers can change these permissions.
+                        </p>
+
+                        <div className="form-actions">
+                            <button
+                                type="button"
+                                className="btn-secondary"
+                                disabled={savingPermissions}
+                                onClick={() => {
+                                    setPermissionUser(null);
+                                    setPermissionValues(null);
+                                }}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                className="btn-primary"
+                                disabled={savingPermissions}
+                                onClick={() => void handleSavePermissions()}
+                            >
+                                {savingPermissions ? "Saving..." : "Save Permissions"}
+                            </button>
+                        </div>
+                    </div>
                 </div>
             )}
 

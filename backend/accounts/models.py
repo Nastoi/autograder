@@ -30,6 +30,12 @@ class UserProfile(models.Model):
     must_change_password = models.BooleanField(
         default=False,
     )
+
+    can_access_user_management = models.BooleanField(default=False)
+    can_create_users = models.BooleanField(default=False)
+    can_reset_passwords = models.BooleanField(default=False)
+    can_toggle_users = models.BooleanField(default=False)
+    can_view_logs = models.BooleanField(default=False)
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

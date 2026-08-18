@@ -257,7 +257,7 @@ class SubmissionCreateView(APIView):
 
         pending_submission = LearnerSubmission.objects.filter(
             learner=request.user,
-            assignment_level=context.assignment_level,
+            assignment_level__assignment=context.assignment_level.assignment,
             context__cohort=context.cohort,
             status__in=[
                 LearnerSubmission.Status.UPLOADED,
@@ -331,9 +331,37 @@ class SubmissionCreateView(APIView):
             maximum_score=assignment.maximum_score,
         )
 
-        grade_submission_task.delay(
-            str(submission.id)
-        )
+        # Once the submission row exists, this is the learner's latest
+        # accepted attempt. Queue grading in Celery so the HTTP request
+        # does not wait for extraction/AI grading to finish.
+        try:
+            grade_submission_task.delay(
+                str(submission.id)
+            )
+        except Exception:
+            logger.exception(
+                "Unable to queue grading for submission %s",
+                submission.id,
+            )
+            submission.status = LearnerSubmission.Status.ERROR
+            submission.save(
+                update_fields=["status"]
+            )
+
+        # Latest attempt is authoritative regardless of grading outcome.
+        # Keep its source/generated data and remove source/generated data
+        # belonging to older attempts while retaining their DB history.
+        try:
+            clean_up_submission_files(
+                learner=request.user,
+                cohort=context.cohort,
+                assignment=assignment,
+            )
+        except Exception:
+            logger.exception(
+                "Unable to clean older files for submission %s",
+                submission.id,
+            )
 
         return Response(
             LearnerSubmissionSerializer(submission).data,

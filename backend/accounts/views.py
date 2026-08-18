@@ -6,13 +6,20 @@ from django.utils import timezone
 from django.views.decorators.csrf import ensure_csrf_cookie
 from rest_framework import status
 from rest_framework.generics import CreateAPIView, ListAPIView
-from rest_framework.permissions import AllowAny, IsAdminUser, IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated, IsAdminUser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 import secrets
 from django.shortcuts import get_object_or_404
 from .models import UserProfile
-from .permissions import IsSuperUserOrStaff
+from .permissions import (
+    CanAccessUserManagement,
+    CanCreateManagedUsers,
+    CanResetManagedPasswords,
+    CanToggleManagedUsers,
+    CanViewPortalLogs,
+    IsSuperUserOrStaff,
+)
 from .serializers import (
     ChangePasswordSerializer,
     CurrentUserSerializer,
@@ -20,6 +27,7 @@ from .serializers import (
     LearnerRegisterSerializer,
     LoginSerializer,
     ManagedUserCreateSerializer,
+    ManagedUserPermissionSerializer,
     ManagedUserSerializer,
     PortalActivitySerializer,
 )
@@ -131,7 +139,10 @@ class CurrentUserView(APIView):
 
 
 class ManagedUserListCreateView(APIView):
-    permission_classes = [IsAdminUser]
+    def get_permissions(self):
+        if self.request.method == "POST":
+            return [CanCreateManagedUsers()]
+        return [CanAccessUserManagement()]
 
     def get(self, request):
         users = (
@@ -202,7 +213,7 @@ class CsrfTokenView(APIView):
 
 
 class ManagedUserResetPasswordView(APIView):
-    permission_classes = [IsSuperUserOrStaff]
+    permission_classes = [CanResetManagedPasswords]
 
     def post(self, request, user_id):
         user = get_object_or_404(
@@ -362,7 +373,7 @@ class PortalDeletedActivityListView(APIView):
 
 
 class ManagedUserToggleActiveView(APIView):
-    permission_classes = [IsSuperUserOrStaff]
+    permission_classes = [CanToggleManagedUsers]
 
     def post(self, request, user_id):
         user = get_object_or_404(
@@ -388,5 +399,97 @@ class ManagedUserToggleActiveView(APIView):
 
         return Response(
             ManagedUserSerializer(user).data,
+            status=status.HTTP_200_OK,
+        )
+
+class ManagedUserPermissionsView(APIView):
+    permission_classes = [IsAdminUser]
+
+    def patch(self, request, user_id):
+        if not request.user.is_superuser:
+            return Response(
+                {"detail": "Only a superuser can change portal permissions."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        user = get_object_or_404(User, id=user_id)
+        if user.is_superuser:
+            return Response(
+                {"detail": "Superusers already have all portal permissions."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        serializer = ManagedUserPermissionSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        profile, _ = UserProfile.objects.get_or_create(user=user)
+        for field_name, value in serializer.validated_data.items():
+            setattr(profile, field_name, value)
+
+        # Child User Management permissions are meaningless without page access.
+        if not profile.can_access_user_management:
+            profile.can_create_users = False
+            profile.can_reset_passwords = False
+            profile.can_toggle_users = False
+
+        profile.save(
+            update_fields=[
+                "can_access_user_management",
+                "can_create_users",
+                "can_reset_passwords",
+                "can_toggle_users",
+                "can_view_logs",
+                "updated_at",
+            ]
+        )
+
+        return Response(ManagedUserSerializer(user).data, status=status.HTTP_200_OK)
+
+
+class PortalLogView(APIView):
+    permission_classes = [CanViewPortalLogs]
+
+    LOG_FILES = {
+        "backend": "backend.log",
+        "celery": "celery.log",
+        "errors": "error.log",
+    }
+
+    def get(self, request):
+        source = request.query_params.get("source", "backend")
+        if source not in self.LOG_FILES:
+            return Response(
+                {"detail": "Invalid log source."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            lines = int(request.query_params.get("lines", "200"))
+        except ValueError:
+            lines = 200
+        lines = max(1, min(lines, 1000))
+
+        from django.conf import settings
+
+        log_path = settings.LOG_DIR / self.LOG_FILES[source]
+        if not log_path.exists():
+            return Response(
+                {
+                    "source": source,
+                    "lines": [],
+                    "message": "No log entries yet.",
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        # Read only the requested tail without exposing arbitrary paths.
+        with log_path.open("r", encoding="utf-8", errors="replace") as handle:
+            content = handle.readlines()[-lines:]
+
+        return Response(
+            {
+                "source": source,
+                "lines": [line.rstrip("\n") for line in content],
+            },
             status=status.HTTP_200_OK,
         )

@@ -95,20 +95,33 @@ export function Header() {
             </div>
             
           </div>
-          {user?.is_superuser && (
+          {(user.is_superuser || user.can_access_user_management) && (
             <Link
-                to="/admin/users"
-                className="nav-link"
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "6px",
-                }}
-              >
-                
-                User Management
-              </Link>
-            )}
+              to="/admin/users"
+              className="nav-link"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
+              }}
+            >
+              User Management
+            </Link>
+          )}
+
+          {(user.is_superuser || user.can_view_logs) && (
+            <Link
+              to="/admin/logs"
+              className="nav-link"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
+              }}
+            >
+              Logs
+            </Link>
+          )}
         </div>
         <button onClick={handleLogout} className="logout-button">
           Logout
