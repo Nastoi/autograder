@@ -4,7 +4,7 @@ from celery import shared_task
 from django.conf import settings
 import requests
 
-from lms.ags import send_ags_score
+from lms.ags import clear_ags_score, send_ags_score
 from lms.models import LtiUserIdentity
 
 from .attempt_policy import get_latest_submission
@@ -105,15 +105,31 @@ def grade_submission_task(
     acks_late=True,
     reject_on_worker_lost=True,
 )
+@shared_task(
+    bind=True,
+    autoretry_for=(
+        requests.exceptions.RequestException,
+    ),
+    retry_backoff=True,
+    retry_backoff_max=300,
+    retry_jitter=True,
+    max_retries=5,
+    acks_late=True,
+    reject_on_worker_lost=True,
+)
+
 def push_submission_grade_task(
     self,
     submission_id: str,
 ):
     """Push the authoritative latest accepted attempt to the LMS via AGS.
 
-    A valid completed grade is converted to /100. Any accepted latest attempt
-    whose grading ended without a usable score is sent as 0/100. Older attempts
-    never overwrite a newer accepted attempt.
+    A valid completed grade is converted to /100.
+
+    If the latest accepted attempt finishes without a usable grade,
+    the previous LMS grade is cleared.
+
+    Older attempts never overwrite a newer accepted attempt.
     """
     submission = (
         LearnerSubmission.objects
@@ -199,32 +215,54 @@ def push_submission_grade_task(
             float(submission.final_score)
             / float(submission.maximum_score)
         ) * 100.0
-        percentage_score = max(0.0, min(100.0, percentage_score))
+
+        percentage_score = max(
+            0.0,
+            min(100.0, percentage_score),
+        )
+
+        logger.info(
+            "Sending AGS score %.2f/100 for submission %s "
+            "(status=%s) to mapping %s.",
+            percentage_score,
+            submission_id,
+            submission.status,
+            mapping.id,
+        )
+
+        result = send_ags_score(
+            client_id=mapping.lti_client_id,
+            token_url=mapping.lti_access_token_url,
+            lineitem_url=mapping.lti_ags_lineitem_url,
+            lti_user_id=identity.lti_user_id,
+            score=percentage_score,
+            maximum_score=100.0,
+        )
+
+        logger.info(
+            "AGS passback completed for submission %s with HTTP %s.",
+            submission_id,
+            result["status_code"],
+        )
+
     else:
-        # This submission exists in the database and grading has already
-        # finished/failed before this task was queued, so it is an accepted
-        # latest attempt without a usable grade. Latest-attempt policy = 0.
-        percentage_score = 0.0
+        logger.info(
+            "Clearing AGS grade for submission %s because the "
+            "latest accepted attempt has no usable grade "
+            "(status=%s).",
+            submission_id,
+            submission.status,
+        )
 
-    logger.info(
-        "Sending AGS score %.2f/100 for submission %s (status=%s) to mapping %s.",
-        percentage_score,
-        submission_id,
-        submission.status,
-        mapping.id,
-    )
+        result = clear_ags_score(
+            client_id=mapping.lti_client_id,
+            token_url=mapping.lti_access_token_url,
+            lineitem_url=mapping.lti_ags_lineitem_url,
+            lti_user_id=identity.lti_user_id,
+        )
 
-    result = send_ags_score(
-        client_id=mapping.lti_client_id,
-        token_url=mapping.lti_access_token_url,
-        lineitem_url=mapping.lti_ags_lineitem_url,
-        lti_user_id=identity.lti_user_id,
-        score=percentage_score,
-        maximum_score=100.0,
-    )
-
-    logger.info(
-        "AGS passback completed for submission %s with HTTP %s.",
-        submission_id,
-        result["status_code"],
-    )
+        logger.info(
+            "AGS grade cleared for submission %s with HTTP %s.",
+            submission_id,
+            result["status_code"],
+        )

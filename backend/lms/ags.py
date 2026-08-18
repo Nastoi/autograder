@@ -122,3 +122,42 @@ def send_ags_score(
         "status_code": response.status_code,
         "response": response.text,
     }
+
+
+def clear_ags_score(
+    *,
+    client_id: str,
+    token_url: str,
+    lineitem_url: str,
+    lti_user_id: str,
+):
+    access_token = get_lti_access_token(
+        client_id=client_id,
+        token_url=token_url,
+    )
+
+    score_url = f"{lineitem_url.rstrip('/')}/scores"
+
+    payload = {
+        "userId": lti_user_id,
+        "activityProgress": "Initialized",
+        "gradingProgress": "NotReady",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+
+    response = requests.post(
+        score_url,
+        json=payload,
+        headers={
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": "application/vnd.ims.lis.v1.score+json",
+        },
+        timeout=15,
+    )
+
+    response.raise_for_status()
+
+    return {
+        "status_code": response.status_code,
+        "response": response.text,
+    }
