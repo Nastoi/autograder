@@ -92,6 +92,16 @@ class AssessmentMapping(models.Model):
     lti_access_token_url = models.URLField(
         blank=True,
     )
+
+    lti_ags_lineitem_url = models.URLField(
+        blank=True,
+        default="",
+    )
+
+    lti_ags_lineitems_url = models.URLField(
+        blank=True,
+        default="",
+    )
     
     class Meta:
         ordering = ("name",)

@@ -36,3 +36,5 @@ flake8==7.0.0
 isort==5.13.2
 django-debug-toolbar==4.3.0
 celery==5.5.3
+PyJWT[crypto]
+requests

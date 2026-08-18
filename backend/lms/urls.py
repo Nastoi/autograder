@@ -1,5 +1,7 @@
 from django.urls import path
 
+from .jwks import LtiJwksView
+
 from .views import (
     AssessmentMappingDetailView,
     AssessmentMappingListCreateView,
@@ -12,6 +14,11 @@ from .views import (
 
 
 urlpatterns = [
+    path(
+        "lti/jwks/",
+        LtiJwksView.as_view(),
+        name="lti-jwks",
+    ),
     path(
         "assessment-mappings/",
         AssessmentMappingListCreateView.as_view(),

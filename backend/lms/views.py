@@ -398,6 +398,17 @@ class LtiLaunchView(APIView):
         if launch_error is not None:
             return launch_error
 
+        ags_endpoint = claims.get(
+            "https://purl.imsglobal.org/spec/lti-ags/claim/endpoint"
+        )
+
+        
+        print(
+            "LTI AGS CLAIM:",
+            ags_endpoint,
+            flush=True,
+        )
+
         issuer = claims.get("iss")
 
         deployment_id = claims.get(
@@ -426,6 +437,24 @@ class LtiLaunchView(APIView):
             )
         )
 
+        if ags_endpoint:
+            mapping.lti_ags_lineitem_url = ags_endpoint.get(
+                "lineitem",
+                "",
+            )
+
+            mapping.lti_ags_lineitems_url = ags_endpoint.get(
+                "lineitems",
+                "",
+            )
+
+            mapping.save(
+                update_fields=[
+                    "lti_ags_lineitem_url",
+                    "lti_ags_lineitems_url",
+                ]
+            )
+            
         if mapping_error is not None:
             return mapping_error
 
