@@ -249,8 +249,8 @@ export async function submitAssignment(
     throw new Error(
       getErrorMessage(
         data,
-        "Submission failed.",
-      ),
+        "We couldn't start grading right now. Please wait a few minutes and try again.",
+      )
     );
   }
 

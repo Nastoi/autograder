@@ -9,7 +9,7 @@ from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
-
+from .tasks import grade_submission_task
 from .models import LearnerSubmission, SubmissionContext, SubmissionPage
 from .serializers import (
     LearnerSubmissionSerializer,
@@ -331,22 +331,13 @@ class SubmissionCreateView(APIView):
             maximum_score=assignment.maximum_score,
         )
 
-        submission = run_ai_grading(submission)
-
-        if (
-            submission.status
-            == LearnerSubmission.Status.COMPLETED
-            and submission.final_score is not None
-        ):
-            clean_up_submission_files(
-                learner=request.user,
-                cohort=context.cohort,
-                assignment=assignment,
-            )
+        grade_submission_task.delay(
+            str(submission.id)
+        )
 
         return Response(
             LearnerSubmissionSerializer(submission).data,
-            status=status.HTTP_201_CREATED,
+            status=status.HTTP_202_ACCEPTED,
         )
 
 
