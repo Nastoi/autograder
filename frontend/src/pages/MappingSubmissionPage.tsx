@@ -939,15 +939,15 @@ export function MappingSubmissionPage() {
               </div>
             )}
 
-            {(SHOW_LEARNER_RESULTS || attempts.length === 0) && (
-              <>
             <div className="new-attempt-heading">
               <h2>
-                {SHOW_LEARNER_RESULTS && latestAttemptFailed
-                  ? "Resubmit Assignment"
-                  : attempts.length > 0
-                    ? "Submit a New Attempt"
-                    : "Submit Your First Attempt"}
+                {!SHOW_LEARNER_RESULTS
+                  ? "Submit Assignment"
+                  : latestAttemptFailed
+                    ? "Resubmit Assignment"
+                    : attempts.length > 0
+                      ? "Submit a New Attempt"
+                      : "Submit Your First Attempt"}
               </h2>
 
               <p>
@@ -1190,16 +1190,16 @@ export function MappingSubmissionPage() {
                         ? "Waiting for Grading"
                         : isSubmitting
                           ? "Submitting..."
-                          : SHOW_LEARNER_RESULTS && latestAttemptFailed
-                            ? "Resubmit Assignment"
-                            : attempts.length > 0
-                              ? "Submit New Attempt"
-                              : "Submit Assignment"}
+                          : !SHOW_LEARNER_RESULTS
+                            ? "Submit Assignment"
+                            : latestAttemptFailed
+                              ? "Resubmit Assignment"
+                              : attempts.length > 0
+                                ? "Submit New Attempt"
+                                : "Submit Assignment"}
                 </button>
               </div>
             </form>
-              </>
-            )}
 
             {!SHOW_LEARNER_RESULTS && attempts.length > 0 && (
               <div className="grading-wait-message">
@@ -1774,7 +1774,7 @@ export function MappingSubmissionPage() {
                                                             </strong>
                                                             <span>
                                                               {criterion.awarded_marks} /{" "}
-                                                              {criterion.maximum_score} marks
+                                                              {criterion.maximum_score}
                                                             </span>
                                                           </div>
                                                           {criterion.achievement_band && (
