@@ -114,19 +114,6 @@ def grade_submission_task(
     acks_late=True,
     reject_on_worker_lost=True,
 )
-@shared_task(
-    bind=True,
-    autoretry_for=(
-        requests.exceptions.RequestException,
-    ),
-    retry_backoff=True,
-    retry_backoff_max=300,
-    retry_jitter=True,
-    max_retries=5,
-    acks_late=True,
-    reject_on_worker_lost=True,
-)
-
 def push_submission_grade_task(
     self,
     submission_id: str,

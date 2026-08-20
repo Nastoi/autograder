@@ -24,6 +24,8 @@ import {
   getRubricBands,
   getRubricCriteria,
   getTasks,
+  importAssignmentConfigurationCsv,
+  updateAssignmentConfigurationLock,
   updateAssignmentLevel,
   updateModuleAssignment,
   updateRubricBand,
@@ -104,8 +106,15 @@ export function AssignmentsPage() {
     useState<AssignmentDeleteImpact | null>(null);
   const [isCheckingDeleteImpact, setIsCheckingDeleteImpact] = useState(false);
   const [isDeletingAssignment, setIsDeletingAssignment] = useState(false);
+  const [editCode, setEditCode] = useState("");
   const [editMaximumScore, setEditMaximumScore] = useState("");
   const [editMinimumPassScore, setEditMinimumPassScore] = useState("");
+  const [editIsSummative, setEditIsSummative] = useState(true);
+  const [editContributesToFinalMark, setEditContributesToFinalMark] =
+    useState(true);
+  const [editFinalMarkWeight, setEditFinalMarkWeight] = useState("100");
+  const [editIsActive, setEditIsActive] = useState(true);
+  const [isSavingAssignmentEdit, setIsSavingAssignmentEdit] = useState(false);
 
   // Level edit
   const [editingLevelId, setEditingLevelId] = useState("");
@@ -151,6 +160,17 @@ export function AssignmentsPage() {
   const [mappingCriterionId, setMappingCriterionId] = useState("");
   const [selectedMappingTaskIds, setSelectedMappingTaskIds] = useState<string[]>([]);
   const [isSavingTaskMapping, setIsSavingTaskMapping] = useState(false);
+  const [importingLevelId, setImportingLevelId] = useState("");
+  const [levelLocks, setLevelLocks] = useState<
+    Record<
+      string,
+      {
+        locked: boolean;
+        locked_by: string | null;
+        owned_by_me: boolean;
+      }
+    >
+  >({});
 
   async function loadData() {
     const [
@@ -201,6 +221,34 @@ export function AssignmentsPage() {
 
     void initialise();
   }, []);
+
+  useEffect(() => {
+    const levelId = expandedLevelIds[0];
+
+    if (
+      !levelId ||
+      !levelLocks[levelId]?.owned_by_me
+    ) {
+      return;
+    }
+
+    const intervalId = window.setInterval(() => {
+      void updateAssignmentConfigurationLock(
+        levelId,
+        "heartbeat",
+      ).then((lock) => {
+        setLevelLocks((current) => ({
+          ...current,
+          [levelId]: lock,
+        }));
+      });
+    }, 30000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [expandedLevelIds, levelLocks]);
+
 
   const filteredModules = modules.filter(
     (module) =>
@@ -286,17 +334,70 @@ export function AssignmentsPage() {
 
   function startEditingAssignment(assignment: ModuleAssignment) {
     setEditingAssignmentId(assignment.id);
+    setEditCode(assignment.assignment_code);
     setEditMaximumScore(assignment.maximum_score);
     setEditMinimumPassScore(assignment.minimum_pass_score);
+    setEditIsSummative(assignment.is_summative);
+    setEditContributesToFinalMark(
+      assignment.contributes_to_final_mark,
+    );
+    setEditFinalMarkWeight(
+      assignment.contributes_to_final_mark
+        ? assignment.final_mark_weight
+        : "0",
+    );
+    setEditIsActive(assignment.is_active);
   }
 
-  async function saveAssignmentEdit(assignment: ModuleAssignment) {
+  function closeAssignmentEdit() {
+    if (isSavingAssignmentEdit) return;
+    setEditingAssignmentId("");
+  }
+
+  async function saveAssignmentEdit(
+    event: FormEvent<HTMLFormElement>,
+    assignment: ModuleAssignment,
+  ) {
+    event.preventDefault();
     setError("");
+
+    if (
+      editContributesToFinalMark &&
+      (
+        Number(editFinalMarkWeight) < 0 ||
+        Number(editFinalMarkWeight) > 100
+      )
+    ) {
+      setError("Final mark weight must be between 0 and 100.");
+      return;
+    }
+
+    if (
+      Number(editMinimumPassScore) >
+      Number(editMaximumScore)
+    ) {
+      setError(
+        "Minimum pass score cannot be greater than maximum score.",
+      );
+      return;
+    }
+
+    setIsSavingAssignmentEdit(true);
+
     try {
       await updateModuleAssignment(assignment.id, {
+        assignment_code: editCode.trim(),
+        assignment_title: editCode.trim(),
         maximum_score: editMaximumScore,
         minimum_pass_score: editMinimumPassScore,
+        is_summative: editIsSummative,
+        contributes_to_final_mark: editContributesToFinalMark,
+        final_mark_weight: editContributesToFinalMark
+          ? editFinalMarkWeight
+          : "0",
+        is_active: editIsActive,
       });
+
       await loadData();
       setEditingAssignmentId("");
     } catch (caughtError) {
@@ -305,6 +406,8 @@ export function AssignmentsPage() {
           ? caughtError.message
           : "Unable to update assignment.",
       );
+    } finally {
+      setIsSavingAssignmentEdit(false);
     }
   }
 
@@ -429,24 +532,67 @@ export function AssignmentsPage() {
     ]);
   }
 
+  async function releaseLevelLock(levelId: string) {
+    const currentLock = levelLocks[levelId];
+
+    if (!currentLock?.owned_by_me) return;
+
+    try {
+      await updateAssignmentConfigurationLock(
+        levelId,
+        "release",
+      );
+    } catch {
+      // The lease also expires automatically if release fails.
+    }
+
+    setLevelLocks((current) => ({
+      ...current,
+      [levelId]: {
+        locked: false,
+        locked_by: null,
+        owned_by_me: false,
+      },
+    }));
+  }
+
   async function toggleLevel(levelId: string) {
     const isOpen = expandedLevelIds.includes(levelId);
 
-    setExpandedLevelIds(
-      isOpen ? [] : [levelId],
-    );
+    if (isOpen) {
+      await releaseLevelLock(levelId);
+      setExpandedLevelIds([]);
+      return;
+    }
 
-    if (!isOpen) {
-      setBandCriterionId("");
-      try {
-        await refreshLevelTasks(levelId);
-      } catch (caughtError) {
-        setError(
-          caughtError instanceof Error
-            ? caughtError.message
-            : "Unable to load tasks.",
-        );
-      }
+    const previousLevelId = expandedLevelIds[0];
+
+    if (previousLevelId && previousLevelId !== levelId) {
+      await releaseLevelLock(previousLevelId);
+    }
+
+    setBandCriterionId("");
+    setError("");
+
+    try {
+      const lock = await updateAssignmentConfigurationLock(
+        levelId,
+        "acquire",
+      );
+
+      setLevelLocks((current) => ({
+        ...current,
+        [levelId]: lock,
+      }));
+
+      setExpandedLevelIds([levelId]);
+      await refreshLevelTasks(levelId);
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Unable to open this configuration.",
+      );
     }
   }
 
@@ -702,6 +848,166 @@ export function AssignmentsPage() {
           ? caughtError.message
           : "Unable to delete rubric band.",
       );
+    }
+  }
+
+
+  function downloadConfigurationCsvTemplate(
+    level: AssignmentLevel,
+  ) {
+    const headers = [
+      "record_type",
+      "title",
+      "skill_statement_code",
+      "skill_statement",
+      "objective",
+      "scenario",
+      "instructions",
+      "deliverables",
+      "expected_outcome",
+      "task_code",
+      "task_title",
+      "task_description",
+      "criterion_code",
+      "criterion_title",
+      "criterion_description",
+      "maximum_score",
+    ];
+
+    const rows = [
+      headers,
+      [
+        "configuration",
+        level.title || "",
+        "SS01",
+        "Enter the skill statement here",
+        "Enter the objective here",
+        "Enter the scenario here",
+        "Enter the submission instructions here",
+        "Deliverable 1 | Deliverable 2",
+        "Enter the expected outcome here",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+      ],
+      [
+        "task",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "T01",
+        "Task title",
+        "Describe the evidence or work required for this task",
+        "",
+        "",
+        "",
+        "",
+      ],
+      [
+        "task",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "T02",
+        "Another task title",
+        "Describe the evidence or work required for this task",
+        "",
+        "",
+        "",
+        "",
+      ],
+      [
+        "criterion",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "C01",
+        "Criterion title",
+        "Describe what is being assessed",
+        "10",
+      ],
+      [
+        "criterion",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "C02",
+        "Another criterion",
+        "Describe what is being assessed",
+        "20",
+      ],
+    ];
+
+    const escapeCsvCell = (value: string) =>
+      `"${value.replace(/"/g, '""')}"`;
+
+    const csv = rows
+      .map((row) => row.map(escapeCsvCell).join(","))
+      .join("\n");
+
+    const blob = new Blob([`\uFEFF${csv}`], {
+      type: "text/csv;charset=utf-8;",
+    });
+
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = "assignment-configuration-template.csv";
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
+    URL.revokeObjectURL(url);
+  }
+
+  async function importConfigurationCsv(
+    level: AssignmentLevel,
+    file: File,
+  ) {
+    setError("");
+    setImportingLevelId(level.id);
+
+    try {
+      await importAssignmentConfigurationCsv(level.id, file);
+      await loadData();
+      setExpandedLevelIds([level.id]);
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Unable to import assignment configuration CSV.",
+      );
+    } finally {
+      setImportingLevelId("");
     }
   }
 
@@ -1089,7 +1395,6 @@ export function AssignmentsPage() {
               </thead>
               <tbody>
                 {filteredAssignments.map((assignment) => {
-                  const isEditing = editingAssignmentId === assignment.id;
                   const isSelected = selectedAssignmentId === assignment.id;
 
                   return (
@@ -1128,40 +1433,8 @@ export function AssignmentsPage() {
                         </div>
                       </td>
 
-                      <td>
-                        {isEditing ? (
-                          <input
-                            className="table-number-input"
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={editMaximumScore}
-                            onClick={(event) => event.stopPropagation()}
-                            onChange={(event) =>
-                              setEditMaximumScore(event.target.value)
-                            }
-                          />
-                        ) : (
-                          assignment.maximum_score
-                        )}
-                      </td>
-                      <td>
-                        {isEditing ? (
-                          <input
-                            className="table-number-input"
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={editMinimumPassScore}
-                            onClick={(event) => event.stopPropagation()}
-                            onChange={(event) =>
-                              setEditMinimumPassScore(event.target.value)
-                            }
-                          />
-                        ) : (
-                          assignment.minimum_pass_score
-                        )}
-                      </td>
+                      <td>{assignment.maximum_score}</td>
+                      <td>{assignment.minimum_pass_score}</td>
                       <td>
                         <span
                           className={`status-badge ${assignment.is_active ? "status-active" : "status-inactive"
@@ -1174,56 +1447,37 @@ export function AssignmentsPage() {
                         className="table-actions"
                         onClick={(event) => event.stopPropagation()}
                       >
-                        {isEditing ? (
-                          <>
-                            <button
-                              type="button"
-                              className="btn-table"
-                              onClick={() => void saveAssignmentEdit(assignment)}
-                            >
-                              Save
-                            </button>
-                            <button
-                              type="button"
-                              className="btn-table"
-                              onClick={() => setEditingAssignmentId("")}
-                            >
-                              Cancel
-                            </button>
-                          </>
-                        ) : (
-                          <div
-                            style={{
-                              display: "flex",
-                              alignItems: "center",
-                              gap: "8px",
-                            }}
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "8px",
+                          }}
+                        >
+                          <AuditTrailButton
+                            objectType="assignment"
+                            objectId={assignment.id}
+                            label={assignment.assignment_code}
+                          />
+
+                          <button
+                            type="button"
+                            className="btn-table"
+                            onClick={() => startEditingAssignment(assignment)}
                           >
-                            <AuditTrailButton
-                              objectType="assignment"
-                              objectId={assignment.id}
-                              label={assignment.assignment_code}
-                            />
+                            Edit
+                          </button>
 
-                            <button
-                              type="button"
-                              className="btn-table"
-                              onClick={() => startEditingAssignment(assignment)}
-                            >
-                              Edit
-                            </button>
-
-                            <button
-                              type="button"
-                              className="btn-table btn-table-danger"
-                              onClick={() =>
-                                void openAssignmentDelete(assignment.id)
-                              }
-                            >
-                              Delete
-                            </button>
-                          </div>
-                        )}
+                          <button
+                            type="button"
+                            className="btn-table btn-table-danger"
+                            onClick={() =>
+                              void openAssignmentDelete(assignment.id)
+                            }
+                          >
+                            Delete
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -1245,7 +1499,14 @@ export function AssignmentsPage() {
                 backgroundColor: 'rgba(0, 0, 0, 0.4)',
                 zIndex: 9998,
               }}
-              onClick={() => setSelectedAssignmentId("")}
+              onClick={() => {
+                const levelId = expandedLevelIds[0];
+                if (levelId) {
+                  void releaseLevelLock(levelId);
+                }
+                setExpandedLevelIds([]);
+                setSelectedAssignmentId("");
+              }}
             />
             <section
               className="assignment-workspace content-card assignment-workspace-modal"
@@ -1282,7 +1543,14 @@ export function AssignmentsPage() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => setSelectedAssignmentId("")}
+                  onClick={() => {
+                    const levelId = expandedLevelIds[0];
+                    if (levelId) {
+                      void releaseLevelLock(levelId);
+                    }
+                    setExpandedLevelIds([]);
+                    setSelectedAssignmentId("");
+                  }}
                   style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: '4px', display: 'flex' }}
                   aria-label="Close panel"
                 >
@@ -1571,6 +1839,10 @@ export function AssignmentsPage() {
                       }
 
                       const isExpanded = expandedLevelIds.includes(level.id);
+                      const levelLock = levelLocks[level.id];
+                      const levelReadOnly =
+                        Boolean(levelLock?.locked) &&
+                        !levelLock?.owned_by_me;
                       const levelTaskItems = selectedAssignmentTasks.filter(
                         (task) => task.assignment_level === level.id,
                       );
@@ -1657,6 +1929,74 @@ export function AssignmentsPage() {
                                     : "Proficient + Expert"}
                                 </span>
                               </div>
+
+
+                              <div
+                                className="section-actions"
+                                style={{
+                                  display: "flex",
+                                  gap: "8px",
+                                  marginBottom: "16px",
+                                  flexWrap: "wrap",
+                                }}
+                              >
+                                <button
+                                  type="button"
+                                  className="btn-secondary"
+                                  onClick={() =>
+                                    downloadConfigurationCsvTemplate(level)
+                                  }
+                                >
+                                  Download CSV Template
+                                </button>
+
+                                <label
+                                  className="btn-primary"
+                                  style={{
+                                    cursor:
+                                      importingLevelId === level.id ||
+                                      levelReadOnly
+                                        ? "not-allowed"
+                                        : "pointer",
+                                    opacity:
+                                      importingLevelId === level.id ||
+                                      levelReadOnly
+                                        ? 0.65
+                                        : 1,
+                                  }}
+                                >
+                                  {importingLevelId === level.id
+                                    ? "Importing..."
+                                    : "Import Configuration CSV"}
+
+                                  <input
+                                    type="file"
+                                    accept=".csv,text/csv"
+                                    disabled={importingLevelId === level.id}
+                                    style={{ display: "none" }}
+                                    onChange={(event) => {
+                                      const file = event.target.files?.[0];
+
+                                      if (file) {
+                                        void importConfigurationCsv(level, file);
+                                      }
+
+                                      event.currentTarget.value = "";
+                                    }}
+                                  />
+                                </label>
+                              </div>
+
+                              {levelReadOnly && (
+                                <p
+                                  className="error-message"
+                                  style={{ marginBottom: "16px" }}
+                                >
+                                  {levelLock?.locked_by || "Another administrator"}{" "}
+                                  is currently editing this configuration.
+                                  You can view it, but editing is temporarily disabled.
+                                </p>
+                              )}
 
                               <div className="level-card-header">
                                 <div>
@@ -1802,6 +2142,7 @@ export function AssignmentsPage() {
                                       type="button"
                                       className="btn-secondary"
                                       onClick={() => startEditingLevel(level)}
+                                      disabled={levelReadOnly}
                                     >
                                       Edit Requirements
                                     </button>
@@ -1821,6 +2162,7 @@ export function AssignmentsPage() {
                                   type="button"
                                   className="btn-primary"
                                   onClick={() => setTaskFormLevelId(level.id)}
+                                  disabled={levelReadOnly}
                                 >
                                   + Add Task
                                 </button>
@@ -1968,6 +2310,7 @@ export function AssignmentsPage() {
                                     type="button"
                                     className="btn-primary"
                                     onClick={() => setCriterionFormLevelId(level.id)}
+                                    disabled={levelReadOnly}
                                   >
                                     + Add Criterion
                                   </button>
@@ -2193,6 +2536,7 @@ export function AssignmentsPage() {
                                                       onClick={() =>
                                                         openTaskMapping(criterion)
                                                       }
+                                                      disabled={levelReadOnly}
                                                     >
                                                       Assign Tasks
                                                     </button>
@@ -2202,6 +2546,7 @@ export function AssignmentsPage() {
                                                       onClick={() =>
                                                         startEditingCriterion(criterion)
                                                       }
+                                                      disabled={levelReadOnly}
                                                     >
                                                       Edit
                                                     </button>
@@ -2211,6 +2556,7 @@ export function AssignmentsPage() {
                                                       onClick={() =>
                                                         void removeCriterion(criterion.id)
                                                       }
+                                                      disabled={levelReadOnly}
                                                     >
                                                       Delete
                                                     </button>
@@ -2227,7 +2573,16 @@ export function AssignmentsPage() {
 
                                 {activeMappingCriterion && (
                                   <div className="config-modal-backdrop">
-                                    <div className="config-modal">
+                                    <div
+                                      className="config-modal"
+                                      style={{
+                                        width: "min(900px, 92vw)",
+                                        maxWidth: "900px",
+                                        maxHeight: "85vh",
+                                        display: "flex",
+                                        flexDirection: "column",
+                                      }}
+                                    >
                                       <div className="config-modal-header">
                                         <div>
                                           <h3>Assign Tasks to Rubric Criterion</h3>
@@ -2255,7 +2610,14 @@ export function AssignmentsPage() {
                                           Add tasks first, then assign them to the criterion.
                                         </div>
                                       ) : (
-                                        <div className="task-mapping-list">
+                                        <div
+                                          className="task-mapping-list"
+                                          style={{
+                                            maxHeight: "55vh",
+                                            overflowY: "auto",
+                                            paddingRight: "4px",
+                                          }}
+                                        >
                                           {levelTaskItems.map((task) => {
                                             const checked =
                                               selectedMappingTaskIds.includes(task.id);
@@ -2347,6 +2709,7 @@ export function AssignmentsPage() {
                                       setBandCriterionId("");
                                       setBandFormLevelId(level.id);
                                     }}
+                                    disabled={levelReadOnly}
                                   >
                                     + Add Band
                                   </button>
@@ -2625,6 +2988,200 @@ export function AssignmentsPage() {
           </>
         )}
       </section>
+
+      {editingAssignmentId && (() => {
+        const assignment = assignments.find(
+          (item) => item.id === editingAssignmentId,
+        );
+
+        if (!assignment) return null;
+
+        return (
+          <div className="config-modal-backdrop">
+            <div className="config-modal">
+              <div className="config-modal-header">
+                <div>
+                  <h3>Edit Assignment</h3>
+                  <p className="section-description">
+                    {assignment.qualification_code} → {assignment.module_code}
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  className="config-modal-close"
+                  onClick={closeAssignmentEdit}
+                  disabled={isSavingAssignmentEdit}
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              <form
+                className="modern-form"
+                onSubmit={(event) =>
+                  void saveAssignmentEdit(event, assignment)
+                }
+              >
+                <div className="form-grid form-grid-2">
+                  <div className="form-group">
+                    <label>Qualification</label>
+                    <input
+                      value={assignment.qualification_code}
+                      disabled
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label>Module</label>
+                    <input
+                      value={assignment.module_code}
+                      disabled
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label htmlFor="edit-assignment-code">
+                      Code
+                    </label>
+                    <input
+                      id="edit-assignment-code"
+                      value={editCode}
+                      onChange={(event) =>
+                        setEditCode(event.target.value)
+                      }
+                      required
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label htmlFor="edit-maximum-score">
+                      Maximum score
+                    </label>
+                    <input
+                      id="edit-maximum-score"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={editMaximumScore}
+                      onChange={(event) =>
+                        setEditMaximumScore(event.target.value)
+                      }
+                      required
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label htmlFor="edit-minimum-pass-score">
+                      Minimum pass score
+                    </label>
+                    <input
+                      id="edit-minimum-pass-score"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={editMinimumPassScore}
+                      onChange={(event) =>
+                        setEditMinimumPassScore(event.target.value)
+                      }
+                      required
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label htmlFor="edit-final-mark-weight">
+                      Final mark weight
+                    </label>
+                    <input
+                      id="edit-final-mark-weight"
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="0.01"
+                      value={editFinalMarkWeight}
+                      onChange={(event) =>
+                        setEditFinalMarkWeight(event.target.value)
+                      }
+                      disabled={!editContributesToFinalMark}
+                      required={editContributesToFinalMark}
+                    />
+                  </div>
+                </div>
+
+                <div className="checkbox-row">
+                  <label className="checkbox-group">
+                    <input
+                      type="checkbox"
+                      checked={editIsSummative}
+                      onChange={(event) =>
+                        setEditIsSummative(event.target.checked)
+                      }
+                    />
+                    Summative
+                  </label>
+
+                  <label className="checkbox-group">
+                    <input
+                      type="checkbox"
+                      checked={editContributesToFinalMark}
+                      onChange={(event) => {
+                        const checked = event.target.checked;
+                        setEditContributesToFinalMark(checked);
+
+                        if (!checked) {
+                          setEditFinalMarkWeight("0");
+                        } else if (
+                          Number(editFinalMarkWeight) <= 0
+                        ) {
+                          setEditFinalMarkWeight(
+                            assignment.final_mark_weight || "100",
+                          );
+                        }
+                      }}
+                    />
+                    Contributes to final mark
+                  </label>
+
+                  <label className="checkbox-group">
+                    <input
+                      type="checkbox"
+                      checked={editIsActive}
+                      onChange={(event) =>
+                        setEditIsActive(event.target.checked)
+                      }
+                    />
+                    Active
+                  </label>
+                </div>
+
+                <div className="form-actions">
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={closeAssignmentEdit}
+                    disabled={isSavingAssignmentEdit}
+                  >
+                    Cancel
+                  </button>
+
+                  <button
+                    type="submit"
+                    className="btn-primary"
+                    disabled={
+                      isSavingAssignmentEdit ||
+                      !editCode.trim()
+                    }
+                  >
+                    {isSavingAssignmentEdit
+                      ? "Saving..."
+                      : "Save Assignment"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        );
+      })()}
 
       {deleteAssignmentId && (
         <div className="config-modal-backdrop">

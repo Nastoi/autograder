@@ -27,6 +27,7 @@ from .views import (
     TaskEvidenceMapListCreateView,
     TaskMappingProcessView,
     Gpt4oDispatchView,
+    AssignmentLevelConfigurationCsvImportView,
 )
 
 urlpatterns = [
@@ -149,6 +150,11 @@ urlpatterns = [
         "criterion-results/<uuid:id>/",
         CriterionResultDetailView.as_view(),
         name="criterion-result-detail",
+    ),
+    path(
+        "assignment-levels/<uuid:assignment_level_id>/import-csv/",
+        AssignmentLevelConfigurationCsvImportView.as_view(),
+        name="assignment-level-configuration-import-csv",
     ),
     path(
         "map-tasks-page/",

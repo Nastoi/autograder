@@ -110,7 +110,9 @@ class AssessmentMappingDetailView(
     def destroy(self, request, *args, **kwargs):
         mapping = self.get_object()
 
-        has_submissions = mapping.submission_contexts.filter(
+        submission_contexts = mapping.submission_contexts.all()
+
+        has_submissions = submission_contexts.filter(
             submissions__isnull=False,
         ).exists()
 
@@ -119,12 +121,17 @@ class AssessmentMappingDetailView(
                 {
                     "detail": (
                         "This mapping cannot be deleted because "
-                        "one or more submissions are linked to it. "
-                        "Deactivate it instead."
+                        "one or more learner submissions are linked to it. "
+                        "Remove the submissions first or deactivate the mapping."
                     )
                 },
                 status=status.HTTP_409_CONFLICT,
             )
+
+        # Safe to remove empty contexts that are blocking PROTECT.
+        submission_contexts.filter(
+            submissions__isnull=True,
+        ).delete()
 
         record_portal_activity(
             user=request.user,
@@ -134,10 +141,10 @@ class AssessmentMappingDetailView(
             object_label=mapping.name,
         )
 
-        return super().destroy(
-            request,
-            *args,
-            **kwargs,
+        mapping.delete()
+
+        return Response(
+            status=status.HTTP_204_NO_CONTENT,
         )
     
 from rest_framework.permissions import AllowAny

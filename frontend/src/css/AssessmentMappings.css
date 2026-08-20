@@ -1225,3 +1225,63 @@ button:disabled {
   background: transparent;
   cursor: pointer;
 }
+
+/* =========================================================
+   Task-to-rubric mapping modal
+   ========================================================= */
+
+.task-mapping-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.task-mapping-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+
+  width: 100%;
+  box-sizing: border-box;
+  padding: 12px 14px;
+
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+
+  background: var(--bg-surface);
+  cursor: pointer;
+}
+
+.task-mapping-option:hover {
+  background: var(--bg-surface-hover);
+}
+
+.task-mapping-option.selected {
+  border-color: var(--border-focus);
+  background: var(--bg-surface-hover);
+}
+
+.task-mapping-option input[type="checkbox"] {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  margin: 2px 0 0;
+  cursor: pointer;
+  accent-color: var(--accent);
+}
+
+.task-mapping-option > div {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.task-mapping-option strong {
+  display: block;
+  color: var(--text-h);
+  line-height: 1.4;
+}
+
+.task-mapping-option .table-subtext {
+  margin-top: 4px;
+}
+

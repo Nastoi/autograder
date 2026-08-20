@@ -97,6 +97,9 @@ export function CohortsPage() {
   const [editDueDate, setEditDueDate] = useState("");
   const [isSavingDueDate, setIsSavingDueDate] = useState(false);
 
+  const [launchUrlMapping, setLaunchUrlMapping] =
+    useState<AssessmentMapping | null>(null);
+
   async function loadData() {
     try {
       const [
@@ -201,15 +204,32 @@ export function CohortsPage() {
     }
   }
 
-  function copyLtiUrl(mappingId: string) {
+  function getLtiLoginUrl() {
     const publicUrl =
       import.meta.env.VITE_AUTOGRADER_PUBLIC_URL ||
       window.location.origin;
 
-    const ltiUrl =
-      `${publicUrl}/api/lms/lti/launch/${mappingId}/`;
+    return `${publicUrl}/api/lms/lti/login/`;
+  }
 
-    void navigator.clipboard.writeText(ltiUrl);
+  function getLtiJwksUrl() {
+    const publicUrl =
+      import.meta.env.VITE_AUTOGRADER_PUBLIC_URL ||
+      window.location.origin;
+
+    return `${publicUrl}/api/lms/lti/jwks/`;
+  }
+
+  function getLtiLaunchUrl(mappingId: string) {
+    const publicUrl =
+      import.meta.env.VITE_AUTOGRADER_PUBLIC_URL ||
+      window.location.origin;
+
+    return `${publicUrl}/api/lms/lti/launch/${mappingId}/`;
+  }
+
+  function copyLtiUrl(url: string) {
+    void navigator.clipboard.writeText(url);
   }
 
   function beginEditingCohort(cohort: Cohort) {
@@ -355,13 +375,37 @@ export function CohortsPage() {
       numericWeight < 0 ||
       numericWeight > 100
     ) {
-      setError(
+      setMappingError(
         "Final mark weight must be between 0 and 100.",
       );
       return;
     }
 
-    setError("");
+    const otherContributingTotal = selectedCohortMappings
+      .filter(
+        (item) =>
+          item.id !== mapping.id &&
+          item.assignment_contributes_to_final_mark,
+      )
+      .reduce(
+        (total, item) =>
+          total + Number(item.final_mark_weight || 0),
+        0,
+      );
+
+    const updatedTotal =
+      otherContributingTotal + numericWeight;
+
+    if (updatedTotal > 100.0001) {
+      setMappingError(
+        `Cannot save ${numericWeight.toFixed(2)}%. ` +
+          `The cohort total would become ${updatedTotal.toFixed(2)}%. ` +
+          "Final mark allocation cannot exceed 100%.",
+      );
+      return;
+    }
+
+    setMappingError("");
     setIsSavingMappingWeight(true);
 
     try {
@@ -372,7 +416,7 @@ export function CohortsPage() {
       cancelEditingMappingWeight();
       await loadData();
     } catch (caughtError) {
-      setError(
+      setMappingError(
         caughtError instanceof Error
           ? caughtError.message
           : "Unable to update final mark weight.",
@@ -877,41 +921,36 @@ export function CohortsPage() {
       </div>
 
       {selectedCohort && (
-        <>
-          <div
-            style={{
-              position: 'fixed',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              backgroundColor: 'rgba(0, 0, 0, 0.4)',
-              zIndex: 9998,
-            }}
-            onClick={() => {
-              setSelectedCohortId(null);
-              setMappingError("");
-            }}
-          />
+        <div
+          className="config-modal-backdrop"
+          onClick={() => {
+            setSelectedCohortId(null);
+            setMappingError("");
+          }}
+        >
           <section
             className="content-card"
+            onClick={(event) => event.stopPropagation()}
             style={{
-              position: 'fixed',
-              top: 0,
-              right: 0,
-              bottom: 0,
-              width: '70%',
+              width: "calc(100vw - 24px)",
+              maxHeight: "94vh",
               margin: 0,
-              zIndex: 9999,
-              borderRadius: '16px 0 0 16px',
-              boxShadow: '-4px 0 24px rgba(0, 0, 0, 0.15)',
-              overflowY: 'auto',
-              display: 'flex',
-              flexDirection: 'column',
-              backgroundColor: 'white'
+              borderRadius: "16px",
+              boxShadow: "0 20px 50px rgba(0, 0, 0, 0.22)",
+              overflow: "hidden",
+              display: "flex",
+              flexDirection: "column",
+              backgroundColor: "white",
             }}
           >
-            <div className="content-card-header" style={{ position: 'sticky', top: 0, backgroundColor: 'white', zIndex: 10 }}>
+            <div
+              className="content-card-header"
+              style={{
+                flex: "0 0 auto",
+                backgroundColor: "white",
+                zIndex: 10,
+              }}
+            >
               <div className="content-title-section">
                 <div className="content-title">
                   <h2>
@@ -939,7 +978,7 @@ export function CohortsPage() {
                   type="button"
                   onClick={() => setSelectedCohortId(null)}
                   style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: '4px', display: 'flex' }}
-                  aria-label="Close panel"
+                  aria-label="Close cohort assignment popup"
                 >
                   <X size={20} color="var(--text-muted)" />
                 </button>
@@ -954,7 +993,72 @@ export function CohortsPage() {
               </div>
             )}
 
-            <div style={{ padding: '24px', flex: 1 }}>
+            <div
+              style={{
+                padding: "24px",
+                flex: "1 1 auto",
+                overflowY: "auto",
+              }}
+            >
+              <div
+                className="section-actions"
+                style={{
+                  marginBottom: "18px",
+                }}
+              >
+                <button
+                  type="button"
+                  className="btn-action"
+                  onClick={() =>
+                    copyLtiUrl(getLtiLoginUrl())
+                  }
+                >
+                  <Copy size={14} />
+                  Copy Login URL
+                </button>
+
+                <button
+                  type="button"
+                  className="btn-action"
+                  onClick={() =>
+                    copyLtiUrl(getLtiJwksUrl())
+                  }
+                >
+                  <Copy size={14} />
+                  Copy Keyset URL
+                </button>
+              </div>
+
+            {selectedCohortMappings.length > 0 && (
+                <div
+                  className="detail-block"
+                  style={{ marginBottom: "16px" }}
+                >
+                  <span className="detail-label">
+                    Current final mark allocation
+                  </span>
+                  <strong>
+                    {selectedCohortMappings
+                      .filter(
+                        (mapping) =>
+                          mapping.assignment_contributes_to_final_mark,
+                      )
+                      .reduce(
+                        (total, mapping) =>
+                          total +
+                          Number(mapping.final_mark_weight || 0),
+                        0,
+                      )
+                      .toFixed(2)}
+                    %
+                  </strong>
+                  <small className="table-subtext">
+                    Total contributing assessment weightage for this cohort.
+                    It cannot exceed 100%.
+                  </small>
+                </div>
+              )}
+
               {selectedCohortMappings.length === 0 ? (
                 <p style={{ margin: 0, color: 'var(--text-muted)' }}>No assignments mapped to this cohort.</p>
               ) : (
@@ -965,7 +1069,6 @@ export function CohortsPage() {
                       <th>Status</th>
                       <th>Due date</th>
                       <th>Weightage</th>
-                      <th>Submission URL</th>
                       <th>Action</th>
                     </tr>
                   </thead>
@@ -1182,18 +1285,6 @@ export function CohortsPage() {
                         </td>
 
                         <td>
-                          <span
-                            style={{
-                              fontFamily: "monospace",
-                              color: "var(--text-muted)",
-                              fontSize: "13px",
-                            }}
-                          >
-                            {`${import.meta.env.VITE_AUTOGRADER_PUBLIC_URL || window.location.origin}/api/lms/lti/launch/${mapping.id}/`}
-                          </span>
-                        </td>
-
-                        <td>
                           <div
                             style={{
                               display: "flex",
@@ -1211,10 +1302,12 @@ export function CohortsPage() {
                             <button
                               type="button"
                               className="btn-action"
-                              onClick={() => copyLtiUrl(mapping.id)}
+                              onClick={() =>
+                                setLaunchUrlMapping(mapping)
+                              }
                             >
-                              <Copy size={14} />
-                              Copy LTI URL
+                              <LinkIcon size={14} />
+                              Embedding URL
                             </button>
 
                             <button
@@ -1246,8 +1339,73 @@ export function CohortsPage() {
               )}
             </div>
           </section>
-        </>
+        </div>
       )}
+      {launchUrlMapping && (
+        <div className="config-modal-backdrop">
+          <div
+            className="config-modal"
+            style={{
+              width: "min(620px, calc(100vw - 40px))",
+            }}
+          >
+            <div className="config-modal-header">
+              <div>
+                <h3>Assignment Embedding URL</h3>
+                <p className="section-description">
+                  {launchUrlMapping.assignment_code} —{" "}
+                  {launchUrlMapping.assignment_title}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                className="config-modal-close"
+                onClick={() =>
+                  setLaunchUrlMapping(null)
+                }
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <span
+              className="mapping-url-text"
+              style={{ marginBottom: "16px" }}
+            >
+              {getLtiLaunchUrl(launchUrlMapping.id)}
+            </span>
+
+            <div className="form-actions form-actions-compact">
+              <button
+                type="button"
+                className="btn-action"
+                onClick={() =>
+                  copyLtiUrl(
+                    getLtiLaunchUrl(
+                      launchUrlMapping.id,
+                    ),
+                  )
+                }
+              >
+                <Copy size={14} />
+                Copy Embedding URL
+              </button>
+
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() =>
+                  setLaunchUrlMapping(null)
+                }
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {cohortToDelete && cohortDeleteImpact && (
         <div className="delete-modal-backdrop">
           <div className="delete-modal">

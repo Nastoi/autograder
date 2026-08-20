@@ -73,6 +73,21 @@ export function MappingSubmissionPage() {
     useState(false);
 
   const latestAttempt = attempts[0];
+
+  const latestAttemptBand =
+    latestAttempt?.achieved_band?.trim().toLowerCase() ?? "";
+
+  const latestAttemptIsGraded =
+    latestAttempt?.status === "completed" ||
+    latestAttempt?.status === "graded";
+
+  const latestAttemptFailed =
+    latestAttemptIsGraded &&
+    (
+      latestAttemptBand === "failed" ||
+      latestAttemptBand === "fail"
+    );
+
   // const hasNoAttemptsRemaining =
   //   attemptPolicy?.can_submit === false;
   const isWaitingForGrading =
@@ -80,6 +95,8 @@ export function MappingSubmissionPage() {
     latestAttempt?.status === "processing";
   const deadlinePassed = context?.deadline_passed ?? false;
   const MAX_FILE_SIZE = 50 * 1024 * 1024;
+
+  const SHOW_LEARNER_RESULTS = false;
 
   const ALLOWED_EXTENSIONS = [
     ".pdf",
@@ -906,14 +923,17 @@ export function MappingSubmissionPage() {
 
             <div className="new-attempt-heading">
               <h2>
-                {attempts.length > 0
-                  ? "Submit a New Attempt"
-                  : "Submit Your First Attempt"}
+                {SHOW_LEARNER_RESULTS && latestAttemptFailed
+                  ? "Resubmit Assignment"
+                  : attempts.length > 0
+                    ? "Submit a New Attempt"
+                    : "Submit Your First Attempt"}
               </h2>
 
               <p>
-                Choose the submission track and upload
-                your completed assignment.
+                {SHOW_LEARNER_RESULTS && latestAttemptFailed
+                  ? "Your latest graded attempt was Failed. Review the feedback, make your changes, then upload a revised submission."
+                  : "Choose the submission track and upload your completed assignment."}
               </p>
             </div>
             {/* 
@@ -937,6 +957,18 @@ export function MappingSubmissionPage() {
                   ? "Submit New Attempt"
                   : "Submit Assignment"} */}
 
+
+            {latestAttemptFailed && !deadlinePassed && (
+              <div className="grading-wait-message">
+                <strong>
+                  Your latest result is Failed.
+                </strong>
+
+                <p>
+                  You may resubmit after reviewing the feedback below.
+                </p>
+              </div>
+            )}
 
             <form
               onSubmit={handleSubmit}
@@ -1138,13 +1170,27 @@ export function MappingSubmissionPage() {
                         ? "Waiting for Grading"
                         : isSubmitting
                           ? "Submitting..."
-                          : attempts.length > 0
-                            ? "Submit New Attempt"
-                            : "Submit Assignment"}
+                          : SHOW_LEARNER_RESULTS && latestAttemptFailed
+                            ? "Resubmit Assignment"
+                            : attempts.length > 0
+                              ? "Submit New Attempt"
+                              : "Submit Assignment"}
                 </button>
               </div>
             </form>
-            {attempts.length > 0 && (
+
+            {attempts.length > 0 && !SHOW_LEARNER_RESULTS && (
+              <div className="grading-wait-message">
+                <strong>Your submission has been received.</strong>
+
+                <p>
+                  Your work is currently being reviewed.
+                  Your grade and feedback will be available soon.
+                </p>
+              </div>
+            )}
+
+            {SHOW_LEARNER_RESULTS && attempts.length > 0 && (
               <section className="latest-result">
                 <div className="latest-result-heading">
                   <div>
@@ -1317,7 +1363,7 @@ export function MappingSubmissionPage() {
 
 
 
-            {attempts.length > 1 && (
+            {SHOW_LEARNER_RESULTS && attempts.length > 1 && (
               <section
                 className="submission-history"
                 aria-label="Previous submission attempts"

@@ -6,6 +6,7 @@ from .assignment_delete import (
 )
 from .views import (
     AssignmentLevelDetailView,
+    AssignmentLevelConfigurationLockView,
     AssignmentLevelListCreateView,
     CohortDeleteImpactView,
     CohortDetailView,
@@ -69,6 +70,11 @@ urlpatterns = [
         "assignment-levels/",
         AssignmentLevelListCreateView.as_view(),
         name="assignment-level-list-create",
+    ),
+    path(
+        "assignment-levels/<uuid:level_id>/edit-lock/",
+        AssignmentLevelConfigurationLockView.as_view(),
+        name="assignment-level-edit-lock",
     ),
     path(
         "assignment-levels/<uuid:id>/",

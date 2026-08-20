@@ -6,7 +6,6 @@ import {
 import {
     Plus,
     Copy,
-    KeyRound,
     ShieldCheck,
     X,
 } from "lucide-react";
@@ -457,7 +456,7 @@ export function UserManagementPage() {
                                                     void handleResetPassword(user)
                                                 }
                                             >
-                                                <KeyRound size={14} />
+                                                
                                                 {resettingUserId === user.id
                                                     ? "Resetting..."
                                                     : "Reset Password"}

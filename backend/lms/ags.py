@@ -161,3 +161,37 @@ def clear_ags_score(
         "status_code": response.status_code,
         "response": response.text,
     }
+
+
+def get_ags_result(
+    *,
+    client_id: str,
+    token_url: str,
+    lineitem_url: str,
+    lti_user_id: str,
+):
+    access_token = get_lti_access_token(
+        client_id=client_id,
+        token_url=token_url,
+    )
+
+    result_url = (
+        f"{lineitem_url.rstrip('/')}/results/"
+        f"{lti_user_id}"
+    )
+
+    response = requests.get(
+        result_url,
+        headers={
+            "Authorization": f"Bearer {access_token}",
+            "Accept": "application/vnd.ims.lis.v2.resultcontainer+json",
+        },
+        timeout=15,
+    )
+
+    response.raise_for_status()
+
+    return {
+        "status_code": response.status_code,
+        "data": response.json(),
+    }

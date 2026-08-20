@@ -1279,6 +1279,46 @@ export async function createAssignmentLevel(
     return data as AssignmentLevel;
 }
 
+export type AssignmentConfigurationLock = {
+    locked: boolean;
+    locked_by: string | null;
+    owned_by_me: boolean;
+    detail?: string;
+};
+
+export async function updateAssignmentConfigurationLock(
+    assignmentLevelId: string,
+    action: "acquire" | "heartbeat" | "release",
+): Promise<AssignmentConfigurationLock> {
+    const csrfToken = await getCsrfToken();
+
+    const response = await fetch(
+        `${API_BASE_URL}/courses/assignment-levels/${assignmentLevelId}/edit-lock/`,
+        {
+            method: "POST",
+            credentials: "include",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRFToken": csrfToken,
+            },
+            body: JSON.stringify({ action }),
+        },
+    );
+
+    const data = await response.json();
+
+    if (!response.ok && response.status !== 423) {
+        throw new Error(
+            typeof data?.detail === "string"
+                ? data.detail
+                : "Unable to update configuration edit lock.",
+        );
+    }
+
+    return data as AssignmentConfigurationLock;
+}
+
+
 export async function updateAssignmentLevel(
     assignmentLevelId: string,
     input: UpdateAssignmentLevelInput,
@@ -1844,6 +1884,50 @@ export async function updateTask(
 
     return data as Task;
 }
+
+export type AssignmentConfigurationImportResult = {
+    assignment_level: string;
+    level_code: "basic" | "advanced";
+    requirements_updated: boolean;
+    tasks_created: number;
+    criteria_created: number;
+};
+
+export async function importAssignmentConfigurationCsv(
+    assignmentLevelId: string,
+    file: File,
+): Promise<AssignmentConfigurationImportResult> {
+    const csrfToken = await getCsrfToken();
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const response = await fetch(
+        `${API_BASE_URL}/grading/assignment-levels/${assignmentLevelId}/import-csv/`,
+        {
+            method: "POST",
+            credentials: "include",
+            headers: {
+                "X-CSRFToken": csrfToken,
+            },
+            body: formData,
+        },
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+        if (typeof data?.detail === "string") {
+            throw new Error(data.detail);
+        }
+        if (Array.isArray(data?.errors)) {
+            throw new Error(data.errors.join(" | "));
+        }
+        throw new Error("Unable to import assignment configuration CSV.");
+    }
+
+    return data as AssignmentConfigurationImportResult;
+}
+
 
 export async function deleteTask(taskId: string): Promise<void> {
     const csrfToken = await getCsrfToken();

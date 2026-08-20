@@ -44,4 +44,12 @@ class CriterionScore(BaseModel):
 class GradingResponseSchema(BaseModel):
     submission_id: str
     criterion_evaluations: list[CriterionScore]
-    overall_summary: str
+    overall_summary: str = Field(
+        description=(
+            "Holistic overall feedback synthesising performance across ALL "
+            "task and criterion evaluations in the assignment. Summarise "
+            "overall strengths, weaknesses, significant missing evidence, "
+            "and alignment with the assignment objective. Do not focus only "
+            "on one task or the final criterion."
+        )
+    )
