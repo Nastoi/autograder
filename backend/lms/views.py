@@ -8,7 +8,7 @@ from .serializers import AssessmentMappingSerializer
 from urllib.parse import urlencode
 
 from django.core import signing
-from django.http import HttpResponseRedirect
+from django.http import FileResponse, HttpResponseRedirect
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -713,7 +713,7 @@ class InstructorMappingDashboardView(APIView):
                 "assignment_level",
             )
             .prefetch_related(
-                "criterion_results",
+                "criterion_results__rubric_criterion",
             )
             .order_by(
                 "learner__username",
@@ -786,6 +786,9 @@ class InstructorMappingDashboardView(APIView):
                     "original_filename": (
                         submission.original_filename
                     ),
+                    "has_submitted_file": bool(
+                        submission.submitted_file
+                    ),
                     "submitted_at": (
                         submission.submitted_at
                     ),
@@ -800,6 +803,9 @@ class InstructorMappingDashboardView(APIView):
                             ),
                             "awarded_marks": str(
                                 result.awarded_marks
+                            ),
+                            "maximum_score": str(
+                                result.rubric_criterion.maximum_score
                             ),
                             "achievement_band": (
                                 result.achievement_band
@@ -876,6 +882,94 @@ class InstructorMappingDashboardView(APIView):
                     and timezone.now() > mapping.due_date
                 ),
             }
+        )
+
+
+class InstructorSubmissionDownloadView(
+    InstructorMappingDashboardView
+):
+    """Download only the latest retained learner submission file."""
+
+    http_method_names = ["get", "head", "options"]
+
+    def get(self, request, mapping_id, submission_id):
+        mapping, error_response = self._get_mapping(
+            request,
+            mapping_id,
+        )
+
+        if error_response is not None:
+            return error_response
+
+        submission = get_object_or_404(
+            LearnerSubmission.objects.select_related(
+                "learner",
+                "context",
+                "assignment_level",
+            ),
+            id=submission_id,
+            context__cohort=mapping.cohort,
+            assignment_level__assignment=mapping.assignment,
+        )
+
+        latest_submission = (
+            LearnerSubmission.objects
+            .filter(
+                learner=submission.learner,
+                context__cohort=mapping.cohort,
+                assignment_level__assignment=mapping.assignment,
+            )
+            .order_by(
+                "-attempt_number",
+                "-submitted_at",
+            )
+            .first()
+        )
+
+        if (
+            latest_submission is None
+            or latest_submission.id != submission.id
+        ):
+            return Response(
+                {
+                    "detail": (
+                        "Only the learner's latest submission "
+                        "file is available for download."
+                    )
+                },
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if not submission.submitted_file:
+            return Response(
+                {
+                    "detail": (
+                        "The latest submission file is no longer "
+                        "available."
+                    )
+                },
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        try:
+            file_handle = submission.submitted_file.open("rb")
+        except (FileNotFoundError, OSError):
+            return Response(
+                {
+                    "detail": (
+                        "The latest submission file could not be found."
+                    )
+                },
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        return FileResponse(
+            file_handle,
+            as_attachment=True,
+            filename=(
+                submission.original_filename
+                or f"submission-{submission.id}"
+            ),
         )
 
 import re

@@ -10,6 +10,7 @@ from .views import (
     LtiLaunchView,
     AssessmentMappingLtiRegistrationView,
     InstructorMappingDashboardView,
+    InstructorSubmissionDownloadView,
 )
 
 
@@ -58,6 +59,11 @@ urlpatterns = [
         "assessment-mappings/<uuid:mapping_id>/instructor/",
         InstructorMappingDashboardView.as_view(),
         name="assessment-mapping-instructor",
-    )
+    ),
+    path(
+        "assessment-mappings/<uuid:mapping_id>/instructor/submissions/<uuid:submission_id>/download/",
+        InstructorSubmissionDownloadView.as_view(),
+        name="assessment-mapping-instructor-submission-download",
+    ),
 
 ]
