@@ -16,6 +16,7 @@ import {
 } from "react-router";
 
 import {
+  downloadInstructorSubmission,
   getInstructorMappingDashboard,
   getMappingSubmissionContext,
   updateInstructorMappingDueDate,
@@ -36,6 +37,12 @@ import { jsPDF } from "jspdf";
 
 
 type SubmissionTrack = "basic" | "advanced";
+
+// Keep learner grading results hidden until you intentionally release them.
+// Change this to true only when learners are allowed to see grades/feedback.
+// IMPORTANT: Keep false until learner grades/feedback are officially released.
+// While false, learners with a submission see only the holding message below.
+const SHOW_LEARNER_RESULTS = false;
 
 export function MappingSubmissionPage() {
   const [attempts, setAttempts] = useState<Submission[]>([]);
@@ -74,19 +81,9 @@ export function MappingSubmissionPage() {
 
   const latestAttempt = attempts[0];
 
-  const latestAttemptBand =
-    latestAttempt?.achieved_band?.trim().toLowerCase() ?? "";
-
-  const latestAttemptIsGraded =
-    latestAttempt?.status === "completed" ||
-    latestAttempt?.status === "graded";
-
   const latestAttemptFailed =
-    latestAttemptIsGraded &&
-    (
-      latestAttemptBand === "failed" ||
-      latestAttemptBand === "fail"
-    );
+    latestAttempt?.status === "completed" &&
+    latestAttempt?.achieved_band?.toLowerCase() === "failed";
 
   // const hasNoAttemptsRemaining =
   //   attemptPolicy?.can_submit === false;
@@ -95,8 +92,6 @@ export function MappingSubmissionPage() {
     latestAttempt?.status === "processing";
   const deadlinePassed = context?.deadline_passed ?? false;
   const MAX_FILE_SIZE = 50 * 1024 * 1024;
-
-  const SHOW_LEARNER_RESULTS = false;
 
   const ALLOWED_EXTENSIONS = [
     ".pdf",
@@ -478,6 +473,32 @@ export function MappingSubmissionPage() {
     return `${percentage.toFixed(2)} / 100`;
   }
 
+  async function handleInstructorSubmissionDownload(
+    submissionId: string,
+    filename: string,
+  ) {
+    if (!mappingId) {
+      setInstructorError("Assessment mapping is missing.");
+      return;
+    }
+
+    setInstructorError("");
+
+    try {
+      await downloadInstructorSubmission(
+        mappingId,
+        submissionId,
+        filename,
+      );
+    } catch (caughtError) {
+      setInstructorError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Unable to download the learner submission.",
+      );
+    }
+  }
+
   async function saveInstructorDueDate() {
     if (!mappingId || !context?.is_instructor) return;
 
@@ -618,9 +639,7 @@ export function MappingSubmissionPage() {
             }
 
             setNotice(
-              latestSubmission.status === "completed"
-                ? "Your submission was graded successfully."
-                : "Your submission was received successfully. Grading will continue in the background. You may leave this page and return later to view your result.",
+              "Your submission has been received and is being reviewed. Your result and feedback will be available soon.",
             );
             setShowSubmissionReceivedModal(true);
 
@@ -650,12 +669,12 @@ export function MappingSubmissionPage() {
           latestSubmission?.status === "processing"
         ) {
           setNotice(
-            "Your submission was received successfully. Grading will continue in the background. You may leave this page and return later to view your result.",
+            "Your submission has been received and is being reviewed. Your result and feedback will be available soon.",
           );
         }
       } catch {
         setNotice(
-          "Your submission was received successfully. Grading will continue in the background. You may leave this page and return later to view your result.",
+          "Your submission has been received and is being reviewed. Your result and feedback will be available soon.",
         );
       }
 
@@ -782,8 +801,7 @@ export function MappingSubmissionPage() {
             <h1>Assignment Submission</h1>
 
             <p className="submission-intro">
-              Review your results, previous attempts,
-              or submit a new attempt.
+              Submit your completed assignment and check its submission status.
             </p>
           </div>
         </header>
@@ -921,6 +939,8 @@ export function MappingSubmissionPage() {
               </div>
             )}
 
+            {(SHOW_LEARNER_RESULTS || attempts.length === 0) && (
+              <>
             <div className="new-attempt-heading">
               <h2>
                 {SHOW_LEARNER_RESULTS && latestAttemptFailed
@@ -958,7 +978,7 @@ export function MappingSubmissionPage() {
                   : "Submit Assignment"} */}
 
 
-            {latestAttemptFailed && !deadlinePassed && (
+            {SHOW_LEARNER_RESULTS && latestAttemptFailed && !deadlinePassed && (
               <div className="grading-wait-message">
                 <strong>
                   Your latest result is Failed.
@@ -1178,14 +1198,15 @@ export function MappingSubmissionPage() {
                 </button>
               </div>
             </form>
+              </>
+            )}
 
-            {attempts.length > 0 && !SHOW_LEARNER_RESULTS && (
+            {!SHOW_LEARNER_RESULTS && attempts.length > 0 && (
               <div className="grading-wait-message">
-                <strong>Your submission has been received.</strong>
-
+                <strong>Submission received.</strong>
                 <p>
-                  Your work is currently being reviewed.
-                  Your grade and feedback will be available soon.
+                  Your submission has been received and is being reviewed.
+                  Your result and feedback will be available soon.
                 </p>
               </div>
             )}
@@ -1646,11 +1667,12 @@ export function MappingSubmissionPage() {
                                     <th>Result</th>
                                     <th>Band</th>
                                     <th>Submitted</th>
+                                    <th>Submission</th>
                                   </tr>
                                 </thead>
 
                                 <tbody>
-                                  {learner.attempts.map((attempt) => (
+                                  {learner.attempts.map((attempt, attemptIndex) => (
                                     <Fragment key={attempt.id}>
                                       <tr>
                                         <td>#{attempt.attempt_number}</td>
@@ -1680,10 +1702,41 @@ export function MappingSubmissionPage() {
                                             attempt.submitted_at,
                                           )}
                                         </td>
+                                        <td>
+                                          {attemptIndex === 0 &&
+                                          attempt.has_submitted_file ? (
+                                            <div
+                                              style={{
+                                                display: "flex",
+                                                flexDirection: "column",
+                                                alignItems: "flex-start",
+                                                gap: "6px",
+                                              }}
+                                            >
+                                              <span>
+                                                {attempt.original_filename}
+                                              </span>
+                                              <button
+                                                type="button"
+                                                className="btn-action"
+                                                onClick={() =>
+                                                  void handleInstructorSubmissionDownload(
+                                                    attempt.id,
+                                                    attempt.original_filename,
+                                                  )
+                                                }
+                                              >
+                                                Download
+                                              </button>
+                                            </div>
+                                          ) : (
+                                            <span>—</span>
+                                          )}
+                                        </td>
                                       </tr>
 
                                       <tr className="submission-feedback-row">
-                                        <td colSpan={6}>
+                                        <td colSpan={7}>
                                           <div className="submission-feedback">
                                             <span>Overall Feedback</span>
                                             <p>
@@ -1714,14 +1767,27 @@ export function MappingSubmissionPage() {
                                                               "14px",
                                                           }}
                                                         >
-                                                          <strong>
-                                                            Criterion{" "}
-                                                            {index + 1}
-                                                          </strong>
+                                                          <div className="criterion-feedback-header">
+                                                            <strong>
+                                                              Criterion{" "}
+                                                              {index + 1}
+                                                            </strong>
+                                                            <span>
+                                                              {criterion.awarded_marks} /{" "}
+                                                              {criterion.maximum_score} marks
+                                                            </span>
+                                                          </div>
+                                                          {criterion.achievement_band && (
+                                                            <div className="criterion-feedback-band">
+                                                              {criterion.achievement_band
+                                                                .charAt(0)
+                                                                .toUpperCase() +
+                                                                criterion.achievement_band.slice(1)}
+                                                            </div>
+                                                          )}
                                                           <p>
-                                                            {
-                                                              criterion.feedback
-                                                            }
+                                                            {criterion.feedback ||
+                                                              "No detailed feedback available."}
                                                           </p>
                                                         </div>
                                                       ),
@@ -1798,12 +1864,12 @@ export function MappingSubmissionPage() {
 
             <p className="grading-modal-description">
               Your submission was received successfully.
-              Grading will continue in the background.
+              Your work is being reviewed.
             </p>
 
             <p className="grading-modal-note">
-              You may leave this page and return later to view
-              your result.
+              You may leave this page. Your result and feedback
+              will be available soon.
             </p>
 
             <button

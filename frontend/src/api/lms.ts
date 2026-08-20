@@ -32,41 +32,6 @@ function extractResults<T>(
     throw new Error("Invalid API response.");
 }
 
-async function fetchAllPaginatedResults<T>(
-    initialUrl: string,
-): Promise<T[]> {
-    let nextUrl: string | null = initialUrl;
-    const allResults: T[] = [];
-
-    while (nextUrl) {
-        const response: Response = await fetch(nextUrl, {
-            method: "GET",
-            credentials: "include",
-        });
-
-        const data:
-            | T[]
-            | PaginatedResponse<T> =
-            await response.json();
-
-        if (!response.ok) {
-            throw new Error(
-                "Unable to load paginated data.",
-            );
-        }
-
-        if (Array.isArray(data)) {
-            allResults.push(...data);
-            break;
-        }
-
-        allResults.push(...data.results);
-        nextUrl = data.next;
-    }
-
-    return allResults;
-}
-
 export type AssessmentMapping = {
     id: string;
     name: string;
@@ -1662,9 +1627,25 @@ export async function getRubricBands(
         ? `?${params.toString()}`
         : "";
 
-    return fetchAllPaginatedResults<RubricBand>(
+    const response = await fetch(
         `${API_BASE_URL}/grading/rubric-bands/${query}`,
+        {
+            method: "GET",
+            credentials: "include",
+        },
     );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+        throw new Error(
+            typeof data?.detail === "string"
+                ? data.detail
+                : "Unable to load rubric bands.",
+        );
+    }
+
+    return extractResults<RubricBand>(data);
 }
 
 export async function createRubricBand(
@@ -2422,6 +2403,7 @@ export type InstructorCriterionResult = {
   id: string;
   rubric_criterion: string;
   awarded_marks: string;
+  maximum_score: string;
   achievement_band: string;
   feedback: string;
 };
@@ -2438,6 +2420,7 @@ export type InstructorMappingAttempt = {
   achieved_band: string;
   feedback: string;
   original_filename: string;
+  has_submitted_file: boolean;
   submitted_at: string;
   completed_at: string | null;
   criterion_results: InstructorCriterionResult[];
@@ -2488,6 +2471,47 @@ export async function getInstructorMappingDashboard(
   return data as InstructorMappingDashboard;
 }
 
+export async function downloadInstructorSubmission(
+  mappingId: string,
+  submissionId: string,
+  fallbackFilename: string,
+): Promise<void> {
+  const response = await fetch(
+    `${API_BASE_URL}/lms/assessment-mappings/${mappingId}/instructor/submissions/${submissionId}/download/`,
+    {
+      method: "GET",
+      credentials: "include",
+    },
+  );
+
+  if (!response.ok) {
+    let message = "Unable to download the learner submission.";
+
+    try {
+      const data = await response.json();
+
+      if (typeof data?.detail === "string") {
+        message = data.detail;
+      }
+    } catch {
+      // Keep the default message.
+    }
+
+    throw new Error(message);
+  }
+
+  const blob = await response.blob();
+  const objectUrl = window.URL.createObjectURL(blob);
+  const link = document.createElement("a");
+
+  link.href = objectUrl;
+  link.download = fallbackFilename || "submission";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(objectUrl);
+}
+
 export async function updateInstructorMappingDueDate(
   mappingId: string,
   dueDate: string | null,
@@ -2525,4 +2549,3 @@ export async function updateInstructorMappingDueDate(
 
   return data;
 }
-
