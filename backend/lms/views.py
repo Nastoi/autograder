@@ -35,6 +35,8 @@ from lms.models import AssessmentMapping
 from accounts.audit import record_portal_activity
 from accounts.models import PortalActivity
 import hashlib
+from urllib.parse import urlparse
+import uuid
 
 logger = logging.getLogger(__name__)
 
@@ -301,20 +303,16 @@ class LtiLoginView(APIView):
         issuer = request.query_params.get("iss")
         client_id = request.query_params.get("client_id")
         login_hint = request.query_params.get("login_hint")
-        lti_message_hint = request.query_params.get("lti_message_hint")
-        target_link_uri = request.query_params.get("target_link_uri")
-        try:
-            mapping_id = target_link_uri.rstrip("/").split("/")[-1]
+        lti_message_hint = request.query_params.get(
+            "lti_message_hint"
+        )
+        target_link_uri = request.query_params.get(
+            "target_link_uri"
+        )
 
-            mapping = AssessmentMapping.objects.get(
-                id=mapping_id
-            )
-        except (AssessmentMapping.DoesNotExist, ValueError, AttributeError):
-            return Response(
-                {"detail": "Invalid assessment mapping."},
-                status=400,
-            )
-
+        # ---------------------------------------------------------
+        # 1. Make sure the LMS supplied all required parameters.
+        # ---------------------------------------------------------
         if not all([
             issuer,
             client_id,
@@ -322,16 +320,112 @@ class LtiLoginView(APIView):
             target_link_uri,
         ]):
             return Response(
-                {"detail": "Missing required LTI login parameters."},
+                {
+                    "detail": (
+                        "Missing required LTI login parameters."
+                    )
+                },
                 status=400,
             )
 
+        # ---------------------------------------------------------
+        # 2. Extract AssessmentMapping UUID from target_link_uri.
+        #
+        # Example:
+        # https://ag.claas2saas.com/api/lms/lti/launch/
+        # 26d33f8c-6e5f-4508-8441-5f2edac337bb/
+        #
+        # becomes:
+        # 26d33f8c-6e5f-4508-8441-5f2edac337bb
+        # ---------------------------------------------------------
+        try:
+            parsed_target = urlparse(target_link_uri)
+
+            path_parts = [
+                part
+                for part in parsed_target.path.split("/")
+                if part
+            ]
+
+            mapping_id = path_parts[-1]
+
+            logger.info(
+                "LTI login target_link_uri=%r mapping_id=%r",
+                target_link_uri,
+                mapping_id,
+            )
+
+            mapping = AssessmentMapping.objects.get(
+                id=mapping_id
+            )
+
+        except AssessmentMapping.DoesNotExist:
+            logger.warning(
+                "LTI login mapping does not exist. "
+                "target_link_uri=%r mapping_id=%r",
+                target_link_uri,
+                locals().get("mapping_id"),
+            )
+
+            return Response(
+                {
+                    "detail": (
+                        "Invalid assessment mapping. "
+                        "Mapping does not exist."
+                    )
+                },
+                status=400,
+            )
+
+        except (
+            ValueError,
+            AttributeError,
+            IndexError,
+            TypeError,
+        ) as exc:
+            logger.warning(
+                "Unable to parse LTI mapping. "
+                "target_link_uri=%r error=%r",
+                target_link_uri,
+                exc,
+            )
+
+            return Response(
+                {
+                    "detail": (
+                        "Invalid assessment mapping URL."
+                    )
+                },
+                status=400,
+            )
+
+        # ---------------------------------------------------------
+        # 3. Verify mapping is active.
+        # ---------------------------------------------------------
+        if not mapping.is_active:
+            return Response(
+                {
+                    "detail": (
+                        "This assessment mapping is inactive."
+                    )
+                },
+                status=400,
+            )
+
+        # ---------------------------------------------------------
+        # 4. Verify LMS issuer.
+        # ---------------------------------------------------------
         if issuer != settings.LTI_PLATFORM_ISSUER:
             return Response(
-                {"detail": "Invalid LTI issuer."},
+                {
+                    "detail": "Invalid LTI issuer."
+                },
                 status=400,
             )
 
+        # ---------------------------------------------------------
+        # 5. Verify this mapping has complete LTI configuration.
+        # ---------------------------------------------------------
         if not all([
             mapping.lti_client_id,
             mapping.lti_deployment_id,
@@ -348,7 +442,18 @@ class LtiLoginView(APIView):
                 status=400,
             )
 
+        # ---------------------------------------------------------
+        # 6. Client ID from LMS must match this mapping.
+        # ---------------------------------------------------------
         if client_id != mapping.lti_client_id:
+            logger.warning(
+                "LTI client mismatch mapping=%s "
+                "received=%s expected=%s",
+                mapping.id,
+                client_id,
+                mapping.lti_client_id,
+            )
+
             return Response(
                 {
                     "detail": (
@@ -359,22 +464,42 @@ class LtiLoginView(APIView):
                 status=400,
             )
 
+        # ---------------------------------------------------------
+        # 7. Verify the target URL belongs to AutoGrad3r.
+        # ---------------------------------------------------------
         expected_prefix = (
             f"{settings.AUTOGRADER_PUBLIC_URL}"
             "/api/lms/lti/launch/"
         )
 
-        if not target_link_uri.startswith(expected_prefix):
+        if not target_link_uri.startswith(
+            expected_prefix
+        ):
+            logger.warning(
+                "Invalid LTI target URI. "
+                "received=%r expected_prefix=%r",
+                target_link_uri,
+                expected_prefix,
+            )
+
             return Response(
-                {"detail": "Invalid LTI target link URI."},
+                {
+                    "detail": "Invalid LTI target link URI."
+                },
                 status=400,
             )
-        
+
+        # ---------------------------------------------------------
+        # 8. Generate nonce.
+        # ---------------------------------------------------------
         nonce = signing.dumps({
             "client_id": client_id,
             "login_hint": login_hint,
         })
 
+        # ---------------------------------------------------------
+        # 9. Generate LTI state.
+        # ---------------------------------------------------------
         state = signing.dumps({
             "issuer": issuer,
             "client_id": client_id,
@@ -382,6 +507,7 @@ class LtiLoginView(APIView):
             "target_link_uri": target_link_uri,
             "nonce": nonce,
         })
+
         state_cache_key = (
             "lti_state:"
             + hashlib.sha256(
@@ -395,6 +521,9 @@ class LtiLoginView(APIView):
             timeout=600,
         )
 
+        # ---------------------------------------------------------
+        # 10. Redirect user back to LMS OpenID endpoint.
+        # ---------------------------------------------------------
         params = {
             "scope": "openid",
             "response_type": "id_token",
@@ -408,13 +537,17 @@ class LtiLoginView(APIView):
         }
 
         if lti_message_hint:
-            params["lti_message_hint"] = lti_message_hint
+            params[
+                "lti_message_hint"
+            ] = lti_message_hint
 
-        platform_login_url = settings.LTI_LOGIN_URL
+        platform_login_url = settings.LTI_LOGIN_URL     
+        print("test")
 
         return HttpResponseRedirect(
-            f"{platform_login_url}?{urlencode(params)}"
-        )
+            f"{platform_login_url}"
+            f"?{urlencode(params)}"
+        ) 
 
 class LtiLaunchView(APIView):
     permission_classes = [AllowAny]
