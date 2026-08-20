@@ -95,16 +95,48 @@ class AssessmentMappingDetailView(
         )
 
     def perform_update(self, serializer):
-        mapping = serializer.save(
+        mapping = self.get_object()
+
+        old_client_id = mapping.lti_client_id
+        old_deployment_id = mapping.lti_deployment_id
+        old_jwks_url = mapping.lti_jwks_url
+        old_token_url = mapping.lti_access_token_url
+
+        updated_mapping = serializer.save(
             updated_by=self.request.user,
         )
+
+        lti_registration_changed = any([
+            old_client_id != updated_mapping.lti_client_id,
+            old_deployment_id != updated_mapping.lti_deployment_id,
+            old_jwks_url != updated_mapping.lti_jwks_url,
+            old_token_url != updated_mapping.lti_access_token_url,
+        ])
+
+        if lti_registration_changed:
+            updated_mapping.external_platform_id = ""
+            updated_mapping.external_context_id = ""
+            updated_mapping.external_resource_link_id = ""
+            updated_mapping.lti_ags_lineitem_url = ""
+            updated_mapping.lti_ags_lineitems_url = ""
+
+            updated_mapping.save(
+                update_fields=[
+                    "external_platform_id",
+                    "external_context_id",
+                    "external_resource_link_id",
+                    "lti_ags_lineitem_url",
+                    "lti_ags_lineitems_url",
+                    "updated_at",
+                ]
+            )
 
         record_portal_activity(
             user=self.request.user,
             action=PortalActivity.Action.UPDATED,
             object_type="assessment_mapping",
-            object_id=mapping.id,
-            object_label=mapping.name,
+            object_id=updated_mapping.id,
+            object_label=updated_mapping.name,
         )
 
     def destroy(self, request, *args, **kwargs):

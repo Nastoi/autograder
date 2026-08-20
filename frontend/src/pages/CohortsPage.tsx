@@ -100,6 +100,15 @@ export function CohortsPage() {
   const [launchUrlMapping, setLaunchUrlMapping] =
     useState<AssessmentMapping | null>(null);
 
+  const [editingLtiMapping, setEditingLtiMapping] =
+    useState<AssessmentMapping | null>(null);
+  const [editLtiClientId, setEditLtiClientId] = useState("");
+  const [editLtiDeploymentId, setEditLtiDeploymentId] = useState("");
+  const [editLtiJwksUrl, setEditLtiJwksUrl] = useState("");
+  const [editLtiAccessTokenUrl, setEditLtiAccessTokenUrl] = useState("");
+  const [editLtiIsActive, setEditLtiIsActive] = useState(true);
+  const [isSavingLtiConfig, setIsSavingLtiConfig] = useState(false);
+
   async function loadData() {
     try {
       const [
@@ -349,6 +358,58 @@ export function CohortsPage() {
 
     setCohortToDelete(null);
     setCohortDeleteImpact(null);
+  }
+
+
+
+  function openLtiEdit(mapping: AssessmentMapping) {
+    setEditingLtiMapping(mapping);
+    setEditLtiClientId(mapping.lti_client_id || "");
+    setEditLtiDeploymentId(mapping.lti_deployment_id || "");
+    setEditLtiJwksUrl(mapping.lti_jwks_url || "");
+    setEditLtiAccessTokenUrl(mapping.lti_access_token_url || "");
+    setEditLtiIsActive(mapping.is_active);
+    setMappingError("");
+  }
+
+  function closeLtiEdit() {
+    if (isSavingLtiConfig) return;
+    setEditingLtiMapping(null);
+  }
+
+  async function saveLtiEdit(
+    event: FormEvent<HTMLFormElement>,
+  ) {
+    event.preventDefault();
+
+    if (!editingLtiMapping) return;
+
+    setMappingError("");
+    setIsSavingLtiConfig(true);
+
+    try {
+      await updateAssessmentMapping(
+        editingLtiMapping.id,
+        {
+          lti_client_id: editLtiClientId.trim(),
+          lti_deployment_id: editLtiDeploymentId.trim(),
+          lti_jwks_url: editLtiJwksUrl.trim(),
+          lti_access_token_url: editLtiAccessTokenUrl.trim(),
+          is_active: editLtiIsActive,
+        },
+      );
+
+      await loadData();
+      setEditingLtiMapping(null);
+    } catch (caughtError) {
+      setMappingError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Unable to update LTI configuration.",
+      );
+    } finally {
+      setIsSavingLtiConfig(false);
+    }
   }
 
 
@@ -932,8 +993,8 @@ export function CohortsPage() {
             className="content-card"
             onClick={(event) => event.stopPropagation()}
             style={{
-              width: "calc(100vw - 24px)",
-              maxHeight: "94vh",
+              width: "min(1100px, calc(100vw - 48px))",
+              maxHeight: "86vh",
               margin: 0,
               borderRadius: "16px",
               boxShadow: "0 20px 50px rgba(0, 0, 0, 0.22)",
@@ -1303,6 +1364,16 @@ export function CohortsPage() {
                               type="button"
                               className="btn-action"
                               onClick={() =>
+                                openLtiEdit(mapping)
+                              }
+                            >
+                              Edit LTI
+                            </button>
+
+                            <button
+                              type="button"
+                              className="btn-action"
+                              onClick={() =>
                                 setLaunchUrlMapping(mapping)
                               }
                             >
@@ -1341,6 +1412,135 @@ export function CohortsPage() {
           </section>
         </div>
       )}
+      {editingLtiMapping && (
+        <div className="config-modal-backdrop">
+          <div
+            className="config-modal"
+            style={{
+              width: "min(720px, calc(100vw - 40px))",
+            }}
+          >
+            <div className="config-modal-header">
+              <div>
+                <h3>Edit LTI Configuration</h3>
+                <p className="section-description">
+                  {editingLtiMapping.assignment_code} —{" "}
+                  {editingLtiMapping.assignment_title}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                className="config-modal-close"
+                onClick={closeLtiEdit}
+                disabled={isSavingLtiConfig}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <form
+              className="modern-form"
+              onSubmit={saveLtiEdit}
+              style={{
+                maxWidth: "none",
+                boxShadow: "none",
+                padding: 0,
+                border: 0,
+              }}
+            >
+              <div className="form-grid form-grid-2">
+                <div className="form-group">
+                  <label htmlFor="edit-lti-client-id">
+                    Client ID
+                  </label>
+                  <input
+                    id="edit-lti-client-id"
+                    value={editLtiClientId}
+                    onChange={(event) =>
+                      setEditLtiClientId(event.target.value)
+                    }
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="edit-lti-deployment-id">
+                    Deployment ID
+                  </label>
+                  <input
+                    id="edit-lti-deployment-id"
+                    value={editLtiDeploymentId}
+                    onChange={(event) =>
+                      setEditLtiDeploymentId(event.target.value)
+                    }
+                  />
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="edit-lti-jwks-url">
+                  LMS Keyset / JWKS URL
+                </label>
+                <input
+                  id="edit-lti-jwks-url"
+                  type="url"
+                  value={editLtiJwksUrl}
+                  onChange={(event) =>
+                    setEditLtiJwksUrl(event.target.value)
+                  }
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="edit-lti-token-url">
+                  LMS Access Token URL
+                </label>
+                <input
+                  id="edit-lti-token-url"
+                  type="url"
+                  value={editLtiAccessTokenUrl}
+                  onChange={(event) =>
+                    setEditLtiAccessTokenUrl(event.target.value)
+                  }
+                />
+              </div>
+
+              <label className="checkbox-group">
+                <input
+                  type="checkbox"
+                  checked={editLtiIsActive}
+                  onChange={(event) =>
+                    setEditLtiIsActive(event.target.checked)
+                  }
+                />
+                Active
+              </label>
+
+              <div className="form-actions">
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={closeLtiEdit}
+                  disabled={isSavingLtiConfig}
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="submit"
+                  className="btn-primary"
+                  disabled={isSavingLtiConfig}
+                >
+                  {isSavingLtiConfig
+                    ? "Saving..."
+                    : "Save LTI Configuration"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {launchUrlMapping && (
         <div className="config-modal-backdrop">
           <div
