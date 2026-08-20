@@ -1713,9 +1713,9 @@ export function MappingSubmissionPage() {
                                                 gap: "6px",
                                               }}
                                             >
-                                              <span>
+                                              {/* <span>
                                                 {attempt.original_filename}
-                                              </span>
+                                              </span> */}
                                               <button
                                                 type="button"
                                                 className="btn-action"
