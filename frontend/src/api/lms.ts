@@ -32,6 +32,41 @@ function extractResults<T>(
     throw new Error("Invalid API response.");
 }
 
+async function fetchAllPaginatedResults<T>(
+    initialUrl: string,
+): Promise<T[]> {
+    let nextUrl: string | null = initialUrl;
+    const allResults: T[] = [];
+
+    while (nextUrl) {
+        const response: Response = await fetch(nextUrl, {
+            method: "GET",
+            credentials: "include",
+        });
+
+        const data:
+            | T[]
+            | PaginatedResponse<T> =
+            await response.json();
+
+        if (!response.ok) {
+            throw new Error(
+                "Unable to load paginated data.",
+            );
+        }
+
+        if (Array.isArray(data)) {
+            allResults.push(...data);
+            break;
+        }
+
+        allResults.push(...data.results);
+        nextUrl = data.next;
+    }
+
+    return allResults;
+}
+
 export type AssessmentMapping = {
     id: string;
     name: string;
@@ -1627,25 +1662,9 @@ export async function getRubricBands(
         ? `?${params.toString()}`
         : "";
 
-    const response = await fetch(
+    return fetchAllPaginatedResults<RubricBand>(
         `${API_BASE_URL}/grading/rubric-bands/${query}`,
-        {
-            method: "GET",
-            credentials: "include",
-        },
     );
-
-    const data = await response.json();
-
-    if (!response.ok) {
-        throw new Error(
-            typeof data?.detail === "string"
-                ? data.detail
-                : "Unable to load rubric bands.",
-        );
-    }
-
-    return extractResults<RubricBand>(data);
 }
 
 export async function createRubricBand(
@@ -2506,3 +2525,4 @@ export async function updateInstructorMappingDueDate(
 
   return data;
 }
+
