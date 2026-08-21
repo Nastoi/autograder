@@ -2368,7 +2368,6 @@ export async function updateAssessmentMapping(
     lti_jwks_url: string;
     lti_access_token_url: string;
     is_active: boolean;
-    due_date: string | null;
   }>,
 ): Promise<AssessmentMapping> {
   const csrfToken = await getCsrfToken();
@@ -2510,42 +2509,4 @@ export async function downloadInstructorSubmission(
   link.click();
   link.remove();
   window.URL.revokeObjectURL(objectUrl);
-}
-
-export async function updateInstructorMappingDueDate(
-  mappingId: string,
-  dueDate: string | null,
-): Promise<{
-  id: string;
-  due_date: string | null;
-  deadline_passed: boolean;
-}> {
-  const csrfToken = await getCsrfToken();
-
-  const response = await fetch(
-    `${API_BASE_URL}/lms/assessment-mappings/${mappingId}/instructor/`,
-    {
-      method: "PATCH",
-      credentials: "include",
-      headers: {
-        "Content-Type": "application/json",
-        "X-CSRFToken": csrfToken,
-      },
-      body: JSON.stringify({
-        due_date: dueDate,
-      }),
-    },
-  );
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(
-      typeof data?.detail === "string"
-        ? data.detail
-        : "Unable to update the due date.",
-    );
-  }
-
-  return data;
 }

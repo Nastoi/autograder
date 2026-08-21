@@ -27,6 +27,7 @@ from .attempt_policy import (
     get_attempt_policy,
 )
 from lms.models import AssessmentMapping
+from lms.views import get_lms_due_date
 from courses.models import AssignmentLevel
 from .services import (
     extract_submission_pages,
@@ -177,11 +178,15 @@ class SubmissionCreateView(APIView):
         )
 
         mapping = context.assessment_mapping
+        lms_due_date = (
+            get_lms_due_date(mapping)
+            if mapping is not None
+            else None
+        )
 
         if (
-            mapping is not None
-            and mapping.due_date is not None
-            and timezone.now() > mapping.due_date
+            lms_due_date is not None
+            and timezone.now() > lms_due_date
         ):
             return Response(
                 {

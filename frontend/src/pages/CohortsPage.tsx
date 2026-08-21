@@ -92,11 +92,6 @@ export function CohortsPage() {
   const [isSavingMappingWeight, setIsSavingMappingWeight] =
     useState(false);
   const [mappingError, setMappingError] = useState("");
-  const [editingDueDateMappingId, setEditingDueDateMappingId] =
-    useState<string | null>(null);
-  const [editDueDate, setEditDueDate] = useState("");
-  const [isSavingDueDate, setIsSavingDueDate] = useState(false);
-
   const [launchUrlMapping, setLaunchUrlMapping] =
     useState<AssessmentMapping | null>(null);
 
@@ -484,57 +479,6 @@ export function CohortsPage() {
       );
     } finally {
       setIsSavingMappingWeight(false);
-    }
-  }
-
-  function toDateTimeLocal(value: string | null) {
-    if (!value) return "";
-
-    const date = new Date(value);
-    const offset = date.getTimezoneOffset();
-    const local = new Date(
-      date.getTime() - offset * 60 * 1000,
-    );
-
-    return local.toISOString().slice(0, 16);
-  }
-
-  function beginEditingDueDate(
-    mapping: AssessmentMapping,
-  ) {
-    setEditingDueDateMappingId(mapping.id);
-    setEditDueDate(toDateTimeLocal(mapping.due_date));
-    setMappingError("");
-  }
-
-  function cancelEditingDueDate() {
-    setEditingDueDateMappingId(null);
-    setEditDueDate("");
-  }
-
-  async function saveDueDate(
-    mapping: AssessmentMapping,
-  ) {
-    setMappingError("");
-    setIsSavingDueDate(true);
-
-    try {
-      await updateAssessmentMapping(mapping.id, {
-        due_date: editDueDate
-          ? new Date(editDueDate).toISOString()
-          : null,
-      });
-
-      cancelEditingDueDate();
-      await loadData();
-    } catch (caughtError) {
-      setMappingError(
-        caughtError instanceof Error
-          ? caughtError.message
-          : "Unable to update the due date.",
-      );
-    } finally {
-      setIsSavingDueDate(false);
     }
   }
 
@@ -1181,83 +1125,23 @@ export function CohortsPage() {
                         </td>
 
                         <td>
-                          {editingDueDateMappingId === mapping.id ? (
-                            <div
-                              style={{
-                                display: "flex",
-                                flexDirection: "column",
-                                gap: "8px",
-                                minWidth: "220px",
-                              }}
-                            >
-                              <input
-                                type="datetime-local"
-                                value={editDueDate}
-                                onChange={(event) =>
-                                  setEditDueDate(event.target.value)
-                                }
-                              />
-
-                              <div
-                                style={{
-                                  display: "flex",
-                                  gap: "8px",
-                                }}
-                              >
-                                <button
-                                  type="button"
-                                  className="btn-action"
-                                  disabled={isSavingDueDate}
-                                  onClick={() =>
-                                    void saveDueDate(mapping)
-                                  }
-                                >
-                                  {isSavingDueDate
-                                    ? "Saving..."
-                                    : "Save"}
-                                </button>
-
-                                <button
-                                  type="button"
-                                  className="btn-action"
-                                  disabled={isSavingDueDate}
-                                  onClick={cancelEditingDueDate}
-                                >
-                                  Cancel
-                                </button>
-                              </div>
-                            </div>
-                          ) : (
-                            <div
-                              style={{
-                                display: "flex",
-                                flexDirection: "column",
-                                gap: "6px",
-                                minWidth: "190px",
-                              }}
-                            >
-                              <span>
-                                {mapping.due_date
-                                  ? new Date(
-                                      mapping.due_date,
-                                    ).toLocaleString()
-                                  : "No due date"}
-                              </span>
-
-                              <button
-                                type="button"
-                                className="btn-action"
-                                onClick={() =>
-                                  beginEditingDueDate(mapping)
-                                }
-                              >
-                                <Pencil size={14} />
-                                {mapping.due_date
-                                  ? "Edit Due Date"
-                                  : "Set Due Date"}
-                              </button>
-                            </div>
-                          )}
+                          <div
+                            style={{
+                              display: "flex",
+                              flexDirection: "column",
+                              gap: "4px",
+                              minWidth: "190px",
+                            }}
+                          >
+                            <span>
+                              {mapping.due_date
+                                ? new Date(mapping.due_date).toLocaleString()
+                                : "No due date"}
+                            </span>
+                            <small className="table-subtext">
+                              Synced from LMS
+                            </small>
+                          </div>
                         </td>
 
                         <td>

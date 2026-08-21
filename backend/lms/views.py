@@ -38,6 +38,9 @@ import hashlib
 from urllib.parse import urlparse
 import uuid
 
+from django.utils.dateparse import parse_datetime
+from .ags import get_ags_lineitem
+
 logger = logging.getLogger(__name__)
 
 class AssessmentMappingListCreateView(
@@ -184,6 +187,54 @@ class AssessmentMappingDetailView(
 from rest_framework.permissions import AllowAny
 
 
+def get_lms_due_date(mapping):
+    """Fetch the LMS AGS line-item endDateTime and cache it locally."""
+    if not (
+        mapping.lti_ags_lineitem_url
+        and mapping.lti_client_id
+        and mapping.lti_access_token_url
+    ):
+        return mapping.due_date
+
+    try:
+        lineitem = get_ags_lineitem(
+            client_id=mapping.lti_client_id,
+            token_url=mapping.lti_access_token_url,
+            lineitem_url=mapping.lti_ags_lineitem_url,
+        )
+        end_date_time = lineitem.get("endDateTime")
+
+        if not end_date_time:
+            if mapping.due_date is not None:
+                mapping.due_date = None
+                mapping.save(update_fields=["due_date", "updated_at"])
+            return None
+
+        parsed_due_date = parse_datetime(end_date_time)
+        if parsed_due_date is None:
+            logger.warning(
+                "Unable to parse LMS AGS endDateTime mapping=%s value=%r",
+                mapping.id,
+                end_date_time,
+            )
+            return mapping.due_date
+
+        if timezone.is_naive(parsed_due_date):
+            parsed_due_date = timezone.make_aware(parsed_due_date)
+
+        if mapping.due_date != parsed_due_date:
+            mapping.due_date = parsed_due_date
+            mapping.save(update_fields=["due_date", "updated_at"])
+
+        return parsed_due_date
+    except Exception:
+        logger.exception(
+            "Unable to fetch LMS AGS line item due date for mapping %s",
+            mapping.id,
+        )
+        return mapping.due_date
+
+
 class AssessmentMappingSubmissionView(generics.RetrieveAPIView):
     permission_classes = [IsAuthenticated]
     lookup_url_kwarg = "mapping_id"
@@ -246,6 +297,8 @@ class AssessmentMappingSubmissionView(generics.RetrieveAPIView):
             is_active=True,
         ).order_by("level_code")
 
+        lms_due_date = get_lms_due_date(mapping)
+
         return Response(
             {
                 "context_id": str(context.id) if context else None,
@@ -277,13 +330,13 @@ class AssessmentMappingSubmissionView(generics.RetrieveAPIView):
                 ],
 
                 "due_date": (
-                    mapping.due_date.isoformat()
-                    if mapping.due_date
+                    lms_due_date.isoformat()
+                    if lms_due_date
                     else None
                 ),
                 "deadline_passed": (
-                    mapping.due_date is not None
-                    and timezone.now() > mapping.due_date
+                    lms_due_date is not None
+                    and timezone.now() > lms_due_date
                 ),
                 "is_instructor": (
                     request.session.get("lti_is_instructor", False)
@@ -702,6 +755,8 @@ class InstructorMappingDashboardView(APIView):
         if error_response is not None:
             return error_response
 
+        lms_due_date = get_lms_due_date(mapping)
+
         submissions = (
             LearnerSubmission.objects
             .filter(
@@ -835,13 +890,13 @@ class InstructorMappingDashboardView(APIView):
                         mapping.assignment.assignment_title
                     ),
                     "due_date": (
-                        mapping.due_date.isoformat()
-                        if mapping.due_date
+                        lms_due_date.isoformat()
+                        if lms_due_date
                         else None
                     ),
                     "deadline_passed": (
-                        mapping.due_date is not None
-                        and timezone.now() > mapping.due_date
+                        lms_due_date is not None
+                        and timezone.now() > lms_due_date
                     ),
                 },
                 "learners": list(learners.values()),
@@ -849,39 +904,14 @@ class InstructorMappingDashboardView(APIView):
         )
 
     def patch(self, request, mapping_id):
-        mapping, error_response = self._get_mapping(
-            request,
-            mapping_id,
-        )
-
-        if error_response is not None:
-            return error_response
-
-        serializer = AssessmentMappingSerializer(
-            mapping,
-            data={
-                "due_date": request.data.get("due_date"),
-            },
-            partial=True,
-        )
-        serializer.is_valid(raise_exception=True)
-        mapping = serializer.save(
-            updated_by=request.user,
-        )
-
         return Response(
             {
-                "id": str(mapping.id),
-                "due_date": (
-                    mapping.due_date.isoformat()
-                    if mapping.due_date
-                    else None
-                ),
-                "deadline_passed": (
-                    mapping.due_date is not None
-                    and timezone.now() > mapping.due_date
-                ),
-            }
+                "detail": (
+                    "Due date is managed by the LMS and is read-only "
+                    "in AutoGrad3r."
+                )
+            },
+            status=status.HTTP_405_METHOD_NOT_ALLOWED,
         )
 
 

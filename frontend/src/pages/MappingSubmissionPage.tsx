@@ -86,6 +86,9 @@ export function MappingSubmissionPage() {
   const isWaitingForGrading =
     latestAttempt?.status === "uploaded" ||
     latestAttempt?.status === "processing";
+
+  const deadlinePassed =
+    context?.deadline_passed ?? false;
   const MAX_FILE_SIZE = 50 * 1024 * 1024;
 
   const ALLOWED_EXTENSIONS = [
@@ -517,6 +520,13 @@ export function MappingSubmissionPage() {
       return;
     }
 
+    if (context.deadline_passed) {
+      setError(
+        "The submission deadline has passed. This assessment is no longer accepting submissions.",
+      );
+      return;
+    }
+
     const previousLatestSubmissionId =
       attempts[0]?.id ?? null;
 
@@ -804,6 +814,22 @@ export function MappingSubmissionPage() {
 
               <div className="summary-item">
                 <span className="summary-label">
+                  Due date
+                </span>
+
+                <strong>
+                  {context.due_date
+                    ? new Date(context.due_date).toLocaleString()
+                    : "No due date"}
+                </strong>
+
+                <small className="table-subtext">
+                  Synced from LMS
+                </small>
+              </div>
+
+              <div className="summary-item">
+                <span className="summary-label">
                   Attempts
                 </span>
 
@@ -910,6 +936,15 @@ export function MappingSubmissionPage() {
               </div>
             )}
 
+            {deadlinePassed && (
+              <div className="grading-wait-message">
+                <strong>Submission deadline has passed.</strong>
+                <p>
+                  This assessment is no longer accepting submissions.
+                </p>
+              </div>
+            )}
+
             <form
               onSubmit={handleSubmit}
               className="submission-form"
@@ -932,7 +967,8 @@ export function MappingSubmissionPage() {
                     }
                     disabled={
                       isSubmitting ||
-                      isWaitingForGrading
+                      isWaitingForGrading ||
+                      deadlinePassed
                       // hasNoAttemptsRemaining
                     }
                     required
@@ -958,7 +994,8 @@ export function MappingSubmissionPage() {
                     }
                     disabled={
                       isSubmitting ||
-                      isWaitingForGrading 
+                      isWaitingForGrading ||
+                      deadlinePassed
                       // hasNoAttemptsRemaining
                     }
                     required
@@ -980,7 +1017,8 @@ export function MappingSubmissionPage() {
                     ? "file-upload-box-dragging"
                     : "",
                   isSubmitting ||
-                    isWaitingForGrading 
+                    isWaitingForGrading ||
+                    deadlinePassed
                     // hasNoAttemptsRemaining
                     ? "file-upload-box-disabled"
                     : "",
@@ -1056,7 +1094,8 @@ export function MappingSubmissionPage() {
                       }
                     }}
                     disabled={isSubmitting ||
-                      isWaitingForGrading
+                      isWaitingForGrading ||
+                      deadlinePassed
                       // hasNoAttemptsRemaining
                     }
                   >
@@ -1091,7 +1130,8 @@ export function MappingSubmissionPage() {
                     !selectedFile ||
                     !submissionTrack ||
                     isSubmitting ||
-                    isWaitingForGrading 
+                    isWaitingForGrading ||
+                    deadlinePassed
                     // hasNoAttemptsRemaining
                   }
                 >
@@ -1099,7 +1139,9 @@ export function MappingSubmissionPage() {
                     // hasNoAttemptsRemaining
                     //   ? "No Attempts Remaining"
                     //   : 
-                    isWaitingForGrading
+                    deadlinePassed
+                        ? "Deadline Passed"
+                        : isWaitingForGrading
                         ? "Waiting for Grading"
                         : isSubmitting
                           ? "Submitting..."
@@ -1452,6 +1494,15 @@ export function MappingSubmissionPage() {
                           total + learner.attempts.length,
                         0,
                       ) ?? 0}
+                    </strong>
+                  </div>
+
+                  <div className="submission-record-metric">
+                    <span>LMS due date</span>
+                    <strong>
+                      {formatInstructorDate(
+                        instructorData?.mapping.due_date ?? null,
+                      )}
                     </strong>
                   </div>
 

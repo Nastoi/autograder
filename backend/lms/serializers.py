@@ -72,6 +72,7 @@ class AssessmentMappingSerializer(
             "updated_at",
             "has_submissions",
             "can_delete",
+            "due_date",
         )
 
     def get_has_submissions(
