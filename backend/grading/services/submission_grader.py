@@ -205,27 +205,30 @@ def map_submission_tasks(submission):
         "12. SCENARIO RELEVANCE: Evidence must reasonably relate to the "
         "supplied assignment scenario.\n"
 
-        "13. CONTRADICTORY OR NEGATIVE EVIDENCE IS STILL RELEVANT: "
-        "If a page contains an artefact, screenshot, configuration view, "
-        "model diagram, output, table, or other direct evidence related to "
-        "the task, map that page even when the evidence appears incomplete, "
-        "incorrect, missing a required feature, or contradicts a written "
-        "statement elsewhere in the submission. A page does not need to prove "
-        "successful completion in order to be relevant grading evidence.\n"
+        "13. TASK-AWARE EVIDENCE: Use the task's required_evidence to decide "
+        "what kinds of evidence are relevant. Not every task requires a "
+        "screenshot or visual artefact. For text-based or explanatory tasks, "
+        "relevant written evidence may be sufficient. For tasks requiring a "
+        "visible implementation, configuration, screenshot, model state, "
+        "output, validation, or interface state, include the relevant visual "
+        "or technical evidence when present.\n"
 
-        "14. VISUAL IMPLEMENTATION TASKS: When a task asks the learner to "
-        "configure, create, establish, demonstrate, show, validate, or provide "
-        "a screenshot of an implementation state, map the page containing the "
-        "actual implementation or screenshot as evidence. Do not prefer a "
-        "written claim over the page showing the actual state. If both a "
-        "written response and a screenshot/artefact relate to the same task, "
-        "map both when they are needed to assess whether the claim is supported.\n"
+        "14. NEGATIVE OR CONTRADICTORY EVIDENCE IS STILL RELEVANT: A page can "
+        "be relevant even when it appears to show that a required feature is "
+        "missing, incomplete, incorrect, or inconsistent with another page. "
+        "Do not exclude such evidence merely because it does not prove "
+        "successful completion.\n"
 
-        "15. CONFLICT DISCOVERY: If written text says that a requirement was "
-        "completed but a screenshot or artefact appears to show otherwise, "
-        "include both pages in mapped_page_numbers so the grader can evaluate "
-        "the conflict. Do not resolve the conflict during mapping; preserve all "
-        "material evidence for the grading stage."
+        "15. PRESERVE MULTIPLE EVIDENCE SOURCES: When both written and visual "
+        "evidence relate materially to the same task, map both so the grading "
+        "stage can compare whether they communicate the same underlying result "
+        "or implementation state. Do not decide which source is correct during "
+        "mapping.\n"
+
+        "16. NO UNNECESSARY SCREENSHOT REQUIREMENT: Do not require or invent "
+        "visual evidence for a task whose instructions do not call for an "
+        "observable implementation, screenshot, output, configuration state, "
+        "or similar direct artefact."
     )
 
     http_client = httpx.Client()
@@ -258,6 +261,22 @@ def map_submission_tasks(submission):
         "TASK MAPPINGS COUNT:",
         len(mapping_data.task_mappings),
     )
+
+    print(
+        "\n=== TASK EVIDENCE MAPPING SUMMARY ===",
+        flush=True,
+    )
+    for item in mapping_data.task_mappings:
+        print(
+            (
+                f"Task: {item.task_id} | "
+                f"Relevant: {item.is_relevant} | "
+                f"Confidence: {item.confidence_score} | "
+                f"Pages: {item.mapped_page_numbers} | "
+                f"Justification: {item.justification}"
+            ),
+            flush=True,
+        )
 
     saved_records = []
 
@@ -489,6 +508,54 @@ def grade_submission(submission):
             [],
         )
 
+        submission_task_mapping = next(
+            (
+                item
+                for item in task_mappings
+                if item.task_id == task_code
+            ),
+            None,
+        )
+
+        print(
+            "\n=== EVIDENCE USED FOR GRADING ===",
+            flush=True,
+        )
+
+        print(
+            f"Task: {task_code}",
+            flush=True,
+        )
+
+        print(
+            f"Criterion: "
+            f"{mapping.rubric_criterion.criterion_code}",
+            flush=True,
+        )
+
+        print(
+            f"Relevant: {bool(mapped_pages)}",
+            flush=True,
+        )
+
+        print(
+            f"Confidence: "
+            f"{getattr(submission_task_mapping, 'confidence_score', 0.0)}",
+            flush=True,
+        )
+
+        print(
+            f"Pages used: "
+            f"{mapped_pages if mapped_pages else 'NO EVIDENCE'}",
+            flush=True,
+        )
+
+        print(
+            f"Justification: "
+            f"{getattr(submission_task_mapping, 'justification', '')}",
+            flush=True,
+        )
+
         user_content.append(
             {
                 "type": "text",
@@ -575,44 +642,46 @@ def grade_submission(submission):
         "if it does not reasonably address the stated scenario or criterion. "
         "Use only the supplied evidence and requirements. "
 
-        "EVIDENCE AUTHORITY AND CONFLICT RULES:\n"
-        "Base the score on what is demonstrated by the supplied evidence, "
-        "not merely on what the learner states was completed. "
+        "EVIDENCE CONSISTENCY AND TASK-AWARE GRADING RULES:\n"
+        "Evaluate the evidence according to what the task actually requires. "
+        "Not every task requires screenshot or visual evidence. "
 
-        "When a task requires an implementation, configuration, screenshot, "
-        "model state, relationship, output, visual result, validation result, "
-        "or other observable artefact, direct visual or technical evidence is "
-        "required to verify successful completion. A written description or "
-        "self-reported claim alone is not sufficient proof of implementation "
-        "when the required observable evidence is also supplied or expected. "
+        "For text-based, explanatory, reflective, descriptive, or knowledge "
+        "tasks, relevant written evidence may be sufficient when it satisfies "
+        "the task and rubric. Do not penalise a learner for not providing a "
+        "screenshot when the task does not require observable visual evidence. "
 
-        "If a written statement conflicts with a screenshot, model diagram, "
-        "configuration view, output, or other direct artefact, treat the direct "
-        "observable evidence as authoritative for whether the implementation "
-        "was actually demonstrated. Do not award implementation credit merely "
-        "because the written response describes the correct intended setup. "
+        "For tasks requiring implementation, configuration, model state, "
+        "relationships, screenshots, outputs, dashboards, validation results, "
+        "or another observable artefact, use the relevant direct evidence "
+        "together with the learner's written explanation. "
 
-        "If the visual or technical evidence does not visibly show a required "
-        "feature, do not infer that the feature exists off-screen or was "
-        "configured correctly. Score only what can reasonably be verified from "
-        "the supplied evidence. "
+        "When multiple evidence sources are supplied for the same task, compare "
+        "their meaning and determine whether they are consistent. If the written "
+        "response and the visual or technical evidence support the same result, "
+        "treat them as mutually reinforcing evidence. "
 
-        "Where a learner demonstrates correct conceptual understanding in text "
-        "but the required implementation evidence is absent, incomplete, or "
-        "contradictory, partial credit may be awarded only when the rubric and "
-        "task requirements justify it. Do not automatically award zero and do "
-        "not automatically award full credit. "
+        "If the evidence sources conflict, do not automatically prefer one "
+        "source merely because it is visual or written. Instead, determine what "
+        "can actually be verified against the task requirement and rubric. "
+        "A written claim cannot by itself verify an observable implementation "
+        "when the supplied artefact visibly fails to demonstrate that feature. "
+        "Likewise, do not disregard correct written evidence for a task that "
+        "does not require visual proof. "
 
-        "When evidence conflicts, explain the discrepancy clearly and neutrally "
-        "in the criterion feedback, for example by stating that the written "
-        "response describes the required setup but the submitted visual evidence "
-        "does not verify that the configuration is present. "
+        "If required evidence is absent or the supplied sources cannot be "
+        "reconciled, award credit only for what is supported by the available "
+        "evidence and rubric. Partial credit may be appropriate where genuine "
+        "understanding or partial completion is demonstrated. "
+
+        "When evidence conflicts materially, explain the discrepancy clearly "
+        "and neutrally in the criterion feedback. "
 
         "CRITERION FEEDBACK:\n"
         "For each individual criterion, provide concise feedback specific to "
         "that task and criterion. Clearly explain what was demonstrated, "
-        "what evidence was missing or incomplete, what conflicts were observed "
-        "between different evidence sources, and what could be improved. "
+        "what evidence was missing or incomplete, whether the supplied evidence "
+        "sources were consistent, and what could be improved. "
 
         "OVERALL SUMMARY:\n"
         "The overall_summary is learner-facing GENERAL overall feedback. "
