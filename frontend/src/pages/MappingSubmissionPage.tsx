@@ -19,6 +19,7 @@ import {
   downloadInstructorSubmission,
   getInstructorMappingDashboard,
   getMappingSubmissionContext,
+  syncInstructorMappingDueDate,
   type InstructorMappingDashboard,
   type MappingSubmissionContext,
 } from "../api/lms";
@@ -157,6 +158,144 @@ export function MappingSubmissionPage() {
 
     void loadMapping();
   }, [mappingId]);
+
+  useEffect(() => {
+    if (
+      !mappingId ||
+      !context?.is_instructor ||
+      !context.lms_platform_url ||
+      !context.lms_course_id ||
+      !context.lms_resource_link_id
+    ) {
+      return;
+    }
+
+    const currentMappingId = mappingId;
+    const lmsPlatformUrl = context.lms_platform_url;
+    const lmsCourseId = context.lms_course_id;
+    const lmsResourceLinkId = context.lms_resource_link_id;
+    let cancelled = false;
+
+    async function syncLiveLmsDueDate() {
+      try {
+        const params = new URLSearchParams({
+          course_id: lmsCourseId,
+          depth: "all",
+          requested_fields: "due",
+          all_blocks: "true",
+        });
+
+        const blocksResponse = await fetch(
+          `${lmsPlatformUrl}/api/courses/v1/blocks/?${params.toString()}`,
+          {
+            method: "GET",
+            credentials: "include",
+          },
+        );
+
+        if (!blocksResponse.ok) {
+          let detail = `LMS Blocks API returned ${blocksResponse.status}.`;
+
+          try {
+            const errorData = await blocksResponse.json();
+            const developerMessage =
+              errorData?.developer_message ??
+              errorData?.field_errors?.username?.developer_message;
+
+            if (typeof developerMessage === "string") {
+              detail = developerMessage;
+            }
+          } catch {
+            // Keep the status-based message.
+          }
+
+          throw new Error(detail);
+        }
+
+        const blocksData = (await blocksResponse.json()) as {
+          blocks?: Record<
+            string,
+            {
+              id?: string;
+              due?: string | null;
+            }
+          >;
+        };
+
+        const exactBlock =
+          blocksData.blocks?.[lmsResourceLinkId];
+
+        if (!exactBlock) {
+          throw new Error(
+            "The LMS response did not contain this LTI assessment block.",
+          );
+        }
+
+        const synced = await syncInstructorMappingDueDate(
+          currentMappingId,
+          {
+            course_id: lmsCourseId,
+            resource_link_id: lmsResourceLinkId,
+            due_date: exactBlock.due ?? null,
+          },
+        );
+
+        if (cancelled) {
+          return;
+        }
+
+        setContext((current) =>
+          current
+            ? {
+                ...current,
+                due_date: synced.due_date,
+                deadline_passed: synced.deadline_passed,
+              }
+            : current,
+        );
+
+        setInstructorData((current) =>
+          current
+            ? {
+                ...current,
+                mapping: {
+                  ...current.mapping,
+                  due_date: synced.due_date,
+                  deadline_passed: synced.deadline_passed,
+                },
+              }
+            : current,
+        );
+      } catch (caughtError) {
+        if (cancelled) {
+          return;
+        }
+
+        console.warn(
+          "Unable to refresh the live LMS due date:",
+          caughtError,
+        );
+
+        setInstructorError(
+          caughtError instanceof Error
+            ? `Unable to refresh LMS due date: ${caughtError.message}`
+            : "Unable to refresh the LMS due date.",
+        );
+      }
+    }
+
+    void syncLiveLmsDueDate();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    mappingId,
+    context?.is_instructor,
+    context?.lms_platform_url,
+    context?.lms_course_id,
+    context?.lms_resource_link_id,
+  ]);
 
   useEffect(() => {
     if (!mappingId) {
@@ -804,6 +943,16 @@ export function MappingSubmissionPage() {
 
               <div className="summary-item">
                 <span className="summary-label">
+                  Assignment
+                </span>
+
+                <strong>
+                  {context.assignment.code}
+                </strong>
+              </div>
+
+              <div className="summary-item">
+                <span className="summary-label">
                   Maximum score
                 </span>
 
@@ -833,34 +982,10 @@ export function MappingSubmissionPage() {
                   Attempts
                 </span>
 
-                {/* <strong>
-              {attempts.length === 0
-                ? "-"
-                : attemptPolicy?.limited_mode
-                  ? attemptPolicy.attempts_remaining === 0
-                    ? "No attempts remaining"
-                    : `${attemptPolicy.attempts_remaining} ${attemptPolicy.attempts_remaining === 1
-                      ? "attempt"
-                      : "attempts"
-                    } remaining`
-                  : "Resubmit and try again"}
-            </strong> */}
                 <strong>
                   {attempts.length === 0
                     ? "No attempts yet"
-                    : `${attempts.length} ${attempts.length === 1 ? "attempt" : "attempts"
-                    }`}
-                </strong>
-              </div>
-
-
-              <div className="summary-item summary-item-wide">
-                <span className="summary-label">
-                  Assignment
-                </span>
-
-                <strong>
-                  {context.assignment.code}
+                    : `${attempts.length} ${attempts.length === 1 ? "attempt" : "attempts"}`}
                 </strong>
               </div>
             </section>
@@ -1059,7 +1184,8 @@ export function MappingSubmissionPage() {
                 onChange={handleFileChange}
                 disabled={
                   isSubmitting ||
-                  isWaitingForGrading 
+                  isWaitingForGrading ||
+                  deadlinePassed
                   // hasNoAttemptsRemaining
                 }
                 ref={fileInputRef}

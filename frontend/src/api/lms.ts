@@ -2158,6 +2158,9 @@ export type MappingSubmissionContext = {
     due_date: string | null;
     deadline_passed: boolean;
     is_instructor: boolean;
+    lms_platform_url: string | null;
+    lms_course_id: string | null;
+    lms_resource_link_id: string | null;
 };
 
 export async function getMappingSubmissionContext(
@@ -2442,6 +2445,9 @@ export type InstructorMappingDashboard = {
     assignment_title: string;
     due_date: string | null;
     deadline_passed: boolean;
+    lms_platform_url: string;
+    lms_course_id: string;
+    lms_resource_link_id: string;
   };
   learners: InstructorMappingLearner[];
 };
@@ -2468,6 +2474,50 @@ export async function getInstructorMappingDashboard(
   }
 
   return data as InstructorMappingDashboard;
+}
+
+export type SyncInstructorMappingDueDateInput = {
+  course_id: string;
+  resource_link_id: string;
+  due_date: string | null;
+};
+
+export type SyncedInstructorMappingDueDate = {
+  id: string;
+  due_date: string | null;
+  deadline_passed: boolean;
+};
+
+export async function syncInstructorMappingDueDate(
+  mappingId: string,
+  input: SyncInstructorMappingDueDateInput,
+): Promise<SyncedInstructorMappingDueDate> {
+  const csrfToken = await getCsrfToken();
+
+  const response = await fetch(
+    `${API_BASE_URL}/lms/assessment-mappings/${mappingId}/instructor/`,
+    {
+      method: "PATCH",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRFToken": csrfToken,
+      },
+      body: JSON.stringify(input),
+    },
+  );
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(
+      typeof data?.detail === "string"
+        ? data.detail
+        : "Unable to sync the LMS due date.",
+    );
+  }
+
+  return data as SyncedInstructorMappingDueDate;
 }
 
 export async function downloadInstructorSubmission(

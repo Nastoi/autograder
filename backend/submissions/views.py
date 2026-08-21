@@ -27,7 +27,6 @@ from .attempt_policy import (
     get_attempt_policy,
 )
 from lms.models import AssessmentMapping
-from lms.views import get_lms_due_date
 from courses.models import AssignmentLevel
 from .services import (
     extract_submission_pages,
@@ -170,7 +169,8 @@ class SubmissionCreateView(APIView):
         context = get_object_or_404(
             SubmissionContext.objects.select_related(
                 "assignment_level__assignment",
-                "assignment_level__assignment__module", 
+                "assignment_level__assignment__module",
+                "assessment_mapping",
             ),
             id=context_id,
             learner=request.user,
@@ -179,7 +179,7 @@ class SubmissionCreateView(APIView):
 
         mapping = context.assessment_mapping
         lms_due_date = (
-            get_lms_due_date(mapping)
+            mapping.due_date
             if mapping is not None
             else None
         )

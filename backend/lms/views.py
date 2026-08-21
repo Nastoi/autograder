@@ -1,6 +1,6 @@
 # Create your views here.
 from rest_framework import generics
-import json
+
 from .models import AssessmentMapping, LtiUserIdentity
 from .permissions import IsMappingAdmin
 from .serializers import AssessmentMappingSerializer
@@ -39,7 +39,6 @@ from urllib.parse import urlparse
 import uuid
 
 from django.utils.dateparse import parse_datetime
-from .ags import get_ags_lineitem
 
 logger = logging.getLogger(__name__)
 
@@ -188,53 +187,14 @@ from rest_framework.permissions import AllowAny
 
 
 def get_lms_due_date(mapping):
-    """Fetch the LMS AGS line-item endDateTime and cache it locally."""
-    if not (
-        mapping.lti_ags_lineitem_url
-        and mapping.lti_client_id
-        and mapping.lti_access_token_url
-    ):
-        return mapping.due_date
+    """Return the LMS due date cached from the live LMS Blocks API.
 
-    try:
-        lineitem = get_ags_lineitem(
-            client_id=mapping.lti_client_id,
-            token_url=mapping.lti_access_token_url,
-            lineitem_url=mapping.lti_ags_lineitem_url,
-        )
-        end_date_time = lineitem.get("endDateTime")
-
-        if not end_date_time:
-            if mapping.due_date is not None:
-                mapping.due_date = None
-                mapping.save(update_fields=["due_date", "updated_at"])
-            return None
-
-        parsed_due_date = parse_datetime(end_date_time)
-        if parsed_due_date is None:
-            logger.warning(
-                "Unable to parse LMS AGS endDateTime mapping=%s value=%r",
-                mapping.id,
-                end_date_time,
-            )
-            return mapping.due_date
-
-        if timezone.is_naive(parsed_due_date):
-            parsed_due_date = timezone.make_aware(parsed_due_date)
-
-        if mapping.due_date != parsed_due_date:
-            mapping.due_date = parsed_due_date
-            mapping.save(update_fields=["due_date", "updated_at"])
-
-        return parsed_due_date
-    except Exception:
-        logger.exception(
-            "Unable to fetch LMS AGS line item due date for mapping %s",
-            mapping.id,
-        )
-        # LMS is the source of truth. Do not enforce an old cached
-        # deadline when the live LMS line item cannot be refreshed.
-        return None
+    The AGS line-item endDateTime is intentionally not used here because
+    this LMS can leave that value stale after an instructor extends a due
+    date. The cache is refreshed only by an authenticated instructor LTI
+    session after the browser reads the live LMS Blocks API.
+    """
+    return mapping.due_date
 
 
 class AssessmentMappingSubmissionView(generics.RetrieveAPIView):
@@ -299,7 +259,12 @@ class AssessmentMappingSubmissionView(generics.RetrieveAPIView):
             is_active=True,
         ).order_by("level_code")
 
-        lms_due_date = get_lms_due_date(mapping)
+        lms_due_date = mapping.due_date
+        is_instructor = (
+            request.session.get("lti_is_instructor", False)
+            and request.session.get("lti_mapping_id")
+            == str(mapping.id)
+        )
 
         return Response(
             {
@@ -340,10 +305,23 @@ class AssessmentMappingSubmissionView(generics.RetrieveAPIView):
                     lms_due_date is not None
                     and timezone.now() > lms_due_date
                 ),
-                "is_instructor": (
-                    request.session.get("lti_is_instructor", False)
-                    and request.session.get("lti_mapping_id")
-                    == str(mapping.id)
+                "is_instructor": is_instructor,
+                # Only instructors need the LMS identifiers used by the
+                # browser-side live due-date refresh.
+                "lms_platform_url": (
+                    settings.LTI_PLATFORM_ISSUER.rstrip("/")
+                    if is_instructor
+                    else None
+                ),
+                "lms_course_id": (
+                    mapping.external_context_id
+                    if is_instructor
+                    else None
+                ),
+                "lms_resource_link_id": (
+                    mapping.external_resource_link_id
+                    if is_instructor
+                    else None
                 ),
             }
         )
@@ -597,8 +575,6 @@ class LtiLoginView(APIView):
             ] = lti_message_hint
 
         platform_login_url = settings.LTI_LOGIN_URL     
-        print("test")
-
         return HttpResponseRedirect(
             f"{platform_login_url}"
             f"?{urlencode(params)}"
@@ -624,27 +600,6 @@ class LtiLaunchView(APIView):
 
         if launch_error is not None:
             return launch_error
-
-       
-
-        print(
-            "\n=== FULL LTI LAUNCH CLAIMS ===",
-            flush=True,
-        )
-
-        print(
-            json.dumps(
-                claims,
-                indent=2,
-                default=str,
-            ),
-            flush=True,
-        )
-
-        print(
-            "=== END LTI LAUNCH CLAIMS ===\n",
-            flush=True,
-        )
 
         ags_endpoint = claims.get(
             "https://purl.imsglobal.org/spec/lti-ags/claim/endpoint"
@@ -685,6 +640,9 @@ class LtiLaunchView(APIView):
             )
         )
 
+        if mapping_error is not None:
+            return mapping_error
+
         if ags_endpoint:
             mapping.lti_ags_lineitem_url = ags_endpoint.get(
                 "lineitem",
@@ -702,9 +660,6 @@ class LtiLaunchView(APIView):
                     "lti_ags_lineitems_url",
                 ]
             )
-            
-        if mapping_error is not None:
-            return mapping_error
 
         roles = claims.get(
             "https://purl.imsglobal.org/spec/lti/claim/roles",
@@ -778,7 +733,7 @@ class InstructorMappingDashboardView(APIView):
         if error_response is not None:
             return error_response
 
-        lms_due_date = get_lms_due_date(mapping)
+        lms_due_date = mapping.due_date
 
         submissions = (
             LearnerSubmission.objects
@@ -921,20 +876,101 @@ class InstructorMappingDashboardView(APIView):
                         lms_due_date is not None
                         and timezone.now() > lms_due_date
                     ),
+                    "lms_platform_url": settings.LTI_PLATFORM_ISSUER.rstrip("/"),
+                    "lms_course_id": mapping.external_context_id,
+                    "lms_resource_link_id": mapping.external_resource_link_id,
                 },
                 "learners": list(learners.values()),
             }
         )
 
     def patch(self, request, mapping_id):
+        """Cache the live LMS block due date for this mapping.
+
+        The browser is allowed to read the LMS Blocks API because it is
+        running in the authenticated instructor LMS session. This endpoint
+        only accepts the sync from the matching instructor LTI session and
+        verifies that the supplied course/resource identifiers match the
+        identifiers captured from the verified LTI launch.
+        """
+        mapping, error_response = self._get_mapping(
+            request,
+            mapping_id,
+        )
+
+        if error_response is not None:
+            return error_response
+
+        course_id = request.data.get("course_id")
+        resource_link_id = request.data.get("resource_link_id")
+
+        if not mapping.external_context_id or not mapping.external_resource_link_id:
+            return Response(
+                {
+                    "detail": (
+                        "This mapping does not yet have LMS launch identifiers. "
+                        "Open the assessment from the LMS and try again."
+                    )
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        if course_id != mapping.external_context_id:
+            return Response(
+                {"detail": "LMS course identifier does not match this mapping."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if resource_link_id != mapping.external_resource_link_id:
+            return Response(
+                {"detail": "LMS resource identifier does not match this mapping."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        due_date_value = request.data.get("due_date")
+        parsed_due_date = None
+
+        if due_date_value not in (None, ""):
+            if not isinstance(due_date_value, str):
+                return Response(
+                    {"detail": "LMS due date must be an ISO-8601 string or null."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            parsed_due_date = parse_datetime(due_date_value)
+            if parsed_due_date is None:
+                return Response(
+                    {"detail": "Unable to parse the LMS due date."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            if timezone.is_naive(parsed_due_date):
+                parsed_due_date = timezone.make_aware(parsed_due_date)
+
+        if mapping.due_date != parsed_due_date:
+            mapping.due_date = parsed_due_date
+            mapping.updated_by = request.user
+            mapping.save(
+                update_fields=[
+                    "due_date",
+                    "updated_by",
+                    "updated_at",
+                ]
+            )
+
         return Response(
             {
-                "detail": (
-                    "Due date is managed by the LMS and is read-only "
-                    "in AutoGrad3r."
-                )
-            },
-            status=status.HTTP_405_METHOD_NOT_ALLOWED,
+                "id": str(mapping.id),
+                "due_date": (
+                    mapping.due_date.isoformat()
+                    if mapping.due_date
+                    else None
+                ),
+                "deadline_passed": (
+                    mapping.due_date is not None
+                    and timezone.now() > mapping.due_date
+                ),
+            }
         )
 
 
