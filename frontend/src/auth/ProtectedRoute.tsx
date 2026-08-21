@@ -68,13 +68,23 @@ export function ProtectedRoute() {
                 If it still does not open, refresh this page once.
               </li>
               <li>
-                If the issue continues, return to your LMS course and open
-                the assignment again.
+                Make sure you are still signed in to your LMS, then return
+                to your LMS course and open the assignment again.
               </li>
               <li>
-                Make sure you are still signed in to your LMS.
+                If you are using Chrome or Edge, check that third-party
+                cookies are allowed for the LMS and AutoGrader. Blocked
+                third-party cookies can prevent the assessment session from
+                being recognised inside the LMS.
               </li>
             </ol>
+
+            <p>
+              In Chrome, select the site controls icon beside the address
+              bar, open the cookies or third-party cookies setting, and
+              allow third-party cookies for this site before trying the
+              assignment again.
+            </p>
 
             <p>
               If the assessment still cannot be opened after these steps,
