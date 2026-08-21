@@ -1,6 +1,6 @@
 # Create your views here.
 from rest_framework import generics
-
+import json
 from .models import AssessmentMapping, LtiUserIdentity
 from .permissions import IsMappingAdmin
 from .serializers import AssessmentMappingSerializer
@@ -624,6 +624,27 @@ class LtiLaunchView(APIView):
 
         if launch_error is not None:
             return launch_error
+
+       
+
+        print(
+            "\n=== FULL LTI LAUNCH CLAIMS ===",
+            flush=True,
+        )
+
+        print(
+            json.dumps(
+                claims,
+                indent=2,
+                default=str,
+            ),
+            flush=True,
+        )
+
+        print(
+            "=== END LTI LAUNCH CLAIMS ===\n",
+            flush=True,
+        )
 
         ags_endpoint = claims.get(
             "https://purl.imsglobal.org/spec/lti-ags/claim/endpoint"
