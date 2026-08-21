@@ -8,7 +8,7 @@ import requests
 
 
 AGS_SCORE_SCOPE = "https://purl.imsglobal.org/spec/lti-ags/scope/score"
-AGS_LINEITEM_SCOPE = "https://purl.imsglobal.org/spec/lti-ags/scope/lineitem"
+AGS_LINEITEM_SCOPE = "https://purl.imsglobal.org/spec/lti-ags/scope/lineitem.readonly"
 
 
 def get_lti_access_token(

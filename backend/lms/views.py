@@ -232,7 +232,9 @@ def get_lms_due_date(mapping):
             "Unable to fetch LMS AGS line item due date for mapping %s",
             mapping.id,
         )
-        return mapping.due_date
+        # LMS is the source of truth. Do not enforce an old cached
+        # deadline when the live LMS line item cannot be refreshed.
+        return None
 
 
 class AssessmentMappingSubmissionView(generics.RetrieveAPIView):
