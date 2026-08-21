@@ -643,6 +643,58 @@ class LtiLaunchView(APIView):
         if mapping_error is not None:
             return mapping_error
 
+        # Capture the verified LMS course/resource identifiers from the
+        # LTI launch. These are later used by the instructor browser-side
+        # Blocks API due-date refresh.
+        context_claim = claims.get(
+            "https://purl.imsglobal.org/spec/lti/claim/context",
+            {},
+        )
+        resource_link_claim = claims.get(
+            "https://purl.imsglobal.org/spec/lti/claim/resource_link",
+            {},
+        )
+
+        external_context_id = (
+            context_claim.get("id")
+            if isinstance(context_claim, dict)
+            else None
+        )
+        external_resource_link_id = (
+            resource_link_claim.get("id")
+            if isinstance(resource_link_claim, dict)
+            else None
+        )
+
+        launch_identifier_update_fields = []
+
+        if (
+            external_context_id
+            and mapping.external_context_id != external_context_id
+        ):
+            mapping.external_context_id = external_context_id
+            launch_identifier_update_fields.append(
+                "external_context_id"
+            )
+
+        if (
+            external_resource_link_id
+            and mapping.external_resource_link_id
+            != external_resource_link_id
+        ):
+            mapping.external_resource_link_id = (
+                external_resource_link_id
+            )
+            launch_identifier_update_fields.append(
+                "external_resource_link_id"
+            )
+
+        if launch_identifier_update_fields:
+            launch_identifier_update_fields.append("updated_at")
+            mapping.save(
+                update_fields=launch_identifier_update_fields
+            )
+
         if ags_endpoint:
             mapping.lti_ags_lineitem_url = ags_endpoint.get(
                 "lineitem",
