@@ -323,6 +323,53 @@ def determine_overall_band(
 
     return matching_bands[0].band_code
 
+
+
+def build_general_overall_feedback(achieved_band: str) -> str:
+    band = (achieved_band or "").strip().lower()
+
+    sections = [
+        "General Overall Feedback",
+        "===================",
+        (
+            "Good work, and thank you for the effort you have put into this assignment. "
+            "You have demonstrated your understanding of the subject and applied the "
+            "required knowledge and skills across the assessment tasks."
+        ),
+        (
+            "Detailed feedback has been provided for each assessment criterion below. "
+            "Please review the criterion-level feedback carefully to identify your "
+            "strengths, understand where further development may be helpful, and use "
+            "the recommendations to continue improving your work."
+        ),
+    ]
+
+    if band in {"proficient", "expert"}:
+        sections.append(
+            "Well done on achieving the required standard. Continue building on your "
+            "strengths and maintaining this level of quality in your upcoming assignments."
+        )
+    elif band == "failed":
+        sections.append(
+            "Some areas would benefit from further development to fully meet the assessment "
+            "requirements. Please review the detailed feedback for each criterion, make the "
+            "recommended improvements, and resubmit your work when ready. With these "
+            "refinements, you will be in a stronger position to meet the required standard."
+        )
+    elif band == "foundation":
+        sections.append(
+            "You have established a useful foundation and shown progress across the assessment. "
+            "Please review the detailed criterion feedback and continue strengthening the areas "
+            "identified for development so you can build toward the next level of performance."
+        )
+    else:
+        sections.append(
+            "Thank you for your effort. Please use the detailed criterion feedback to build on "
+            "your strengths and continue improving your work."
+        )
+
+    return "\n\n".join(sections)
+
 def grade_submission(submission):
     print("GRADE SUBMISSION START:", submission.id, flush=True)
 
@@ -620,7 +667,41 @@ def grade_submission(submission):
     )
 
     print("GRADING RESPONSE RECEIVED", flush=True)
-    
+
+    # The AI must return exactly one evaluation for every configured
+    # task/criterion target. Never save a completed grade with a
+    # missing criterion or silently treat an omitted evaluation as zero.
+    expected_evaluation_keys = set(criteria_weight_map.keys())
+    received_evaluation_keys = [
+        f"{item.task_code}_{item.rubric_criterion_id}"
+        for item in grading_result.criterion_evaluations
+    ]
+    received_evaluation_key_set = set(received_evaluation_keys)
+
+    duplicate_evaluation_keys = sorted({
+        key
+        for key in received_evaluation_keys
+        if received_evaluation_keys.count(key) > 1
+    })
+    missing_evaluation_keys = sorted(
+        expected_evaluation_keys - received_evaluation_key_set
+    )
+    unexpected_evaluation_keys = sorted(
+        received_evaluation_key_set - expected_evaluation_keys
+    )
+
+    if (
+        duplicate_evaluation_keys
+        or missing_evaluation_keys
+        or unexpected_evaluation_keys
+    ):
+        raise ValueError(
+            "Incomplete grading response. "
+            f"Missing evaluations: {missing_evaluation_keys or 'none'}; "
+            f"Duplicate evaluations: {duplicate_evaluation_keys or 'none'}; "
+            f"Unexpected evaluations: {unexpected_evaluation_keys or 'none'}."
+        )
+
     criterion_groups = {}
 
     for item in grading_result.criterion_evaluations:
@@ -768,9 +849,11 @@ def grade_submission(submission):
         total_max_possible_points,
         2,
     )
-    submission.feedback = (
-        grading_result.overall_summary
+    overall_feedback = build_general_overall_feedback(
+        achieved_band
     )
+
+    submission.feedback = overall_feedback
     submission.status = (
         submission.Status.COMPLETED
     )
@@ -798,7 +881,6 @@ def grade_submission(submission):
             2,
         ),
         "overall_percentage": overall_percentage,
-        "overall_summary":
-            grading_result.overall_summary,
+        "overall_summary": overall_feedback,
         "criterion_results": evaluated_items,
     }
