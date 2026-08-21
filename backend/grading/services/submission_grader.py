@@ -325,50 +325,6 @@ def determine_overall_band(
 
 
 
-def build_general_overall_feedback(achieved_band: str) -> str:
-    band = (achieved_band or "").strip().lower()
-
-    sections = [
-        "General Overall Feedback",
-        "===================",
-        (
-            "Good work, and thank you for the effort you have put into this assignment. "
-            "You have demonstrated your understanding of the subject and applied the "
-            "required knowledge and skills across the assessment tasks."
-        ),
-        (
-            "Detailed feedback has been provided for each assessment criterion below. "
-            "Please review the criterion-level feedback carefully to identify your "
-            "strengths, understand where further development may be helpful, and use "
-            "the recommendations to continue improving your work."
-        ),
-    ]
-
-    if band in {"proficient", "expert"}:
-        sections.append(
-            "Well done on achieving the required standard. Continue building on your "
-            "strengths and maintaining this level of quality in your upcoming assignments."
-        )
-    elif band == "failed":
-        sections.append(
-            "Some areas would benefit from further development to fully meet the assessment "
-            "requirements. Please review the detailed feedback for each criterion, make the "
-            "recommended improvements, and resubmit your work when ready. With these "
-            "refinements, you will be in a stronger position to meet the required standard."
-        )
-    elif band == "foundation":
-        sections.append(
-            "You have established a useful foundation and shown progress across the assessment. "
-            "Please review the detailed criterion feedback and continue strengthening the areas "
-            "identified for development so you can build toward the next level of performance."
-        )
-    else:
-        sections.append(
-            "Thank you for your effort. Please use the detailed criterion feedback to build on "
-            "your strengths and continue improving your work."
-        )
-
-    return "\n\n".join(sections)
 
 def grade_submission(submission):
     print("GRADE SUBMISSION START:", submission.id, flush=True)
@@ -603,33 +559,36 @@ def grade_submission(submission):
         "what evidence was missing or incomplete, and what could be improved. "
 
         "OVERALL SUMMARY:\n"
-        "The overall_summary MUST be a holistic evaluation of the learner's "
-        "performance across the ENTIRE assignment. "
-        "It must consider ALL task and criterion evaluations before forming "
-        "the summary, not only the final task, lowest-scoring task, failed "
-        "criterion, or most recently evaluated criterion. "
+        "The overall_summary is learner-facing GENERAL overall feedback. "
+        "It MUST consider the learner's work across the entire assignment, "
+        "but it must stay high-level rather than repeating the detailed rubric feedback. "
 
-        "The overall_summary should identify the main strengths demonstrated "
-        "across the assignment, the main areas that require improvement, and "
-        "any significant missing or incomplete evidence. "
-        "Describe the overall pattern of performance and how well the submission "
-        "addresses the assignment objective and scenario. "
+        "Write 2 to 4 natural, encouraging sentences that acknowledge the learner's "
+        "effort, briefly describe the overall quality or progress shown in broad terms, "
+        "and direct the learner to review the detailed criterion feedback below for "
+        "specific strengths, development areas, and recommendations. "
 
-        "If one task or criterion failed, mention it only in proportion to its "
-        "importance to the overall submission. Do not allow a single task or "
-        "criterion to dominate the overall_summary unless it represents a "
-        "substantial portion of the assignment. "
+        "IMPORTANT: Do NOT mention criterion numbers, criterion codes, task codes, "
+        "individual task details, individual criterion findings, awarded marks, total "
+        "marks, percentages, calculated scores, or grading-band names such as Failed, "
+        "Foundation, Proficient, or Expert in overall_summary. "
 
-        "Do not write the overall_summary as feedback for one individual task. "
-        "Do not simply repeat the feedback from the last criterion. "
-        "Do not list every task one by one unless necessary. "
-        "Instead, synthesise the results into a concise holistic academic summary. "
+        "Do NOT state or imply a different grade or achievement level using grading "
+        "language such as 'proficient', 'expert', 'failed', 'pass', 'foundation', "
+        "'achieved the required standard', or similar phrases. The application's own "
+        "calculation determines the final score and band separately. "
 
-        "Write all feedback in a natural, concise academic tone. "
-        "Vary sentence structure and wording between feedback items. "
-        "Avoid repeatedly starting feedback with phrases such as "
-        "'The submission demonstrates', 'The submission lacks', or 'However'. "
-        "Do not use a fixed feedback template."
+        "Do NOT include headings, separators, markdown titles, '=' characters, bullet "
+        "lists, or a fixed template in overall_summary. Return only the feedback prose. "
+        "Keep the tone appreciative, supportive, professional, and motivating. "
+        "Use varied wording so feedback does not sound identical across submissions. "
+
+        "CRITICAL COMPLETENESS RULE:\n"
+        "Return exactly one criterion_evaluation for EVERY task/criterion evaluation "
+        "target supplied in the user message. Do not omit a target even when evidence "
+        "is weak, missing, duplicated across tasks, or the same task is mapped to more "
+        "than one rubric criterion. Each Task Code + Rubric Criterion ID pair is a "
+        "distinct required evaluation."
     )
 
     http_client = httpx.Client()
@@ -849,9 +808,17 @@ def grade_submission(submission):
         total_max_possible_points,
         2,
     )
-    overall_feedback = build_general_overall_feedback(
-        achieved_band
-    )
+    overall_feedback = (
+        grading_result.overall_summary or ""
+    ).strip()
+
+    if not overall_feedback:
+        overall_feedback = (
+            "Thank you for the effort you have put into this assignment. "
+            "Please review the detailed criterion feedback below for specific "
+            "strengths, areas for development, and recommendations to support "
+            "your continued improvement."
+        )
 
     submission.feedback = overall_feedback
     submission.status = (
