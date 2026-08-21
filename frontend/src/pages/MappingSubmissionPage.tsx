@@ -19,7 +19,6 @@ import {
   downloadInstructorSubmission,
   getInstructorMappingDashboard,
   getMappingSubmissionContext,
-  updateInstructorMappingDueDate,
   type InstructorMappingDashboard,
   type MappingSubmissionContext,
 } from "../api/lms";
@@ -68,10 +67,7 @@ export function MappingSubmissionPage() {
     useState<"submission" | "instructor">("submission");
   const [instructorData, setInstructorData] =
     useState<InstructorMappingDashboard | null>(null);
-  const [instructorDueDate, setInstructorDueDate] = useState("");
   const [isLoadingInstructor, setIsLoadingInstructor] = useState(false);
-  const [isSavingInstructorDueDate, setIsSavingInstructorDueDate] =
-    useState(false);
   const [instructorError, setInstructorError] = useState("");
   const [expandedInstructorLearners, setExpandedInstructorLearners] =
     useState<string[]>([]);
@@ -90,7 +86,6 @@ export function MappingSubmissionPage() {
   const isWaitingForGrading =
     latestAttempt?.status === "uploaded" ||
     latestAttempt?.status === "processing";
-  const deadlinePassed = context?.deadline_passed ?? false;
   const MAX_FILE_SIZE = 50 * 1024 * 1024;
 
   const ALLOWED_EXTENSIONS = [
@@ -226,9 +221,7 @@ export function MappingSubmissionPage() {
         }
 
         setInstructorData(result);
-        setInstructorDueDate(
-          toDateTimeLocal(result.mapping.due_date),
-        );
+    
         setExpandedInstructorLearners(
           result.learners.map((learner) => learner.id),
         );
@@ -428,17 +421,7 @@ export function MappingSubmissionPage() {
     validateFile(file);
   }
 
-  function toDateTimeLocal(value: string | null) {
-    if (!value) return "";
-
-    const date = new Date(value);
-    const offset = date.getTimezoneOffset();
-    const local = new Date(
-      date.getTime() - offset * 60 * 1000,
-    );
-
-    return local.toISOString().slice(0, 16);
-  }
+  
 
   function formatInstructorDate(value: string | null) {
     if (!value) return "—";
@@ -499,44 +482,7 @@ export function MappingSubmissionPage() {
     }
   }
 
-  async function saveInstructorDueDate() {
-    if (!mappingId || !context?.is_instructor) return;
-
-    setInstructorError("");
-    setIsSavingInstructorDueDate(true);
-
-    try {
-      await updateInstructorMappingDueDate(
-        mappingId,
-        instructorDueDate
-          ? new Date(instructorDueDate).toISOString()
-          : null,
-      );
-
-      const refreshedContext =
-        await getMappingSubmissionContext(mappingId);
-
-      setContext(refreshedContext);
-
-      const refreshedInstructorData =
-        await getInstructorMappingDashboard(mappingId);
-
-      setInstructorData(refreshedInstructorData);
-      setInstructorDueDate(
-        toDateTimeLocal(
-          refreshedInstructorData.mapping.due_date,
-        ),
-      );
-    } catch (caughtError) {
-      setInstructorError(
-        caughtError instanceof Error
-          ? caughtError.message
-          : "Unable to update the due date.",
-      );
-    } finally {
-      setIsSavingInstructorDueDate(false);
-    }
-  }
+  
 
   function toggleInstructorLearner(learnerId: string) {
     setExpandedInstructorLearners((current) =>
@@ -558,13 +504,6 @@ export function MappingSubmissionPage() {
 
     if (!context) {
       setError("Assignment context is not available.");
-      return;
-    }
-
-    if (context.deadline_passed) {
-      setError(
-        "The submission deadline has passed. Please contact your instructor if you need an extension.",
-      );
       return;
     }
 
@@ -888,17 +827,6 @@ export function MappingSubmissionPage() {
                 </strong>
               </div>
 
-              <div className="summary-item">
-                <span className="summary-label">
-                  Due date
-                </span>
-
-                <strong>
-                  {context.due_date
-                    ? new Date(context.due_date).toLocaleString()
-                    : "No due date"}
-                </strong>
-              </div>
 
               <div className="summary-item summary-item-wide">
                 <span className="summary-label">
@@ -929,15 +857,7 @@ export function MappingSubmissionPage() {
           </div>
         )} */}
 
-            {deadlinePassed && (
-              <div className="grading-wait-message">
-                <strong>Submission deadline has passed.</strong>
-                <p>
-                  Please contact your instructor if you need
-                  the due date extended.
-                </p>
-              </div>
-            )}
+           
 
             <div className="new-attempt-heading">
               <h2>
@@ -978,7 +898,7 @@ export function MappingSubmissionPage() {
                   : "Submit Assignment"} */}
 
 
-            {SHOW_LEARNER_RESULTS && latestAttemptFailed && !deadlinePassed && (
+            {SHOW_LEARNER_RESULTS && latestAttemptFailed && (
               <div className="grading-wait-message">
                 <strong>
                   Your latest result is Failed.
@@ -1012,8 +932,7 @@ export function MappingSubmissionPage() {
                     }
                     disabled={
                       isSubmitting ||
-                      isWaitingForGrading ||
-                      deadlinePassed
+                      isWaitingForGrading
                       // hasNoAttemptsRemaining
                     }
                     required
@@ -1039,8 +958,7 @@ export function MappingSubmissionPage() {
                     }
                     disabled={
                       isSubmitting ||
-                      isWaitingForGrading ||
-                      deadlinePassed
+                      isWaitingForGrading 
                       // hasNoAttemptsRemaining
                     }
                     required
@@ -1062,8 +980,7 @@ export function MappingSubmissionPage() {
                     ? "file-upload-box-dragging"
                     : "",
                   isSubmitting ||
-                    isWaitingForGrading ||
-                    deadlinePassed
+                    isWaitingForGrading 
                     // hasNoAttemptsRemaining
                     ? "file-upload-box-disabled"
                     : "",
@@ -1104,8 +1021,7 @@ export function MappingSubmissionPage() {
                 onChange={handleFileChange}
                 disabled={
                   isSubmitting ||
-                  isWaitingForGrading ||
-                  deadlinePassed
+                  isWaitingForGrading 
                   // hasNoAttemptsRemaining
                 }
                 ref={fileInputRef}
@@ -1175,8 +1091,7 @@ export function MappingSubmissionPage() {
                     !selectedFile ||
                     !submissionTrack ||
                     isSubmitting ||
-                    isWaitingForGrading ||
-                    deadlinePassed
+                    isWaitingForGrading 
                     // hasNoAttemptsRemaining
                   }
                 >
@@ -1184,9 +1099,7 @@ export function MappingSubmissionPage() {
                     // hasNoAttemptsRemaining
                     //   ? "No Attempts Remaining"
                     //   : 
-                    deadlinePassed
-                      ? "Deadline Passed"
-                      : isWaitingForGrading
+                    isWaitingForGrading
                         ? "Waiting for Grading"
                         : isSubmitting
                           ? "Submitting..."
@@ -1522,63 +1435,6 @@ export function MappingSubmissionPage() {
                   </p>
                 )}
 
-                <section
-                  className="content-card"
-                  style={{ marginBottom: "24px" }}
-                >
-                  <div
-                    className="content-card-header"
-                    style={{ padding: "20px 24px" }}
-                  >
-                    <div className="content-title">
-                      <h2>Assignment Due Date</h2>
-                      <p>
-                        Learners cannot submit after this date.
-                        Extend it here to reopen submissions.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div
-                    style={{
-                      padding: "0 24px 24px",
-                      display: "flex",
-                      gap: "12px",
-                      alignItems: "end",
-                      flexWrap: "wrap",
-                    }}
-                  >
-                    <div className="form-group">
-                      <label htmlFor="instructor-due-date">
-                        Due date
-                      </label>
-
-                      <input
-                        id="instructor-due-date"
-                        type="datetime-local"
-                        value={instructorDueDate}
-                        onChange={(event) =>
-                          setInstructorDueDate(event.target.value)
-                        }
-                      />
-                    </div>
-
-                    <button
-                      type="button"
-                      className="btn-primary"
-                      disabled={isSavingInstructorDueDate}
-                      onClick={() =>
-                        void saveInstructorDueDate()
-                      }
-                    >
-                      {isSavingInstructorDueDate
-                        ? "Saving..."
-                        : instructorData?.mapping.due_date
-                          ? "Update Due Date"
-                          : "Set Due Date"}
-                    </button>
-                  </div>
-                </section>
 
                 <section className="submission-record-metrics">
                   <div className="submission-record-metric">
@@ -1599,14 +1455,7 @@ export function MappingSubmissionPage() {
                     </strong>
                   </div>
 
-                  <div className="submission-record-metric">
-                    <span>Current due date</span>
-                    <strong>
-                      {formatInstructorDate(
-                        instructorData?.mapping.due_date ?? null,
-                      )}
-                    </strong>
-                  </div>
+                  
                 </section>
 
                 <section className="submission-record-list">

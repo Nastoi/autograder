@@ -467,6 +467,54 @@ def grade_submission(submission):
             [],
         )
 
+        submission_task_mapping = next(
+            (
+                item
+                for item in task_mappings
+                if item.task_id == task_code
+            ),
+            None,
+        )
+
+        print(
+            "\n=== EVIDENCE USED FOR GRADING ===",
+            flush=True,
+        )
+
+        print(
+            f"Task: {task_code}",
+            flush=True,
+        )
+
+        print(
+            f"Criterion: "
+            f"{mapping.rubric_criterion.criterion_code}",
+            flush=True,
+        )
+
+        print(
+            f"Relevant: {bool(mapped_pages)}",
+            flush=True,
+        )
+
+        print(
+            f"Confidence: "
+            f"{getattr(submission_task_mapping, 'confidence_score', 0.0)}",
+            flush=True,
+        )
+
+        print(
+            f"Pages used: "
+            f"{mapped_pages if mapped_pages else 'NO EVIDENCE'}",
+            flush=True,
+        )
+
+        print(
+            f"Justification: "
+            f"{getattr(submission_task_mapping, 'justification', '')}",
+            flush=True,
+        )
+
         user_content.append(
             {
                 "type": "text",
