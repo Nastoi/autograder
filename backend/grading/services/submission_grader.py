@@ -152,30 +152,6 @@ def map_submission_tasks(submission):
                 }
             )
 
-    required_evaluation_pairs = sorted(
-        criteria_weight_map.keys()
-    )
-
-    user_content.append(
-        {
-            "type": "text",
-            "text": (
-                "\n=== REQUIRED EVALUATION PAIRS ===\n"
-                "Return exactly one criterion_evaluation "
-                "for EVERY Task Code + Rubric Criterion ID "
-                "pair below.\n"
-                "Do not omit any pair.\n"
-                "Do not add any pair that is not listed.\n"
-                "Do not substitute one Rubric Criterion ID "
-                "for another.\n\n"
-                + "\n".join(
-                    f"- {pair}"
-                    for pair in required_evaluation_pairs
-                )
-            ),
-        }
-    )
-
     system_prompt = (
         "You are an expert academic evaluator and document structure mapper.\n\n"
 
@@ -592,6 +568,30 @@ def grade_submission(submission):
                         },
                     }
                 )
+
+    required_evaluation_pairs = sorted(
+        criteria_weight_map.keys()
+    )
+
+    user_content.append(
+        {
+            "type": "text",
+            "text": (
+                "\n=== REQUIRED EVALUATION PAIRS ===\n"
+                "Return exactly one criterion_evaluation "
+                "for EVERY Task Code + Rubric Criterion ID "
+                "pair below.\n"
+                "Do not omit any pair.\n"
+                "Do not add any pair that is not listed.\n"
+                "Do not substitute one Rubric Criterion ID "
+                "for another.\n\n"
+                + "\n".join(
+                    f"- {pair}"
+                    for pair in required_evaluation_pairs
+                )
+            ),
+        }
+    )
 
     system_prompt = (
         "You are an academic grader. "
