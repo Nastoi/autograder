@@ -7,6 +7,7 @@ from rest_framework.views import APIView
 from lms.permissions import IsMappingAdmin
 
 from .models import LearnerSubmission, SubmissionContext
+from .audit import serialize_grading_audit, serialize_process_logs
 
 
 class AdminSubmissionRecordsView(APIView):
@@ -23,7 +24,9 @@ class AdminSubmissionRecordsView(APIView):
                 "assignment_level",
                 "assignment_level__assignment",
                 "assignment_level__assignment__module",
+                "grading_audit",
             )
+            .prefetch_related("process_logs")
             .order_by(
                 "context__cohort__cohort_code",
                 "assignment_level__assignment__assignment_code",
@@ -170,6 +173,8 @@ class AdminSubmissionRecordsView(APIView):
                     "original_filename": submission.original_filename,
                     "submitted_at": submission.submitted_at,
                     "completed_at": submission.completed_at,
+                    "grading_audit": serialize_grading_audit(submission),
+                    "process_logs": serialize_process_logs(submission),
                 }
             )
 

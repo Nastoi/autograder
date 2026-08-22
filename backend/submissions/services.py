@@ -1,9 +1,13 @@
 import io
 import pdfplumber
 
+from django.conf import settings
+from django.utils import timezone
+
 from pdf2image import convert_from_path
 from django.core.files.base import ContentFile
 from .models import LearnerSubmission, SubmissionPage
+from .audit import record_submission_event, update_grading_audit
 from grading.services.submission_grader import (
     grade_submission,
     map_submission_tasks,
@@ -98,55 +102,132 @@ def extract_submission_pages(submission: LearnerSubmission) -> LearnerSubmission
     Includes bounds checking to prevent IndexError if page counts differ.
     """
     if not submission.submitted_file:
+        record_submission_event(
+            submission,
+            stage="extraction",
+            status="error",
+            event_code="NO_SUBMISSION_FILE",
+            message="No file was attached to the accepted submission attempt.",
+        )
         raise ValueError("No file attached to this submission.")
 
-    pdf_path = submission.submitted_file.path
+    record_submission_event(
+        submission,
+        stage="extraction",
+        status="started",
+        event_code="PDF_EXTRACTION_STARTED",
+        message="PDF page rendering and text extraction started.",
+    )
 
-    # Clean up old records if re-extracting
+    pdf_path = submission.submitted_file.path
     submission.pages.all().delete()
 
     try:
-        # 1. Render PDF pages to PIL images (in memory)
         images = convert_from_path(pdf_path, dpi=200, fmt="webp")
 
-        # 2. Extract text per page using pdfplumber with bounds checking
         with pdfplumber.open(pdf_path) as pdf:
             for index, page_image in enumerate(images):
                 page_number = index + 1
                 extracted_text = ""
 
-                # ✓ FIXED: Bounds check to prevent IndexError
                 if index < len(pdf.pages):
                     extracted_text = pdf.pages[index].extract_text() or ""
 
-                # Convert PIL Image to raw binary bytes
                 image_buffer = io.BytesIO()
                 page_image.save(image_buffer, format="WEBP")
                 raw_image_bytes = image_buffer.getvalue()
 
-                # Save directly into Database table
                 SubmissionPage.objects.create(
                     submission=submission,
                     page_number=page_number,
                     extracted_text=extracted_text.strip(),
-                    image_data=raw_image_bytes,  # Saved into BinaryField
+                    image_data=raw_image_bytes,
                     image_mime_type="image/webp",
                 )
 
         submission.status = LearnerSubmission.Status.PROCESSING
         submission.save(update_fields=["status"])
+
+        record_submission_event(
+            submission,
+            stage="extraction",
+            status="success",
+            event_code="PDF_EXTRACTION_COMPLETED",
+            message="PDF pages were rendered and extracted successfully.",
+            details={"pages_extracted": len(images)},
+        )
         return submission
-    except Exception as e:
+    except Exception as exc:
         submission.status = LearnerSubmission.Status.ERROR
         submission.save(update_fields=["status"])
+        record_submission_event(
+            submission,
+            stage="extraction",
+            status="error",
+            event_code="PDF_EXTRACTION_ERROR",
+            message="The submitted PDF could not be fully prepared for grading.",
+            details={
+                "error_type": type(exc).__name__,
+                "error_message": str(exc),
+            },
+        )
         raise
 
-
 def run_ai_grading(submission):
+    update_grading_audit(
+        submission,
+        status="started",
+        model_name=getattr(settings, "OPENAI_API_MODEL", ""),
+        grader_version="submission_grader_v1",
+        started_at=timezone.now(),
+        error_code="",
+        error_message="",
+    )
+
     try:
         submission = extract_submission_pages(submission)
 
-        mapping_result = map_submission_tasks(submission)
+        record_submission_event(
+            submission,
+            stage="task_mapping",
+            status="started",
+            event_code="TASK_MAPPING_STARTED",
+            message="AI evidence-to-task mapping started.",
+        )
+
+        try:
+            mapping_result = map_submission_tasks(submission)
+        except Exception as exc:
+            record_submission_event(
+                submission,
+                stage="task_mapping",
+                status="error",
+                event_code="TASK_MAPPING_ERROR",
+                message="AI evidence-to-task mapping failed.",
+                details={
+                    "error_type": type(exc).__name__,
+                    "error_message": str(exc),
+                },
+            )
+            raise
+
+        update_grading_audit(
+            submission,
+            task_mapping_snapshot=mapping_result,
+        )
+
+        record_submission_event(
+            submission,
+            stage="task_mapping",
+            status="success",
+            event_code="TASK_MAPPING_COMPLETED",
+            message="AI evidence-to-task mapping completed.",
+            details={
+                "tasks_processed": mapping_result.get("tasks_processed"),
+                "saved_mappings_count": mapping_result.get("saved_mappings_count"),
+                "is_unrelated_document": mapping_result.get("is_unrelated_document"),
+            },
+        )
 
         if mapping_result.get("is_unrelated_document"):
             submission.status = LearnerSubmission.Status.ERROR
@@ -156,23 +237,98 @@ def run_ai_grading(submission):
                 "Please check that you uploaded the correct "
                 "document and submit again."
             )
-            submission.save(
-                update_fields=[
-                    "status",
-                    "feedback",
-                ]
-            )
+            submission.save(update_fields=["status", "feedback"])
 
+            update_grading_audit(
+                submission,
+                status="error",
+                error_code="UNRELATED_DOCUMENT",
+                error_message=submission.feedback,
+                completed_at=timezone.now(),
+            )
+            record_submission_event(
+                submission,
+                stage="task_mapping",
+                status="error",
+                event_code="UNRELATED_DOCUMENT",
+                message="The submitted document was assessed as unrelated to the assignment.",
+            )
             return submission
 
-        grade_submission(submission)
+        record_submission_event(
+            submission,
+            stage="ai_grading",
+            status="started",
+            event_code="AI_GRADING_STARTED",
+            message="AI criterion grading started.",
+        )
+
+        try:
+            grading_result = grade_submission(submission)
+        except Exception as exc:
+            update_grading_audit(
+                submission,
+                status="error",
+                error_code=type(exc).__name__.upper(),
+                error_message=str(exc),
+                completed_at=timezone.now(),
+            )
+            record_submission_event(
+                submission,
+                stage="ai_grading",
+                status="error",
+                event_code="AI_OR_SCORING_ERROR",
+                message="AI grading or score calculation did not complete.",
+                details={
+                    "error_type": type(exc).__name__,
+                    "error_message": str(exc),
+                },
+            )
+            raise
+
+        update_grading_audit(
+            submission,
+            status="completed",
+            criterion_evaluations=grading_result.get("criterion_results", []),
+            scoring_snapshot={
+                "total_earned_points": grading_result.get("total_earned_points"),
+                "total_max_possible_points": grading_result.get("total_max_possible_points"),
+                "overall_percentage": grading_result.get("overall_percentage"),
+                "achieved_band": submission.achieved_band,
+            },
+            overall_summary=grading_result.get("overall_summary", ""),
+            completed_at=timezone.now(),
+            error_code="",
+            error_message="",
+        )
+
+        record_submission_event(
+            submission,
+            stage="scoring",
+            status="success",
+            event_code="SCORING_COMPLETED",
+            message="Criterion marks and final result were calculated successfully.",
+            details={
+                "total_earned_points": grading_result.get("total_earned_points"),
+                "total_max_possible_points": grading_result.get("total_max_possible_points"),
+                "overall_percentage": grading_result.get("overall_percentage"),
+                "achieved_band": submission.achieved_band,
+            },
+        )
 
         submission.refresh_from_db()
         return submission
 
-    except Exception:
+    except Exception as exc:
         submission.status = LearnerSubmission.Status.ERROR
         submission.save(update_fields=["status"])
+        update_grading_audit(
+            submission,
+            status="error",
+            error_code=type(exc).__name__.upper(),
+            error_message=str(exc),
+            completed_at=timezone.now(),
+        )
         raise
 
 def determine_overall_band(

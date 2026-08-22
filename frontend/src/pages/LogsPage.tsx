@@ -1,7 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { RefreshCw, Pause, Play, Search } from "lucide-react";
 
-import { getPortalLogs, type LogSource } from "../api/logs";
+import {
+  getPortalLogs,
+  type GradingLogFilterOptions,
+  type LogSource,
+} from "../api/logs";
 import { useAuth } from "../auth/AuthContext";
 import "../css/LogsPage.css";
 
@@ -9,6 +13,7 @@ const SOURCE_LABELS: Record<LogSource, string> = {
   backend: "Backend",
   celery: "Celery",
   errors: "Errors",
+  grading: "Grading Attempts",
 };
 
 export function LogsPage() {
@@ -17,6 +22,21 @@ export function LogsPage() {
   const [lineCount, setLineCount] = useState(200);
   const [lines, setLines] = useState<string[]>([]);
   const [search, setSearch] = useState("");
+  const [cohortFilter, setCohortFilter] = useState("");
+  const [assignmentFilter, setAssignmentFilter] = useState("");
+  const [learnerFilter, setLearnerFilter] = useState("");
+  const [attemptFilter, setAttemptFilter] = useState("");
+  const [stageFilter, setStageFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [gradingFilterOptions, setGradingFilterOptions] =
+    useState<GradingLogFilterOptions>({
+      cohorts: [],
+      assignments: [],
+      learners: [],
+      attempts: [],
+      stages: [],
+      statuses: [],
+    });
   const [live, setLive] = useState(true);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -25,8 +45,24 @@ export function LogsPage() {
   async function loadLogs(showSpinner = false) {
     if (showSpinner) setLoading(true);
     try {
-      const data = await getPortalLogs(source, lineCount);
+      const data = await getPortalLogs(
+        source,
+        lineCount,
+        source === "grading"
+          ? {
+              cohort: cohortFilter,
+              assignment: assignmentFilter,
+              learner: learnerFilter,
+              attempt: attemptFilter,
+              stage: stageFilter,
+              status: statusFilter,
+            }
+          : {},
+      );
       setLines(data.lines ?? []);
+      if (data.grading_filters) {
+        setGradingFilterOptions(data.grading_filters);
+      }
       setError("");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to load logs.");
@@ -37,7 +73,7 @@ export function LogsPage() {
 
   useEffect(() => {
     void loadLogs(true);
-  }, [source, lineCount]);
+  }, [source, lineCount, cohortFilter, assignmentFilter, learnerFilter, attemptFilter, stageFilter, statusFilter]);
 
   useEffect(() => {
     if (!live) return;
@@ -45,7 +81,7 @@ export function LogsPage() {
       void loadLogs(false);
     }, 2000);
     return () => window.clearInterval(interval);
-  }, [live, source, lineCount]);
+  }, [live, source, lineCount, cohortFilter, assignmentFilter, learnerFilter, attemptFilter, stageFilter, statusFilter]);
 
   const visibleLines = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -71,7 +107,7 @@ export function LogsPage() {
       <div className="logs-page-header">
         <div>
           <h1>Logs</h1>
-          <p>Read-only application logs for troubleshooting.</p>
+          <p>Read-only application and grading-attempt logs for troubleshooting.</p>
         </div>
         <div className={`logs-live-state ${live ? "active" : ""}`}>
           <span className="logs-live-dot" />
@@ -98,6 +134,70 @@ export function LogsPage() {
             <option value={1000}>1000</option>
           </select>
         </label>
+
+        {source === "grading" && (
+          <>
+            <label>
+              Cohort
+              <select value={cohortFilter} onChange={(e) => setCohortFilter(e.target.value)}>
+                <option value="">All cohorts</option>
+                {gradingFilterOptions.cohorts.map((value) => (
+                  <option key={value} value={value}>{value}</option>
+                ))}
+              </select>
+            </label>
+
+            <label>
+              Assignment
+              <select value={assignmentFilter} onChange={(e) => setAssignmentFilter(e.target.value)}>
+                <option value="">All assignments</option>
+                {gradingFilterOptions.assignments.map((value) => (
+                  <option key={value} value={value}>{value}</option>
+                ))}
+              </select>
+            </label>
+
+            <label>
+              Learner
+              <select value={learnerFilter} onChange={(e) => setLearnerFilter(e.target.value)}>
+                <option value="">All learners</option>
+                {gradingFilterOptions.learners.map((value) => (
+                  <option key={value} value={value}>{value}</option>
+                ))}
+              </select>
+            </label>
+
+            <label>
+              Attempt
+              <select value={attemptFilter} onChange={(e) => setAttemptFilter(e.target.value)}>
+                <option value="">All attempts</option>
+                {gradingFilterOptions.attempts.map((value) => (
+                  <option key={value} value={String(value)}>#{value}</option>
+                ))}
+              </select>
+            </label>
+
+            <label>
+              Stage
+              <select value={stageFilter} onChange={(e) => setStageFilter(e.target.value)}>
+                <option value="">All stages</option>
+                {gradingFilterOptions.stages.map((value) => (
+                  <option key={value} value={value}>{value}</option>
+                ))}
+              </select>
+            </label>
+
+            <label>
+              Status
+              <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+                <option value="">All statuses</option>
+                {gradingFilterOptions.statuses.map((value) => (
+                  <option key={value} value={value}>{value}</option>
+                ))}
+              </select>
+            </label>
+          </>
+        )}
 
         <label className="logs-search">
           Search

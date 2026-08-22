@@ -21,6 +21,7 @@ from grading.schemas import (
     PDFTaskMappingResponseSchema,
 )
 from submissions.models import SubmissionPage
+from submissions.audit import record_submission_event, update_grading_audit
 
 def map_submission_tasks(submission):
     assignment_level = submission.context.assignment_level
@@ -256,28 +257,6 @@ def map_submission_tasks(submission):
 
     mapping_data = completion.choices[0].message.parsed
 
-    print("SUBMISSION TASK MAPPING RESULT:", mapping_data.model_dump())
-    print(
-        "TASK MAPPINGS COUNT:",
-        len(mapping_data.task_mappings),
-    )
-
-    print(
-        "\n=== TASK EVIDENCE MAPPING SUMMARY ===",
-        flush=True,
-    )
-    for item in mapping_data.task_mappings:
-        print(
-            (
-                f"Task: {item.task_id} | "
-                f"Relevant: {item.is_relevant} | "
-                f"Confidence: {item.confidence_score} | "
-                f"Pages: {item.mapped_page_numbers} | "
-                f"Justification: {item.justification}"
-            ),
-            flush=True,
-        )
-
     saved_records = []
 
     for item in mapping_data.task_mappings:
@@ -368,7 +347,6 @@ def determine_overall_band(
 
 
 def grade_submission(submission):
-    print("GRADE SUBMISSION START:", submission.id, flush=True)
 
    
 
@@ -515,45 +493,6 @@ def grade_submission(submission):
                 if item.task_id == task_code
             ),
             None,
-        )
-
-        print(
-            "\n=== EVIDENCE USED FOR GRADING ===",
-            flush=True,
-        )
-
-        print(
-            f"Task: {task_code}",
-            flush=True,
-        )
-
-        print(
-            f"Criterion: "
-            f"{mapping.rubric_criterion.criterion_code}",
-            flush=True,
-        )
-
-        print(
-            f"Relevant: {bool(mapped_pages)}",
-            flush=True,
-        )
-
-        print(
-            f"Confidence: "
-            f"{getattr(submission_task_mapping, 'confidence_score', 0.0)}",
-            flush=True,
-        )
-
-        print(
-            f"Pages used: "
-            f"{mapped_pages if mapped_pages else 'NO EVIDENCE'}",
-            flush=True,
-        )
-
-        print(
-            f"Justification: "
-            f"{getattr(submission_task_mapping, 'justification', '')}",
-            flush=True,
         )
 
         user_content.append(
@@ -755,34 +694,58 @@ def grade_submission(submission):
         http_client=http_client,
     )
 
-    print(
-        "SENDING GRADING REQUEST TO OPENAI",
-        "content_items=",
-        len(user_content),
-        flush=True,
-    )
         
-    completion = client.beta.chat.completions.parse(
-        model=settings.OPENAI_API_MODEL,
-        messages=[
-            {
-                "role": "system",
-                "content": system_prompt,
+    try:
+        completion = client.beta.chat.completions.parse(
+            model=settings.OPENAI_API_MODEL,
+            messages=[
+                {
+                    "role": "system",
+                    "content": system_prompt,
+                },
+                {
+                    "role": "user",
+                    "content": user_content,
+                },
+            ],
+            response_format=GradingResponseSchema,
+            temperature=0.1,
+        )
+    except Exception as exc:
+        record_submission_event(
+            submission,
+            stage="ai_grading",
+            status="error",
+            event_code="AI_REQUEST_ERROR",
+            message="The AI grading request failed before a grading response was received.",
+            details={
+                "error_type": type(exc).__name__,
+                "error_message": str(exc),
             },
-            {
-                "role": "user",
-                "content": user_content,
-            },
-        ],
-        response_format=GradingResponseSchema,
-        temperature=0.1,
-    )
+        )
+        raise
 
     grading_result = (
         completion.choices[0].message.parsed
     )
 
-    print("GRADING RESPONSE RECEIVED", flush=True)
+    raw_ai_response = grading_result.model_dump()
+    update_grading_audit(
+        submission,
+        raw_ai_response=raw_ai_response,
+    )
+    record_submission_event(
+        submission,
+        stage="ai_grading",
+        status="success",
+        event_code="AI_RESPONSE_RECEIVED",
+        message="AI grading response received and retained for audit.",
+        details={
+            "criterion_evaluation_count": len(
+                grading_result.criterion_evaluations
+            ),
+        },
+    )
 
     # The AI must return exactly one evaluation for every configured
     # task/criterion target. Never save a completed grade with a
@@ -921,6 +884,26 @@ def grade_submission(submission):
                         item.passed,
                     "feedback":
                         item.feedback,
+                    "mapped_page_numbers":
+                        task_pages_map.get(item.task_code, []),
+                    "mapping_confidence":
+                        next(
+                            (
+                                mapped.confidence_score
+                                for mapped in task_mappings
+                                if mapped.task_id == item.task_code
+                            ),
+                            0.0,
+                        ),
+                    "mapping_justification":
+                        next(
+                            (
+                                mapped.justification
+                                for mapped in task_mappings
+                                if mapped.task_id == item.task_code
+                            ),
+                            "",
+                        ),
                 }
             )
 

@@ -18,6 +18,7 @@ import jwt
 from django.contrib.auth import login
 from django.shortcuts import redirect, get_object_or_404
 from submissions.models import SubmissionContext, LearnerSubmission
+from submissions.audit import serialize_grading_audit, serialize_process_logs
 from rest_framework.permissions import IsAuthenticated
 
 from django.conf import settings
@@ -799,6 +800,7 @@ class InstructorMappingDashboardView(APIView):
             )
             .prefetch_related(
                 "criterion_results__rubric_criterion",
+                "process_logs",
             )
             .order_by(
                 "learner__username",
@@ -879,6 +881,12 @@ class InstructorMappingDashboardView(APIView):
                     ),
                     "completed_at": (
                         submission.completed_at
+                    ),
+                    "grading_audit": serialize_grading_audit(
+                        submission
+                    ),
+                    "process_logs": serialize_process_logs(
+                        submission
                     ),
                     "criterion_results": [
                         {

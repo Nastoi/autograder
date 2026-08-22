@@ -11,6 +11,7 @@ from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
 from config.celery import app as celery_app
 from .models import LearnerSubmission, SubmissionContext, SubmissionPage
+from .audit import record_submission_event
 from .serializers import (
     LearnerSubmissionSerializer,
     LearnerSubmissionDetailSerializer,
@@ -340,6 +341,18 @@ class SubmissionCreateView(APIView):
             maximum_score=assignment.maximum_score,
         )
 
+        record_submission_event(
+            submission,
+            stage="submission",
+            status="success",
+            event_code="SUBMISSION_ACCEPTED",
+            message="Submission attempt accepted and queued for background grading.",
+            details={
+                "original_filename": original_filename,
+                "submission_track": selected_track,
+            },
+        )
+
         # Once the submission row exists, this is the learner's latest
         # accepted attempt. Queue grading in Celery so the HTTP request
         # does not wait for extraction/AI grading to finish.
@@ -348,14 +361,23 @@ class SubmissionCreateView(APIView):
                 "submissions.tasks.grade_submission_task",
                 args=[str(submission.id)],
             )
-        except Exception:
+        except Exception as exc:
             logger.exception(
                 "Unable to queue grading for submission %s",
                 submission.id,
             )
             submission.status = LearnerSubmission.Status.ERROR
-            submission.save(
-                update_fields=["status"]
+            submission.save(update_fields=["status"])
+            record_submission_event(
+                submission,
+                stage="queue",
+                status="error",
+                event_code="GRADING_QUEUE_ERROR",
+                message="The submission was accepted but background grading could not be queued.",
+                details={
+                    "error_type": type(exc).__name__,
+                    "error_message": str(exc),
+                },
             )
 
         # Latest attempt is authoritative regardless of grading outcome.

@@ -155,6 +155,119 @@ class LearnerSubmission(models.Model):
         )
 
 
+class SubmissionGradingAudit(models.Model):
+    """Structured AI grading evidence retained for one submission attempt."""
+
+    class Status(models.TextChoices):
+        STARTED = "started", "Started"
+        COMPLETED = "completed", "Completed"
+        ERROR = "error", "Error"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
+    submission = models.OneToOneField(
+        LearnerSubmission,
+        on_delete=models.CASCADE,
+        related_name="grading_audit",
+    )
+
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.STARTED,
+    )
+    model_name = models.CharField(max_length=100, blank=True)
+    grader_version = models.CharField(
+        max_length=100,
+        default="submission_grader_v1",
+    )
+
+    task_mapping_snapshot = models.JSONField(default=dict, blank=True)
+    raw_ai_response = models.JSONField(default=dict, blank=True)
+    criterion_evaluations = models.JSONField(default=list, blank=True)
+    scoring_snapshot = models.JSONField(default=dict, blank=True)
+
+    overall_summary = models.TextField(blank=True)
+    error_code = models.CharField(max_length=100, blank=True)
+    error_message = models.TextField(blank=True)
+
+    started_at = models.DateTimeField(blank=True, null=True)
+    completed_at = models.DateTimeField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "submission_grading_audit"
+        ordering = ("-created_at",)
+
+    def __str__(self):
+        return f"Grading audit for {self.submission_id}"
+
+
+class SubmissionProcessLog(models.Model):
+    """Queryable technical lifecycle entry for one accepted attempt."""
+
+    class EventStatus(models.TextChoices):
+        STARTED = "started", "Started"
+        SUCCESS = "success", "Success"
+        WARNING = "warning", "Warning"
+        ERROR = "error", "Error"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
+    submission = models.ForeignKey(
+        LearnerSubmission,
+        on_delete=models.CASCADE,
+        related_name="process_logs",
+    )
+
+    # Searchable snapshots for exact cohort + assignment + learner + attempt.
+    cohort_code = models.CharField(max_length=100, db_index=True)
+    cohort_name = models.CharField(max_length=255, blank=True)
+    assignment_code = models.CharField(max_length=100, db_index=True)
+    assignment_title = models.CharField(max_length=255, blank=True)
+    learner_email = models.EmailField(blank=True, db_index=True)
+    learner_username = models.CharField(max_length=255, blank=True)
+    attempt_number = models.PositiveIntegerField(db_index=True)
+
+    stage = models.CharField(max_length=50, db_index=True)
+    status = models.CharField(
+        max_length=20,
+        choices=EventStatus.choices,
+        db_index=True,
+    )
+    event_code = models.CharField(max_length=100, blank=True, db_index=True)
+    message = models.TextField(blank=True)
+    details = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        db_table = "submission_process_log"
+        ordering = ("created_at",)
+        indexes = [
+            models.Index(
+                fields=[
+                    "cohort_code",
+                    "assignment_code",
+                    "learner_email",
+                    "attempt_number",
+                ],
+                name="sublog_attempt_lookup",
+            ),
+            models.Index(
+                fields=["stage", "status", "created_at"],
+                name="sublog_stage_status",
+            ),
+        ]
+
+    def __str__(self):
+        return (
+            f"{self.cohort_code} / {self.assignment_code} / "
+            f"{self.learner_email or self.learner_username} / "
+            f"attempt {self.attempt_number} / {self.stage} / {self.status}"
+        )
+
+
 class SubmissionPage(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     submission = models.ForeignKey(

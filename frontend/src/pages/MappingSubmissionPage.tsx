@@ -364,9 +364,9 @@ export function MappingSubmissionPage() {
 
         setInstructorData(result);
     
-        setExpandedInstructorLearners(
-          result.learners.map((learner) => learner.id),
-        );
+        // Keep all learner cards closed initially so the instructor
+        // can scan the learner list and open only the learner needed.
+        setExpandedInstructorLearners([]);
       } catch (caughtError) {
         if (cancelled) {
           return;
@@ -1821,6 +1821,121 @@ export function MappingSubmissionPage() {
                                                   </div>
                                                 </details>
                                               )}
+
+                                            {attempt.grading_audit && (
+                                              <details>
+                                                <summary>AI Grading Details</summary>
+                                                <div style={{ marginTop: "12px" }}>
+                                                  <p>
+                                                    <strong>Audit status:</strong>{" "}
+                                                    {attempt.grading_audit.status}
+                                                  </p>
+                                                  <p>
+                                                    <strong>Model:</strong>{" "}
+                                                    {attempt.grading_audit.model_name || "—"}
+                                                  </p>
+                                                  <p>
+                                                    <strong>Grader version:</strong>{" "}
+                                                    {attempt.grading_audit.grader_version || "—"}
+                                                  </p>
+
+                                                  {attempt.grading_audit.error_message && (
+                                                    <p className="error-message">
+                                                      {attempt.grading_audit.error_code
+                                                        ? `${attempt.grading_audit.error_code}: `
+                                                        : ""}
+                                                      {attempt.grading_audit.error_message}
+                                                    </p>
+                                                  )}
+
+                                                  {attempt.grading_audit.criterion_evaluations.map(
+                                                    (evaluation) => (
+                                                      <div
+                                                        key={`${evaluation.task_code}:${evaluation.rubric_criterion_id}`}
+                                                        style={{ marginBottom: "16px" }}
+                                                      >
+                                                        <strong>{evaluation.task_code}</strong>
+                                                        <div>
+                                                          AI evaluation:{" "}
+                                                          {Number(evaluation.score_percentage).toFixed(2)}%
+                                                        </div>
+                                                        <div>
+                                                          Weight:{" "}
+                                                          {Number(evaluation.inferred_weight).toFixed(2)}%
+                                                        </div>
+                                                        <div>
+                                                          Earned contribution:{" "}
+                                                          {Number(evaluation.earned_points).toFixed(2)}
+                                                        </div>
+                                                        <div>
+                                                          Evidence pages:{" "}
+                                                          {evaluation.mapped_page_numbers.length
+                                                            ? evaluation.mapped_page_numbers.join(", ")
+                                                            : "No mapped pages"}
+                                                        </div>
+                                                        <div>
+                                                          Mapping confidence:{" "}
+                                                          {Number(
+                                                            evaluation.mapping_confidence,
+                                                          ).toFixed(2)}
+                                                        </div>
+                                                        {evaluation.mapping_justification && (
+                                                          <p>
+                                                            <strong>Evidence mapping:</strong>{" "}
+                                                            {evaluation.mapping_justification}
+                                                          </p>
+                                                        )}
+                                                        <p>{evaluation.feedback}</p>
+                                                      </div>
+                                                    ),
+                                                  )}
+
+                                                  <p>
+                                                    <strong>Calculated total:</strong>{" "}
+                                                    {attempt.grading_audit.scoring_snapshot
+                                                      .total_earned_points ?? "—"}{" "}
+                                                    /{" "}
+                                                    {attempt.grading_audit.scoring_snapshot
+                                                      .total_max_possible_points ?? "—"}
+                                                    {" "}
+                                                    {attempt.grading_audit.scoring_snapshot
+                                                      .overall_percentage !== undefined
+                                                      ? `(${Number(
+                                                          attempt.grading_audit.scoring_snapshot
+                                                            .overall_percentage,
+                                                        ).toFixed(2)}%)`
+                                                      : ""}
+                                                  </p>
+                                                </div>
+                                              </details>
+                                            )}
+
+                                            {attempt.process_logs.length > 0 && (
+                                              <details>
+                                                <summary>Processing Log</summary>
+                                                <div style={{ marginTop: "12px" }}>
+                                                  {attempt.process_logs.map((entry) => (
+                                                    <div
+                                                      key={entry.id}
+                                                      style={{ marginBottom: "10px" }}
+                                                    >
+                                                      <strong>
+                                                        {entry.stage} · {entry.status}
+                                                      </strong>
+                                                      <div>
+                                                        {formatInstructorDate(entry.created_at)}
+                                                      </div>
+                                                      {entry.event_code && (
+                                                        <div>{entry.event_code}</div>
+                                                      )}
+                                                      {entry.message && (
+                                                        <div>{entry.message}</div>
+                                                      )}
+                                                    </div>
+                                                  ))}
+                                                </div>
+                                              </details>
+                                            )}
                                           </div>
                                         </td>
                                       </tr>
