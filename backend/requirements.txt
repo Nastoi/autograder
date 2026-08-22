@@ -38,3 +38,4 @@ django-debug-toolbar==4.3.0
 celery==5.5.3
 PyJWT[crypto]
 requests
+gunicorn

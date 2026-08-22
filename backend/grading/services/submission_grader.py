@@ -678,10 +678,42 @@ def grade_submission(submission):
         "and neutrally in the criterion feedback. "
 
         "CRITERION FEEDBACK:\n"
-        "For each individual criterion, provide concise feedback specific to "
-        "that task and criterion. Clearly explain what was demonstrated, "
-        "what evidence was missing or incomplete, whether the supplied evidence "
-        "sources were consistent, and what could be improved. "
+        "For each individual task/criterion evaluation, provide learner-facing "
+        "feedback that is specific, evidence-based, and actionable. "
+
+        "Explain what the learner demonstrated from the supplied evidence. "
+        "Whenever score_percentage is below 100, clearly state the specific "
+        "things that should be improved, enhanced, corrected, added, verified, "
+        "or demonstrated next. Focus directly on the learner's work and the "
+        "required task or rubric expectations. Do not discuss scoring mechanics, "
+        "lost marks, full credit, deductions, or why a particular score was awarded. "
+
+        "The amount of improvement guidance should reflect the size of the gap. "
+        "For a high score with only minor weaknesses, give concise, specific "
+        "refinements or enhancements. For a moderate score, explain the main "
+        "areas that should be improved and give clear actions for each important "
+        "gap. For a low score, provide more detailed guidance, identify the major "
+        "missing or incorrect elements, prioritise what the learner should fix "
+        "first, and explain what evidence or implementation should be shown. "
+
+        "If evidence is missing, say what required evidence should be provided. "
+        "If implementation is incorrect, say what should be corrected. "
+        "If evidence conflicts, explain the discrepancy and state what should "
+        "be fixed or demonstrated. "
+
+        "All recommendations must be grounded only in the assignment instructions, "
+        "criterion description, rubric bands, and supplied evidence. Do not invent "
+        "extra requirements just to create improvement advice. "
+
+        "If score_percentage is 100, do not invent a deficiency. Confirm the "
+        "strengths demonstrated by the evidence. An optional enhancement may be "
+        "included only when clearly framed as good practice or an extension, not "
+        "as a missing requirement. "
+
+        "Avoid vague recommendations such as 'improve clarity', 'provide more detail', "
+        "'enhance the model', 'further development is needed', or 'review your work' "
+        "unless you immediately explain exactly what should be changed, added, "
+        "corrected, verified, or demonstrated. "
 
         "OVERALL SUMMARY:\n"
         "The overall_summary is learner-facing GENERAL overall feedback. "
