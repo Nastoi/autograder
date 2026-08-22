@@ -569,6 +569,30 @@ def grade_submission(submission):
                     }
                 )
 
+        required_evaluation_pairs = sorted(
+            criteria_weight_map.keys()
+        )
+
+        user_content.append(
+            {
+                "type": "text",
+                "text": (
+                    "\n=== REQUIRED EVALUATION PAIRS ===\n"
+                    "Return exactly one criterion_evaluation "
+                    "for EVERY Task Code + Rubric Criterion ID "
+                    "pair below.\n"
+                    "Do not omit any pair.\n"
+                    "Do not add any pair that is not listed.\n"
+                    "Do not substitute one Rubric Criterion ID "
+                    "for another.\n\n"
+                    + "\n".join(
+                        f"- {pair}"
+                        for pair in required_evaluation_pairs
+                    )
+                ),
+            }
+        )
+        
     system_prompt = (
         "You are an academic grader. "
         "Evaluate the evidence provided for each task/criterion against the "
@@ -684,7 +708,17 @@ def grade_submission(submission):
         "target supplied in the user message. Do not omit a target even when evidence "
         "is weak, missing, duplicated across tasks, or the same task is mapped to more "
         "than one rubric criterion. Each Task Code + Rubric Criterion ID pair is a "
-        "distinct required evaluation."
+        "distinct required evaluation. "
+
+        "Use the Task Code and Rubric Criterion ID EXACTLY as supplied. "
+        "Do not substitute a Rubric Criterion ID from another task or criterion. "
+        "Do not merge evaluations when the same task belongs to multiple rubric "
+        "criteria. For example, if T03 is mapped to two criteria, return two separate "
+        "criterion_evaluation objects for T03, one for each required Rubric Criterion ID. "
+
+        "The REQUIRED EVALUATION PAIRS list in the user message is authoritative. "
+        "Your response must contain every listed pair exactly once and must not contain "
+        "any pair that is not listed."
     )
 
     http_client = httpx.Client()
@@ -774,12 +808,133 @@ def grade_submission(submission):
         or missing_evaluation_keys
         or unexpected_evaluation_keys
     ):
-        raise ValueError(
-            "Incomplete grading response. "
-            f"Missing evaluations: {missing_evaluation_keys or 'none'}; "
-            f"Duplicate evaluations: {duplicate_evaluation_keys or 'none'}; "
-            f"Unexpected evaluations: {unexpected_evaluation_keys or 'none'}."
+        correction_prompt = (
+            "Your previous grading response did not contain "
+            "the exact required Task Code + Rubric Criterion ID pairs.\n\n"
+
+            f"Missing evaluations:\n"
+            + (
+                "\n".join(
+                    f"- {key}"
+                    for key in missing_evaluation_keys
+                )
+                if missing_evaluation_keys
+                else "- none"
+            )
+            + "\n\n"
+
+            f"Duplicate evaluations:\n"
+            + (
+                "\n".join(
+                    f"- {key}"
+                    for key in duplicate_evaluation_keys
+                )
+                if duplicate_evaluation_keys
+                else "- none"
+            )
+            + "\n\n"
+
+            f"Unexpected evaluations:\n"
+            + (
+                "\n".join(
+                    f"- {key}"
+                    for key in unexpected_evaluation_keys
+                )
+                if unexpected_evaluation_keys
+                else "- none"
+            )
+            + "\n\n"
+
+            "Return a COMPLETE REPLACEMENT grading response. "
+            "Do not return only the missing items.\n\n"
+
+            "The response must contain exactly one "
+            "criterion_evaluation for each of these required pairs:\n"
+            + "\n".join(
+                f"- {key}"
+                for key in sorted(
+                    expected_evaluation_keys
+                )
+            )
+            + "\n\n"
+
+            "Do not omit any required pair. "
+            "Do not include any other pair. "
+            "Use the Task Code and Rubric Criterion ID exactly as supplied."
         )
+
+        retry_completion = (
+            client.beta.chat.completions.parse(
+                model=settings.OPENAI_API_MODEL,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": system_prompt,
+                    },
+                    {
+                        "role": "user",
+                        "content": user_content,
+                    },
+                    {
+                        "role": "assistant",
+                        "content": json.dumps(
+                            grading_result.model_dump(),
+                            default=str,
+                        ),
+                    },
+                    {
+                        "role": "user",
+                        "content": correction_prompt,
+                    },
+                ],
+                response_format=GradingResponseSchema,
+                temperature=0.0,
+            )
+        )
+
+        grading_result = (
+            retry_completion.choices[0].message.parsed
+        )
+
+        received_evaluation_keys = [
+            f"{item.task_code}_{item.rubric_criterion_id}"
+            for item in grading_result.criterion_evaluations
+        ]
+
+        received_evaluation_key_set = set(
+            received_evaluation_keys
+        )
+
+        duplicate_evaluation_keys = sorted({
+            key
+            for key in received_evaluation_keys
+            if received_evaluation_keys.count(key) > 1
+        })
+
+        missing_evaluation_keys = sorted(
+            expected_evaluation_keys
+            - received_evaluation_key_set
+        )
+
+        unexpected_evaluation_keys = sorted(
+            received_evaluation_key_set
+            - expected_evaluation_keys
+        )
+
+        if (
+            duplicate_evaluation_keys
+            or missing_evaluation_keys
+            or unexpected_evaluation_keys
+        ):
+            raise ValueError(
+                "Incomplete grading response after retry. "
+                f"Missing evaluations: "
+                f"{missing_evaluation_keys or 'none'}; "
+                f"Duplicate evaluations: "
+                f"{duplicate_evaluation_keys or 'none'}; "
+                f"Unexpected evaluations: "
+                f"{unexpected_evaluation_keys or 'none'}."
+            )
 
     criterion_groups = {}
 
