@@ -152,6 +152,30 @@ def map_submission_tasks(submission):
                 }
             )
 
+    required_evaluation_pairs = sorted(
+        criteria_weight_map.keys()
+    )
+
+    user_content.append(
+        {
+            "type": "text",
+            "text": (
+                "\n=== REQUIRED EVALUATION PAIRS ===\n"
+                "Return exactly one criterion_evaluation "
+                "for EVERY Task Code + Rubric Criterion ID "
+                "pair below.\n"
+                "Do not omit any pair.\n"
+                "Do not add any pair that is not listed.\n"
+                "Do not substitute one Rubric Criterion ID "
+                "for another.\n\n"
+                + "\n".join(
+                    f"- {pair}"
+                    for pair in required_evaluation_pairs
+                )
+            ),
+        }
+    )
+
     system_prompt = (
         "You are an expert academic evaluator and document structure mapper.\n\n"
 
@@ -569,30 +593,6 @@ def grade_submission(submission):
                     }
                 )
 
-        required_evaluation_pairs = sorted(
-            criteria_weight_map.keys()
-        )
-
-        user_content.append(
-            {
-                "type": "text",
-                "text": (
-                    "\n=== REQUIRED EVALUATION PAIRS ===\n"
-                    "Return exactly one criterion_evaluation "
-                    "for EVERY Task Code + Rubric Criterion ID "
-                    "pair below.\n"
-                    "Do not omit any pair.\n"
-                    "Do not add any pair that is not listed.\n"
-                    "Do not substitute one Rubric Criterion ID "
-                    "for another.\n\n"
-                    + "\n".join(
-                        f"- {pair}"
-                        for pair in required_evaluation_pairs
-                    )
-                ),
-            }
-        )
-        
     system_prompt = (
         "You are an academic grader. "
         "Evaluate the evidence provided for each task/criterion against the "
@@ -923,7 +923,6 @@ def grade_submission(submission):
 
         if (
             duplicate_evaluation_keys
-            or missing_evaluation_keys
             or unexpected_evaluation_keys
         ):
             raise ValueError(
@@ -934,6 +933,248 @@ def grade_submission(submission):
                 f"{duplicate_evaluation_keys or 'none'}; "
                 f"Unexpected evaluations: "
                 f"{unexpected_evaluation_keys or 'none'}."
+            )
+
+        if missing_evaluation_keys:
+            missing_key_set = set(missing_evaluation_keys)
+
+            recovery_user_content = [
+                {
+                    "type": "text",
+                    "text": (
+                        f"Submission ID: {submission.id}\n\n"
+                        f"{assignment_context}\n\n"
+                        "RECOVERY MODE: evaluate ONLY the missing "
+                        "Task Code + Rubric Criterion ID pairs below.\n\n"
+                        "=== REQUIRED RECOVERY PAIRS ===\n"
+                        + "\n".join(
+                            f"- {key}"
+                            for key in sorted(missing_key_set)
+                        )
+                        + "\n\n"
+                        "Return exactly one criterion_evaluation for each "
+                        "listed pair and no other pairs. Do not omit, "
+                        "duplicate, substitute, or add a pair."
+                    ),
+                }
+            ]
+
+            for mapping in criteria_mappings:
+                task_code = mapping.task.task_code
+                criterion_id = str(mapping.rubric_criterion.id)
+                pair_key = f"{task_code}_{criterion_id}"
+
+                if pair_key not in missing_key_set:
+                    continue
+
+                rubric_bands = (
+                    RubricBand.objects
+                    .filter(
+                        rubric_criterion=mapping.rubric_criterion,
+                    )
+                    .order_by("sequence")
+                )
+
+                rubric_band_text = "\n".join(
+                    (
+                        f"- {band.display_name}: "
+                        f"{band.minimum_percentage}% to "
+                        f"{band.maximum_percentage}% — "
+                        f"{band.descriptor}"
+                    )
+                    for band in rubric_bands
+                ) or "No rubric bands configured."
+
+                mapped_pages = task_pages_map.get(task_code, [])
+
+                recovery_user_content.append(
+                    {
+                        "type": "text",
+                        "text": (
+                            "\n=== RECOVERY EVALUATION TARGET ===\n"
+                            f"Task Code: {task_code}\n"
+                            f"Task Title: {mapping.task.title}\n"
+                            f"Required Evidence: "
+                            f"{mapping.task.instructions or '-'}\n"
+                            f"Rubric Criterion ID: {criterion_id}\n"
+                            f"Criterion Code: "
+                            f"{mapping.rubric_criterion.criterion_code}\n"
+                            f"Criterion Title: "
+                            f"{mapping.rubric_criterion.title}\n"
+                            f"Criterion Description: "
+                            f"{mapping.rubric_criterion.description or '-'}\n"
+                            f"Criterion Maximum Score: "
+                            f"{mapping.rubric_criterion.maximum_score}\n"
+                            f"Rubric Bands:\n{rubric_band_text}\n"
+                            f"Mapped Evidence Pages: "
+                            f"{mapped_pages if mapped_pages else 'NO EVIDENCE FOUND'}\n"
+                        ),
+                    }
+                )
+
+                for page_num in mapped_pages:
+                    page_obj = submission_pages.get(page_num)
+
+                    if not page_obj:
+                        continue
+
+                    if getattr(page_obj, "extracted_text", None):
+                        recovery_user_content.append(
+                            {
+                                "type": "text",
+                                "text": (
+                                    f"--- [Page {page_num} Text "
+                                    f"for {task_code}] ---\n"
+                                    f"{page_obj.extracted_text}"
+                                ),
+                            }
+                        )
+
+                    if getattr(page_obj, "image_data", None):
+                        b64_image = base64.b64encode(
+                            page_obj.image_data
+                        ).decode("utf-8")
+                        mime_type = getattr(
+                            page_obj,
+                            "image_mime_type",
+                            "image/webp",
+                        )
+                        recovery_user_content.append(
+                            {
+                                "type": "image_url",
+                                "image_url": {
+                                    "url": (
+                                        f"data:{mime_type};base64,"
+                                        f"{b64_image}"
+                                    )
+                                },
+                            }
+                        )
+
+            recovery_prompt = (
+                system_prompt
+                + "\n\nRECOVERY MODE:\n"
+                "Return only the REQUIRED RECOVERY PAIRS. "
+                "Do not omit any listed pair even when evidence is weak "
+                "or missing; evaluate the available evidence and assign "
+                "an appropriate score_percentage."
+            )
+
+            recovery_completion = (
+                client.beta.chat.completions.parse(
+                    model=settings.OPENAI_API_MODEL,
+                    messages=[
+                        {
+                            "role": "system",
+                            "content": recovery_prompt,
+                        },
+                        {
+                            "role": "user",
+                            "content": recovery_user_content,
+                        },
+                    ],
+                    response_format=GradingResponseSchema,
+                    temperature=0.0,
+                )
+            )
+
+            recovery_result = (
+                recovery_completion.choices[0].message.parsed
+            )
+
+            recovery_keys = [
+                f"{item.task_code}_{item.rubric_criterion_id}"
+                for item in recovery_result.criterion_evaluations
+            ]
+            recovery_key_set = set(recovery_keys)
+
+            recovery_duplicate_keys = sorted({
+                key
+                for key in recovery_keys
+                if recovery_keys.count(key) > 1
+            })
+            recovery_missing_keys = sorted(
+                missing_key_set - recovery_key_set
+            )
+            recovery_unexpected_keys = sorted(
+                recovery_key_set - missing_key_set
+            )
+
+            if (
+                recovery_duplicate_keys
+                or recovery_missing_keys
+                or recovery_unexpected_keys
+            ):
+                raise ValueError(
+                    "Incomplete grading recovery response. "
+                    f"Missing evaluations: "
+                    f"{recovery_missing_keys or 'none'}; "
+                    f"Duplicate evaluations: "
+                    f"{recovery_duplicate_keys or 'none'}; "
+                    f"Unexpected evaluations: "
+                    f"{recovery_unexpected_keys or 'none'}."
+                )
+
+            grading_result.criterion_evaluations.extend(
+                recovery_result.criterion_evaluations
+            )
+
+            record_submission_event(
+                submission,
+                stage="ai_grading",
+                status="success",
+                event_code="AI_MISSING_EVALUATIONS_RECOVERED",
+                message=(
+                    "Missing Task + Criterion grading evaluations "
+                    "were recovered successfully."
+                ),
+                details={
+                    "recovered_evaluations":
+                        sorted(recovery_key_set),
+                },
+            )
+
+            received_evaluation_keys = [
+                f"{item.task_code}_{item.rubric_criterion_id}"
+                for item in grading_result.criterion_evaluations
+            ]
+            received_evaluation_key_set = set(
+                received_evaluation_keys
+            )
+
+            duplicate_evaluation_keys = sorted({
+                key
+                for key in received_evaluation_keys
+                if received_evaluation_keys.count(key) > 1
+            })
+            missing_evaluation_keys = sorted(
+                expected_evaluation_keys
+                - received_evaluation_key_set
+            )
+            unexpected_evaluation_keys = sorted(
+                received_evaluation_key_set
+                - expected_evaluation_keys
+            )
+
+            if (
+                duplicate_evaluation_keys
+                or missing_evaluation_keys
+                or unexpected_evaluation_keys
+            ):
+                raise ValueError(
+                    "Incomplete grading response after recovery. "
+                    f"Missing evaluations: "
+                    f"{missing_evaluation_keys or 'none'}; "
+                    f"Duplicate evaluations: "
+                    f"{duplicate_evaluation_keys or 'none'}; "
+                    f"Unexpected evaluations: "
+                    f"{unexpected_evaluation_keys or 'none'}."
+                )
+
+            update_grading_audit(
+                submission,
+                raw_ai_response=
+                    grading_result.model_dump(),
             )
 
     criterion_groups = {}
