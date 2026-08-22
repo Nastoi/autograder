@@ -1910,32 +1910,7 @@ export function MappingSubmissionPage() {
                                               </details>
                                             )}
 
-                                            {attempt.process_logs.length > 0 && (
-                                              <details>
-                                                <summary>Processing Log</summary>
-                                                <div style={{ marginTop: "12px" }}>
-                                                  {attempt.process_logs.map((entry) => (
-                                                    <div
-                                                      key={entry.id}
-                                                      style={{ marginBottom: "10px" }}
-                                                    >
-                                                      <strong>
-                                                        {entry.stage} · {entry.status}
-                                                      </strong>
-                                                      <div>
-                                                        {formatInstructorDate(entry.created_at)}
-                                                      </div>
-                                                      {entry.event_code && (
-                                                        <div>{entry.event_code}</div>
-                                                      )}
-                                                      {entry.message && (
-                                                        <div>{entry.message}</div>
-                                                      )}
-                                                    </div>
-                                                  ))}
-                                                </div>
-                                              </details>
-                                            )}
+                                            
                                           </div>
                                         </td>
                                       </tr>
