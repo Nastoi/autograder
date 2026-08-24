@@ -150,7 +150,7 @@ export async function getCurrentUser(): Promise<User | null> {
     credentials: "include",
   });
 
-  if (response.status === 401 || response.status === 403) {
+  if (response.status === 401) {
     return null;
   }
 

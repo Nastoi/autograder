@@ -40,7 +40,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setUser(currentUser);
     } catch (error) {
       console.error("Failed to load current user:", error);
-      setUser(null);
     }
   }
 
