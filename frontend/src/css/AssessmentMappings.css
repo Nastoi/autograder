@@ -1286,49 +1286,48 @@ button:disabled {
 }
 
 /* Rubric band table: keep descriptor visible */
-.rubric-table-container {
+/* Rubric Bands only */
+.rubric-band-table-container {
   width: 100%;
   overflow-x: auto;
 }
 
-.rubric-table-container .modern-table {
+.rubric-band-table-container .modern-table {
   width: 100%;
+  min-width: 900px;
   table-layout: fixed;
 }
 
-.rubric-table-container .modern-table td {
-  height: auto;
-  min-height: 52px;
-  vertical-align: top;
-  white-space: normal;
-  overflow: visible;
+.rubric-band-table-container .modern-table th:nth-child(1),
+.rubric-band-table-container .modern-table td:nth-child(1) {
+  width: 27%;
 }
 
-.rubric-table-container .modern-table th:nth-child(1),
-.rubric-table-container .modern-table td:nth-child(1) {
-  width: 28%;
+.rubric-band-table-container .modern-table th:nth-child(2),
+.rubric-band-table-container .modern-table td:nth-child(2) {
+  width: 14%;
 }
 
-.rubric-table-container .modern-table th:nth-child(2),
-.rubric-table-container .modern-table td:nth-child(2) {
-  width: 13%;
-}
-
-.rubric-table-container .modern-table th:nth-child(3),
-.rubric-table-container .modern-table td:nth-child(3) {
+.rubric-band-table-container .modern-table th:nth-child(3),
+.rubric-band-table-container .modern-table td:nth-child(3) {
   width: 20%;
 }
 
-.rubric-table-container .modern-table th:nth-child(4),
-.rubric-table-container .modern-table td:nth-child(4) {
+.rubric-band-table-container .modern-table th:nth-child(4),
+.rubric-band-table-container .modern-table td:nth-child(4) {
   width: 27%;
   white-space: normal;
   overflow-wrap: anywhere;
   word-break: break-word;
-  line-height: 1.45;
+  vertical-align: top;
 }
 
-.rubric-table-container .modern-table th:nth-child(5),
-.rubric-table-container .modern-table td:nth-child(5) {
+.rubric-band-table-container .modern-table th:nth-child(5),
+.rubric-band-table-container .modern-table td:nth-child(5) {
   width: 12%;
+}
+
+.rubric-band-table-container .modern-table td {
+  height: auto;
+  white-space: normal;
 }

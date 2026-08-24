@@ -2870,7 +2870,7 @@ export function AssignmentsPage() {
                                 {levelBands.length === 0 ? (
                                   <div className="empty-state">No rubric bands added yet.</div>
                                 ) : (
-                                  <div className="table-container rubric-table-container">
+                                  <div className="table-container rubric-band-table-container">
                                     <table className="modern-table">
                                       <thead>
                                         <tr>

@@ -1627,25 +1627,54 @@ export async function getRubricBands(
         ? `?${params.toString()}`
         : "";
 
-    const response = await fetch(
+    return fetchAllPaginatedResults<RubricBand>(
         `${API_BASE_URL}/grading/rubric-bands/${query}`,
-        {
+        "Unable to load rubric bands.",
+    );
+}
+
+async function fetchAllPaginatedResults<T>(
+    initialUrl: string,
+    errorMessage: string,
+): Promise<T[]> {
+    const results: T[] = [];
+    let nextUrl: string | null = initialUrl;
+
+    while (nextUrl) {
+        const response = await fetch(nextUrl, {
             method: "GET",
             credentials: "include",
-        },
-    );
+        });
 
-    const data = await response.json();
+        const data = await response.json();
 
-    if (!response.ok) {
-        throw new Error(
-            typeof data?.detail === "string"
-                ? data.detail
-                : "Unable to load rubric bands.",
-        );
+        if (!response.ok) {
+            throw new Error(
+                typeof data?.detail === "string"
+                    ? data.detail
+                    : errorMessage,
+            );
+        }
+
+        if (Array.isArray(data)) {
+            results.push(...data);
+            break;
+        }
+
+        if (
+            data &&
+            typeof data === "object" &&
+            Array.isArray(data.results)
+        ) {
+            results.push(...data.results);
+            nextUrl = data.next;
+            continue;
+        }
+
+        throw new Error("Invalid API response.");
     }
 
-    return extractResults<RubricBand>(data);
+    return results;
 }
 
 export async function createRubricBand(
