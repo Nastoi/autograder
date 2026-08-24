@@ -67,6 +67,43 @@ def _sum_usage_snapshots(items):
     }
 
 
+PROHIBITED_QUALITATIVE_FEEDBACK = (
+    "solid",
+    "strong",
+    "good",
+    "very good",
+    "excellent",
+    "outstanding",
+    "impressive",
+    "exceptional",
+    "robust",
+    "high-quality",
+    "great",
+    "well done",
+    "well-done",
+    "well executed",
+    "well-executed",
+)
+
+
+def _contains_prohibited_qualitative_feedback(value):
+    normalized = (value or "").strip().lower()
+    return any(
+        phrase in normalized
+        for phrase in PROHIBITED_QUALITATIVE_FEEDBACK
+    )
+
+
+def _neutral_overall_feedback():
+    return (
+        "Thank you for completing and submitting this assignment. "
+        "Your submission has been reviewed against the assignment requirements. "
+        "Please review the detailed criterion feedback for the evidence identified, "
+        "the areas that need further attention, and the recommended next steps. "
+        "Use this feedback to guide your next submission."
+    )
+
+
 def map_submission_tasks(submission):
     assignment_level = submission.context.assignment_level
 
@@ -688,58 +725,67 @@ def grade_submission(submission):
 
         "CRITERION FEEDBACK:\n"
         "For each individual task/criterion evaluation, provide learner-facing "
-        "feedback that is calm, appreciative, encouraging, factual, and specific "
-        "to the evidence that was actually supplied. "
+        "feedback that is specific, evidence-based, and actionable. "
 
-        "Use neutral wording. Do NOT use exaggerated praise or evaluative adjectives "
-        "such as 'solid', 'strong', 'excellent', 'outstanding', 'impressive', "
-        "'exceptional', 'very good', 'high-quality', 'robust', or similar wording. "
-        "Do not describe the learner's work as better or worse than the evidence "
-        "directly supports. "
+        "Explain what the learner demonstrated from the supplied evidence. "
+        "Use neutral, factual wording that does not imply a higher or lower "
+        "achievement level than the calculated score. Do NOT describe the work "
+        "using qualitative praise such as 'good', 'very good', 'strong', 'solid', "
+        "'excellent', 'outstanding', 'impressive', 'exceptional', 'robust', "
+        "'high-quality', 'great', or similar evaluative wording. State only what "
+        "is demonstrated, what is missing or unclear, and what should be improved. "
+        "Whenever score_percentage is below 100, clearly state the specific "
+        "things that should be improved, enhanced, corrected, added, verified, "
+        "or demonstrated next. Focus directly on the learner's work and the "
+        "required task or rubric expectations. Do not discuss scoring mechanics, "
+        "lost marks, full credit, deductions, or why a particular score was awarded. "
 
-        "Acknowledge the learner's effort or the evidence they provided in a simple "
-        "and sincere way. State what is visible or demonstrated without inflating it. "
-        "Examples of suitable tone include 'Thank you for providing this evidence', "
-        "'You have included evidence showing...', or 'This demonstrates...'. "
+        "The amount of improvement guidance should reflect the size of the gap. "
+        "For a high score with only minor weaknesses, give concise, specific "
+        "refinements or enhancements. For a moderate score, explain the main "
+        "areas that should be improved and give clear actions for each important "
+        "gap. For a low score, provide more detailed guidance, identify the major "
+        "missing or incorrect elements, prioritise what the learner should fix "
+        "first, and explain what evidence or implementation should be shown. "
 
-        "Whenever score_percentage is below 100, give constructive next-step guidance "
-        "using supportive wording such as 'You could strengthen this by...', "
-        "'For the next attempt, consider...', 'It would help to include...', or "
-        "'You may wish to check...'. Do not use harsh, judgmental, absolute, or "
-        "discouraging language. "
-
-        "Do not discuss scoring mechanics, lost marks, full credit, deductions, "
-        "or why a particular score was awarded. Do not mention the numerical score "
-        "inside criterion feedback unless the task explicitly requires a number. "
-
-        "If evidence is missing, simply explain what evidence would help demonstrate "
-        "the requirement. If implementation appears incorrect or incomplete, explain "
-        "what the learner could check, revise, add, or show next. If evidence conflicts, "
-        "state the discrepancy neutrally and suggest what could be clarified. "
+        "If evidence is missing, say what required evidence should be provided. "
+        "If implementation is incorrect, say what should be corrected. "
+        "If evidence conflicts, explain the discrepancy and state what should "
+        "be fixed or demonstrated. "
 
         "All recommendations must be grounded only in the assignment instructions, "
         "criterion description, rubric bands, and supplied evidence. Do not invent "
         "extra requirements just to create improvement advice. "
 
-        "If score_percentage is 100, do not invent a deficiency and do not exaggerate "
-        "the praise. Briefly acknowledge what was demonstrated and, if useful, offer "
-        "an optional next step framed as further development rather than a missing "
-        "requirement. "
+        "If score_percentage is 100, do not invent a deficiency. State directly "
+        "what the evidence demonstrates. An optional enhancement may be included "
+        "only when clearly framed as further development or an extension, not "
+        "as a missing requirement. "
+
+        "Avoid vague recommendations such as 'improve clarity', 'provide more detail', "
+        "'enhance the model', 'further development is needed', or 'review your work' "
+        "unless you immediately explain exactly what should be changed, added, "
+        "corrected, verified, or demonstrated. "
 
         "OVERALL SUMMARY:\n"
         "The overall_summary is learner-facing GENERAL overall feedback. "
         "It MUST consider the learner's work across the entire assignment, "
-        "but it must stay high-level rather than repeating detailed rubric feedback. "
+        "but it must stay high-level rather than repeating the detailed rubric feedback. "
 
-        "Write 2 to 4 natural sentences with an appreciative and encouraging tone. "
-        "Thank or acknowledge the learner's effort, briefly note that their submission "
-        "has been reviewed, and encourage them to use the criterion feedback to guide "
-        "their next steps. Keep the wording measured and factual. "
+        "Write 2 to 4 natural sentences that acknowledge the learner's effort and "
+        "encourage them to continue developing their work. Keep the wording "
+        "appreciative, supportive, professional, measured, and factual. Appreciation "
+        "must be directed at the learner's effort or completion of the submission, "
+        "not at the quality or achievement level of the work. Direct the learner to "
+        "review the detailed criterion feedback below for specific observations and "
+        "recommendations for improvement. "
 
-        "Do NOT use exaggerated praise or evaluative adjectives such as 'solid', "
-        "'strong', 'excellent', 'outstanding', 'impressive', 'exceptional', "
-        "'very good', 'high-quality', or 'robust'. Do not make broad claims about "
-        "the overall quality of the work unless they are strictly necessary. "
+        "Do NOT use qualitative praise or evaluative descriptions such as 'good', "
+        "'very good', 'strong', 'solid', 'excellent', 'outstanding', 'impressive', "
+        "'exceptional', 'high-quality', 'robust', 'great', 'well done', 'well-executed', "
+        "or similar wording. Do not describe the submission as successful, effective, "
+        "high-quality, capable, or otherwise imply an achievement level. The calculated "
+        "score and rubric band determine achievement separately. "
 
         "IMPORTANT: Do NOT mention criterion numbers, criterion codes, task codes, "
         "individual task details, individual criterion findings, awarded marks, total "
@@ -753,8 +799,7 @@ def grade_submission(submission):
 
         "Do NOT include headings, separators, markdown titles, '=' characters, bullet "
         "lists, or a fixed template in overall_summary. Return only the feedback prose. "
-        "Keep the tone appreciative, supportive, professional, and encouraging without "
-        "exaggeration. Use varied wording so feedback does not sound identical across submissions. "
+        "Use varied wording so feedback does not sound identical across submissions. "
 
         "CRITICAL COMPLETENESS RULE:\n"
         "Return exactly one criterion_evaluation for EVERY task/criterion evaluation "
@@ -1334,8 +1379,39 @@ def grade_submission(submission):
             total_earned_points += task_earned
             criterion_earned += task_earned
 
+            item_feedback = item.feedback or ""
+
+            # Deterministic wording guard: the application, not the model,
+            # removes qualitative praise that could conflict with the score.
+            replacements = {
+                "very good": "",
+                "high-quality": "",
+                "well-executed": "",
+                "well executed": "",
+                "well-done": "",
+                "well done": "",
+                "solid": "",
+                "strong": "",
+                "excellent": "",
+                "outstanding": "",
+                "impressive": "",
+                "exceptional": "",
+                "robust": "",
+                "great": "",
+                "good": "",
+            }
+
+            for phrase, replacement in replacements.items():
+                item_feedback = item_feedback.replace(phrase, replacement)
+                item_feedback = item_feedback.replace(
+                    phrase.capitalize(),
+                    replacement,
+                )
+
+            item_feedback = " ".join(item_feedback.split()).strip()
+
             criterion_feedback.append(
-                f"{item.task_code}: {item.feedback}"
+                f"{item.task_code}: {item_feedback}"
             )
 
             evaluated_items.append(
@@ -1355,7 +1431,7 @@ def grade_submission(submission):
                     "passed":
                         item.passed,
                     "feedback":
-                        item.feedback,
+                        item_feedback,
                     "mapped_page_numbers":
                         task_pages_map.get(item.task_code, []),
                     "mapping_confidence":
@@ -1420,16 +1496,12 @@ def grade_submission(submission):
         total_max_possible_points,
         2,
     )
-    overall_feedback = (
-        grading_result.overall_summary or ""
-    ).strip()
-
-    if not overall_feedback:
-        overall_feedback = (
-            "Thank you for completing and submitting this assignment. "
-            "Please review the detailed criterion feedback below for guidance "
-            "on what you have demonstrated and what you can consider next."
-        )
+    # Do not use the model's overall_summary as the saved overall feedback.
+    # The model may still use qualitative wording such as "solid", "strong",
+    # or other achievement language that can conflict with the calculated score.
+    # Keep overall feedback neutral and leave all specific strengths/gaps/actions
+    # to the criterion feedback, where they are tied to evidence.
+    overall_feedback = _neutral_overall_feedback()
 
     submission.feedback = overall_feedback
     submission.status = (
@@ -1461,4 +1533,8 @@ def grade_submission(submission):
         "overall_percentage": overall_percentage,
         "overall_summary": overall_feedback,
         "criterion_results": evaluated_items,
+        "token_usage": {
+            "calls": grading_call_usage,
+            "total": _sum_usage_snapshots(grading_call_usage),
+        },
     }
