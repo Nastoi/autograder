@@ -225,7 +225,13 @@ function getEstimatedApiCost(
     },
   };
 
-  const modelPricing = pricing[normalizedModel];
+  const modelPricing =
+    pricing[normalizedModel] ??
+    (normalizedModel.startsWith("gpt-4o-mini")
+      ? pricing["gpt-4o-mini"]
+      : normalizedModel.startsWith("gpt-4o")
+        ? pricing["gpt-4o"]
+        : null);
 
   if (!modelPricing) {
     return null;
@@ -1186,7 +1192,7 @@ export function SubmissionRecordsPage() {
                                                                           </strong>
                                                                         </div>
                                                                         <div>
-                                                                          <span>Estimated API Cost</span>
+                                                                          <span>Estimated Cost (USD)</span>
                                                                           <strong>
                                                                             {(() => {
                                                                               const usage =
@@ -1215,47 +1221,7 @@ export function SubmissionRecordsPage() {
                                                                         </div>
                                                                       </div>
 
-                                                                      <details>
-                                                                        <summary>Call breakdown</summary>
-                                                                        <div className="submission-token-call-list">
-                                                                          {attempt.grading_audit.scoring_snapshot.token_usage?.task_mapping && (
-                                                                            <div className="submission-token-call">
-                                                                              <strong>Task Mapping</strong>
-                                                                              <span>
-                                                                                Input {formatTokenCount(attempt.grading_audit.scoring_snapshot.token_usage.task_mapping.input_tokens)}
-                                                                                {" · "}Cached {formatTokenCount(attempt.grading_audit.scoring_snapshot.token_usage.task_mapping.cached_input_tokens)}
-                                                                                {" · "}Output {formatTokenCount(attempt.grading_audit.scoring_snapshot.token_usage.task_mapping.output_tokens)}
-                                                                                {" · "}Total {formatTokenCount(attempt.grading_audit.scoring_snapshot.token_usage.task_mapping.total_tokens)}
-                                                                              </span>
-                                                                            </div>
-                                                                          )}
 
-                                                                          {(attempt.grading_audit.scoring_snapshot.token_usage?.grading?.calls ?? []).map(
-                                                                            (call, index) => (
-                                                                              <div
-                                                                                key={`${call.stage}:${index}`}
-                                                                                className="submission-token-call"
-                                                                              >
-                                                                                <strong>
-                                                                                  {call.stage === "criterion_grading"
-                                                                                    ? "Criterion Grading"
-                                                                                    : call.stage === "criterion_grading_retry"
-                                                                                      ? "Criterion Grading Retry"
-                                                                                      : call.stage === "criterion_grading_recovery"
-                                                                                        ? "Criterion Grading Recovery"
-                                                                                        : call.stage}
-                                                                                </strong>
-                                                                                <span>
-                                                                                  Input {formatTokenCount(call.input_tokens)}
-                                                                                  {" · "}Cached {formatTokenCount(call.cached_input_tokens)}
-                                                                                  {" · "}Output {formatTokenCount(call.output_tokens)}
-                                                                                  {" · "}Total {formatTokenCount(call.total_tokens)}
-                                                                                </span>
-                                                                              </div>
-                                                                            ),
-                                                                          )}
-                                                                        </div>
-                                                                      </details>
                                                                     </div>
                                                                   </details>
                                                                 )}

@@ -23,6 +23,50 @@ from grading.schemas import (
 from submissions.models import SubmissionPage
 from submissions.audit import record_submission_event, update_grading_audit
 
+
+def _completion_usage_snapshot(completion):
+    usage = getattr(completion, "usage", None)
+
+    if usage is None:
+        return {
+            "input_tokens": 0,
+            "cached_input_tokens": 0,
+            "output_tokens": 0,
+            "reasoning_tokens": 0,
+            "total_tokens": 0,
+        }
+
+    prompt_details = getattr(usage, "prompt_tokens_details", None)
+    completion_details = getattr(usage, "completion_tokens_details", None)
+
+    return {
+        "input_tokens": int(getattr(usage, "prompt_tokens", 0) or 0),
+        "cached_input_tokens": int(
+            getattr(prompt_details, "cached_tokens", 0) or 0
+        ),
+        "output_tokens": int(getattr(usage, "completion_tokens", 0) or 0),
+        "reasoning_tokens": int(
+            getattr(completion_details, "reasoning_tokens", 0) or 0
+        ),
+        "total_tokens": int(getattr(usage, "total_tokens", 0) or 0),
+    }
+
+
+def _sum_usage_snapshots(items):
+    keys = (
+        "input_tokens",
+        "cached_input_tokens",
+        "output_tokens",
+        "reasoning_tokens",
+        "total_tokens",
+    )
+
+    return {
+        key: sum(int(item.get(key, 0) or 0) for item in items)
+        for key in keys
+    }
+
+
 def map_submission_tasks(submission):
     assignment_level = submission.context.assignment_level
 
@@ -256,6 +300,7 @@ def map_submission_tasks(submission):
     )
 
     mapping_data = completion.choices[0].message.parsed
+    mapping_usage = _completion_usage_snapshot(completion)
 
     saved_records = []
 
@@ -298,6 +343,7 @@ def map_submission_tasks(submission):
         "saved_mappings_count": len(saved_records),
         "is_unrelated_document": mapping_data.is_unrelated_document,
         "mapping_data": mapping_data.model_dump(),
+        "token_usage": mapping_usage,
     }
 
 
@@ -736,6 +782,8 @@ def grade_submission(submission):
     )
 
         
+    grading_call_usage = []
+
     try:
         completion = client.beta.chat.completions.parse(
             model=settings.OPENAI_API_MODEL,
@@ -765,6 +813,13 @@ def grade_submission(submission):
             },
         )
         raise
+
+    grading_call_usage.append(
+        {
+            "stage": "criterion_grading",
+            **_completion_usage_snapshot(completion),
+        }
+    )
 
     grading_result = (
         completion.choices[0].message.parsed
@@ -897,6 +952,13 @@ def grade_submission(submission):
                 response_format=GradingResponseSchema,
                 temperature=0.0,
             )
+        )
+
+        grading_call_usage.append(
+            {
+                "stage": "criterion_grading_retry",
+                **_completion_usage_snapshot(retry_completion),
+            }
         )
 
         grading_result = (
@@ -1083,6 +1145,13 @@ def grade_submission(submission):
                     response_format=GradingResponseSchema,
                     temperature=0.0,
                 )
+            )
+
+            grading_call_usage.append(
+                {
+                    "stage": "criterion_grading_recovery",
+                    **_completion_usage_snapshot(recovery_completion),
+                }
             )
 
             recovery_result = (
