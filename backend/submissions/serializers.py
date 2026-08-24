@@ -57,6 +57,9 @@ class SubmissionPageSerializer(serializers.ModelSerializer):
 
 
 class LearnerSubmissionSerializer(serializers.ModelSerializer):
+    is_manual_override = serializers.SerializerMethodField()
+    manual_override_by = serializers.SerializerMethodField()
+
     context_id = serializers.UUIDField(
         source="context.id",
         read_only=True,
@@ -82,6 +85,25 @@ class LearnerSubmissionSerializer(serializers.ModelSerializer):
         read_only=True,
     )
 
+    def _manual_override_log(self, obj):
+        return next(
+            (
+                log
+                for log in obj.process_logs.all()
+                if log.event_code == "FACULTY_OVERRIDE_CREATED"
+            ),
+            None,
+        )
+
+    def get_is_manual_override(self, obj):
+        return self._manual_override_log(obj) is not None
+
+    def get_manual_override_by(self, obj):
+        log = self._manual_override_log(obj)
+        if log is None or not isinstance(log.details, dict):
+            return None
+        return log.details.get("faculty_name") or None
+
     class Meta:
         model = LearnerSubmission
         fields = (
@@ -102,6 +124,8 @@ class LearnerSubmissionSerializer(serializers.ModelSerializer):
             "maximum_score",
             "achieved_band",
             "feedback",
+            "is_manual_override",
+            "manual_override_by",
             "criterion_results",
             "submitted_at",
             "completed_at",

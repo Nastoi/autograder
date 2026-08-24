@@ -16,11 +16,14 @@ import {
 } from "react-router";
 
 import {
+  createInstructorGradeOverride,
   downloadInstructorSubmission,
   getInstructorMappingDashboard,
   getMappingSubmissionContext,
   syncInstructorMappingDueDate,
+  type InstructorMappingAttempt,
   type InstructorMappingDashboard,
+  type InstructorMappingLearner,
   type MappingSubmissionContext,
 } from "../api/lms";
 
@@ -72,6 +75,15 @@ export function MappingSubmissionPage() {
   const [instructorError, setInstructorError] = useState("");
   const [expandedInstructorLearners, setExpandedInstructorLearners] =
     useState<string[]>([]);
+  const [overrideTarget, setOverrideTarget] = useState<{
+    learner: InstructorMappingLearner;
+    attempt: InstructorMappingAttempt;
+  } | null>(null);
+  const [overrideScores, setOverrideScores] = useState<Record<string, string>>({});
+  const [overrideFeedback, setOverrideFeedback] = useState<Record<string, string>>({});
+  const [overrideOverallFeedback, setOverrideOverallFeedback] = useState("");
+  const [isSavingOverride, setIsSavingOverride] = useState(false);
+  const [overrideError, setOverrideError] = useState("");
 
   const [isDragging, setIsDragging] =
     useState(false);
@@ -625,6 +637,82 @@ export function MappingSubmissionPage() {
   }
 
   
+
+  function openInstructorOverride(
+    learner: InstructorMappingLearner,
+    attempt: InstructorMappingAttempt,
+  ) {
+    setOverrideTarget({ learner, attempt });
+    setOverrideScores(
+      Object.fromEntries(
+        attempt.criterion_results.map((criterion) => [
+          criterion.rubric_criterion,
+          criterion.awarded_marks,
+        ]),
+      ),
+    );
+    setOverrideFeedback(
+      Object.fromEntries(
+        attempt.criterion_results.map((criterion) => [
+          criterion.rubric_criterion,
+          criterion.feedback || "",
+        ]),
+      ),
+    );
+    setOverrideOverallFeedback(attempt.feedback || "");
+    setOverrideError("");
+  }
+
+  function closeInstructorOverride() {
+    if (isSavingOverride) return;
+    setOverrideTarget(null);
+    setOverrideError("");
+  }
+
+  async function handleInstructorOverrideSubmit(
+    event: FormEvent<HTMLFormElement>,
+  ) {
+    event.preventDefault();
+
+    if (!mappingId || !overrideTarget) {
+      setOverrideError("Assessment mapping or override attempt is missing.");
+      return;
+    }
+
+    setOverrideError("");
+    setIsSavingOverride(true);
+
+    try {
+      await createInstructorGradeOverride(
+        mappingId,
+        overrideTarget.attempt.id,
+        {
+          overall_feedback: overrideOverallFeedback,
+          criteria: overrideTarget.attempt.criterion_results.map(
+            (criterion) => ({
+              rubric_criterion: criterion.rubric_criterion,
+              awarded_marks:
+                overrideScores[criterion.rubric_criterion] ?? "",
+              feedback:
+                overrideFeedback[criterion.rubric_criterion] ?? "",
+            }),
+          ),
+        },
+      );
+
+      const refreshed = await getInstructorMappingDashboard(mappingId);
+      setInstructorData(refreshed);
+      setOverrideTarget(null);
+    } catch (caughtError) {
+      setOverrideError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Unable to save the faculty grade override.",
+      );
+    } finally {
+      setIsSavingOverride(false);
+    }
+  }
 
   function toggleInstructorLearner(learnerId: string) {
     setExpandedInstructorLearners((current) =>
@@ -1303,6 +1391,12 @@ export function MappingSubmissionPage() {
                     <h2>
                       Attempt {attempts[0].attempt_number}
                     </h2>
+
+                    {attempts[0].is_manual_override && (
+                      <span className="faculty-override-label learner-manual-grade-pill">
+                        Manually reviewed by {attempts[0].manual_override_by || "faculty"}
+                      </span>
+                    )}
                   </div>
 
                   <span
@@ -1496,6 +1590,12 @@ export function MappingSubmissionPage() {
                             <span className="attempt-number">
                               Attempt {attempt.attempt_number}
                             </span>
+
+                            {attempt.is_manual_override && (
+                              <span className="faculty-override-label learner-manual-grade-pill">
+                                Manually reviewed by {attempt.manual_override_by || "faculty"}
+                              </span>
+                            )}
 
                             <strong className="attempt-filename">
                               {attempt.original_filename}
@@ -1707,6 +1807,11 @@ export function MappingSubmissionPage() {
                                             {attempt.level_name ||
                                               attempt.level_code}
                                           </span>
+                                          {attempt.is_manual_override && (
+                                            <span className="faculty-override-label">
+                                              Manually reviewed by {attempt.manual_override_by || "faculty"}
+                                            </span>
+                                          )}
                                         </td>
                                         <td>{attempt.status_display}</td>
                                         <td>
@@ -1729,31 +1834,38 @@ export function MappingSubmissionPage() {
                                           )}
                                         </td>
                                         <td>
-                                          {attemptIndex === 0 &&
-                                          attempt.has_submitted_file ? (
-                                            <div
-                                              style={{
-                                                display: "flex",
-                                                flexDirection: "column",
-                                                alignItems: "flex-start",
-                                                gap: "6px",
-                                              }}
-                                            >
-                                              {/* <span>
-                                                {attempt.original_filename}
-                                              </span> */}
-                                              <button
-                                                type="button"
-                                                className="btn-action"
-                                                onClick={() =>
-                                                  void handleInstructorSubmissionDownload(
-                                                    attempt.id,
-                                                    attempt.original_filename,
-                                                  )
-                                                }
-                                              >
-                                                Download
-                                              </button>
+                                          {attemptIndex === 0 ? (
+                                            <div className="instructor-attempt-actions">
+                                              {attempt.has_submitted_file && (
+                                                <button
+                                                  type="button"
+                                                  className="btn-action"
+                                                  onClick={() =>
+                                                    void handleInstructorSubmissionDownload(
+                                                      attempt.id,
+                                                      attempt.original_filename,
+                                                    )
+                                                  }
+                                                >
+                                                  Download
+                                                </button>
+                                              )}
+
+                                              {attempt.status === "completed" &&
+                                                attempt.criterion_results.length > 0 && (
+                                                  <button
+                                                    type="button"
+                                                    className="btn-action"
+                                                    onClick={() =>
+                                                      openInstructorOverride(
+                                                        learner,
+                                                        attempt,
+                                                      )
+                                                    }
+                                                  >
+                                                    Override
+                                                  </button>
+                                                )}
                                             </div>
                                           ) : (
                                             <span>—</span>
@@ -1932,6 +2044,155 @@ export function MappingSubmissionPage() {
 
 
       </div>
+      {overrideTarget && (
+        <div
+          className="grading-modal-backdrop"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="faculty-override-title"
+        >
+          <form
+            className="faculty-override-modal"
+            onSubmit={handleInstructorOverrideSubmit}
+          >
+            <div className="faculty-override-header">
+              <div>
+                <p className="submission-eyebrow">Faculty Review</p>
+                <h2 id="faculty-override-title">Manual Grade Override</h2>
+                <p>
+                  {overrideTarget.learner.name ||
+                    overrideTarget.learner.learner_id}
+                  {" · "}Attempt #{overrideTarget.attempt.attempt_number}
+                  {" → "}new Attempt #{overrideTarget.attempt.attempt_number + 1}
+                </p>
+              </div>
+              <button
+                type="button"
+                className="faculty-override-close"
+                onClick={closeInstructorOverride}
+                disabled={isSavingOverride}
+                aria-label="Close manual grade override"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="faculty-override-summary">
+              <span>Current result</span>
+              <strong>
+                {formatInstructorResult(
+                  overrideTarget.attempt.final_score,
+                  overrideTarget.attempt.maximum_score,
+                )}
+              </strong>
+              <span>Current band</span>
+              <strong>
+                {overrideTarget.attempt.achieved_band
+                  ? overrideTarget.attempt.achieved_band.charAt(0).toUpperCase() +
+                    overrideTarget.attempt.achieved_band.slice(1)
+                  : "—"}
+              </strong>
+            </div>
+
+            <div className="faculty-override-body">
+              {overrideTarget.attempt.criterion_results.map(
+                (criterion, index) => (
+                  <section
+                    className="faculty-override-criterion"
+                    key={criterion.rubric_criterion}
+                  >
+                    <div className="faculty-override-criterion-heading">
+                      <div>
+                        <strong>
+                          {criterion.criterion_code || `Criterion ${index + 1}`}
+                        </strong>
+                        <span>
+                          {criterion.criterion_title || `Criterion ${index + 1}`}
+                        </span>
+                      </div>
+                      <span>Max {criterion.maximum_score}</span>
+                    </div>
+
+                    <label>
+                      New score
+                      <input
+                        type="number"
+                        min="0"
+                        max={criterion.maximum_score}
+                        step="0.01"
+                        value={
+                          overrideScores[criterion.rubric_criterion] ?? ""
+                        }
+                        onChange={(event) =>
+                          setOverrideScores((current) => ({
+                            ...current,
+                            [criterion.rubric_criterion]: event.target.value,
+                          }))
+                        }
+                        disabled={isSavingOverride}
+                        required
+                      />
+                    </label>
+
+                    <label>
+                      Criterion feedback
+                      <textarea
+                        value={
+                          overrideFeedback[criterion.rubric_criterion] ?? ""
+                        }
+                        onChange={(event) =>
+                          setOverrideFeedback((current) => ({
+                            ...current,
+                            [criterion.rubric_criterion]: event.target.value,
+                          }))
+                        }
+                        disabled={isSavingOverride}
+                        required
+                      />
+                    </label>
+                  </section>
+                ),
+              )}
+
+              <label className="faculty-override-overall">
+                Overall feedback
+                <textarea
+                  value={overrideOverallFeedback}
+                  onChange={(event) =>
+                    setOverrideOverallFeedback(event.target.value)
+                  }
+                  disabled={isSavingOverride}
+                  required
+                />
+              </label>
+
+              {overrideError && (
+                <p role="alert" className="error-message">
+                  {overrideError}
+                </p>
+              )}
+            </div>
+
+            <div className="faculty-override-actions">
+              <button
+                type="button"
+                className="btn-action"
+                onClick={closeInstructorOverride}
+                disabled={isSavingOverride}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="btn-primary"
+                disabled={isSavingOverride}
+              >
+                {isSavingOverride ? "Saving Override..." : "Submit Override"}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
       {isSubmitting && (
         <div
           className="grading-modal-backdrop"

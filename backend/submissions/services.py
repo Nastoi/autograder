@@ -295,6 +295,28 @@ def run_ai_grading(submission):
                 "total_max_possible_points": grading_result.get("total_max_possible_points"),
                 "overall_percentage": grading_result.get("overall_percentage"),
                 "achieved_band": submission.achieved_band,
+                "token_usage": {
+                    "task_mapping": mapping_result.get("token_usage", {}),
+                    "grading": grading_result.get("token_usage", {}),
+                    "total": {
+                        key: (
+                            int(mapping_result.get("token_usage", {}).get(key, 0) or 0)
+                            + int(
+                                grading_result.get("token_usage", {})
+                                .get("total", {})
+                                .get(key, 0)
+                                or 0
+                            )
+                        )
+                        for key in (
+                            "input_tokens",
+                            "cached_input_tokens",
+                            "output_tokens",
+                            "reasoning_tokens",
+                            "total_tokens",
+                        )
+                    },
+                },
             },
             overall_summary=grading_result.get("overall_summary", ""),
             completed_at=timezone.now(),

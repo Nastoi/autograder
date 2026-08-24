@@ -1041,3 +1041,183 @@
   margin-bottom: 0;
   line-height: 1.6;
 }
+
+/* ===== Instructor faculty grade override ===== */
+.instructor-attempt-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.faculty-override-label {
+  display: block;
+  margin-top: 5px;
+  color: #475569;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.faculty-override-modal {
+  width: min(760px, calc(100% - 32px));
+  max-height: 88vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  border-radius: 18px;
+  background: #ffffff;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.24);
+}
+
+.faculty-override-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 22px 24px 18px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.faculty-override-header h2 {
+  margin: 2px 0 6px;
+  color: #0f172a;
+  font-size: 22px;
+}
+
+.faculty-override-header p {
+  margin: 0;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.faculty-override-close {
+  border: 0;
+  background: transparent;
+  color: #64748b;
+  font-size: 28px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.faculty-override-summary {
+  display: grid;
+  grid-template-columns: auto 1fr auto 1fr;
+  gap: 8px 12px;
+  align-items: center;
+  padding: 14px 24px;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+  font-size: 12px;
+}
+
+.faculty-override-summary span {
+  color: #64748b;
+}
+
+.faculty-override-summary strong {
+  color: #0f172a;
+}
+
+.faculty-override-body {
+  min-height: 0;
+  overflow-y: auto;
+  padding: 20px 24px;
+}
+
+.faculty-override-criterion {
+  padding: 16px;
+  margin-bottom: 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+.faculty-override-criterion-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.faculty-override-criterion-heading > div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.faculty-override-criterion-heading strong {
+  color: #0f172a;
+}
+
+.faculty-override-criterion-heading span {
+  color: #64748b;
+  font-size: 12px;
+}
+
+.faculty-override-criterion label,
+.faculty-override-overall {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.faculty-override-criterion input,
+.faculty-override-criterion textarea,
+.faculty-override-overall textarea {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 10px 11px;
+  background: #ffffff;
+  color: #0f172a;
+  font: inherit;
+  font-weight: 500;
+}
+
+.faculty-override-criterion textarea,
+.faculty-override-overall textarea {
+  min-height: 92px;
+  resize: vertical;
+}
+
+.faculty-override-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 16px 24px;
+  border-top: 1px solid #e2e8f0;
+  background: #ffffff;
+}
+
+.faculty-override-actions .btn-primary {
+  width: auto;
+  padding: 10px 18px;
+}
+
+@media (max-width: 640px) {
+  .faculty-override-summary {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .faculty-override-header,
+  .faculty-override-body,
+  .faculty-override-actions {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+}
+
+
+/* Manual faculty grading indicator. Reuses the instructor override pill style. */
+.learner-manual-grade-pill {
+  display: inline-flex;
+  width: fit-content;
+  margin-top: 8px;
+  white-space: normal;
+}

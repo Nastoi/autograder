@@ -642,51 +642,58 @@ def grade_submission(submission):
 
         "CRITERION FEEDBACK:\n"
         "For each individual task/criterion evaluation, provide learner-facing "
-        "feedback that is specific, evidence-based, and actionable. "
+        "feedback that is calm, appreciative, encouraging, factual, and specific "
+        "to the evidence that was actually supplied. "
 
-        "Explain what the learner demonstrated from the supplied evidence. "
-        "Whenever score_percentage is below 100, clearly state the specific "
-        "things that should be improved, enhanced, corrected, added, verified, "
-        "or demonstrated next. Focus directly on the learner's work and the "
-        "required task or rubric expectations. Do not discuss scoring mechanics, "
-        "lost marks, full credit, deductions, or why a particular score was awarded. "
+        "Use neutral wording. Do NOT use exaggerated praise or evaluative adjectives "
+        "such as 'solid', 'strong', 'excellent', 'outstanding', 'impressive', "
+        "'exceptional', 'very good', 'high-quality', 'robust', or similar wording. "
+        "Do not describe the learner's work as better or worse than the evidence "
+        "directly supports. "
 
-        "The amount of improvement guidance should reflect the size of the gap. "
-        "For a high score with only minor weaknesses, give concise, specific "
-        "refinements or enhancements. For a moderate score, explain the main "
-        "areas that should be improved and give clear actions for each important "
-        "gap. For a low score, provide more detailed guidance, identify the major "
-        "missing or incorrect elements, prioritise what the learner should fix "
-        "first, and explain what evidence or implementation should be shown. "
+        "Acknowledge the learner's effort or the evidence they provided in a simple "
+        "and sincere way. State what is visible or demonstrated without inflating it. "
+        "Examples of suitable tone include 'Thank you for providing this evidence', "
+        "'You have included evidence showing...', or 'This demonstrates...'. "
 
-        "If evidence is missing, say what required evidence should be provided. "
-        "If implementation is incorrect, say what should be corrected. "
-        "If evidence conflicts, explain the discrepancy and state what should "
-        "be fixed or demonstrated. "
+        "Whenever score_percentage is below 100, give constructive next-step guidance "
+        "using supportive wording such as 'You could strengthen this by...', "
+        "'For the next attempt, consider...', 'It would help to include...', or "
+        "'You may wish to check...'. Do not use harsh, judgmental, absolute, or "
+        "discouraging language. "
+
+        "Do not discuss scoring mechanics, lost marks, full credit, deductions, "
+        "or why a particular score was awarded. Do not mention the numerical score "
+        "inside criterion feedback unless the task explicitly requires a number. "
+
+        "If evidence is missing, simply explain what evidence would help demonstrate "
+        "the requirement. If implementation appears incorrect or incomplete, explain "
+        "what the learner could check, revise, add, or show next. If evidence conflicts, "
+        "state the discrepancy neutrally and suggest what could be clarified. "
 
         "All recommendations must be grounded only in the assignment instructions, "
         "criterion description, rubric bands, and supplied evidence. Do not invent "
         "extra requirements just to create improvement advice. "
 
-        "If score_percentage is 100, do not invent a deficiency. Confirm the "
-        "strengths demonstrated by the evidence. An optional enhancement may be "
-        "included only when clearly framed as good practice or an extension, not "
-        "as a missing requirement. "
-
-        "Avoid vague recommendations such as 'improve clarity', 'provide more detail', "
-        "'enhance the model', 'further development is needed', or 'review your work' "
-        "unless you immediately explain exactly what should be changed, added, "
-        "corrected, verified, or demonstrated. "
+        "If score_percentage is 100, do not invent a deficiency and do not exaggerate "
+        "the praise. Briefly acknowledge what was demonstrated and, if useful, offer "
+        "an optional next step framed as further development rather than a missing "
+        "requirement. "
 
         "OVERALL SUMMARY:\n"
         "The overall_summary is learner-facing GENERAL overall feedback. "
         "It MUST consider the learner's work across the entire assignment, "
-        "but it must stay high-level rather than repeating the detailed rubric feedback. "
+        "but it must stay high-level rather than repeating detailed rubric feedback. "
 
-        "Write 2 to 4 natural, encouraging sentences that acknowledge the learner's "
-        "effort, briefly describe the overall quality or progress shown in broad terms, "
-        "and direct the learner to review the detailed criterion feedback below for "
-        "specific strengths, development areas, and recommendations. "
+        "Write 2 to 4 natural sentences with an appreciative and encouraging tone. "
+        "Thank or acknowledge the learner's effort, briefly note that their submission "
+        "has been reviewed, and encourage them to use the criterion feedback to guide "
+        "their next steps. Keep the wording measured and factual. "
+
+        "Do NOT use exaggerated praise or evaluative adjectives such as 'solid', "
+        "'strong', 'excellent', 'outstanding', 'impressive', 'exceptional', "
+        "'very good', 'high-quality', or 'robust'. Do not make broad claims about "
+        "the overall quality of the work unless they are strictly necessary. "
 
         "IMPORTANT: Do NOT mention criterion numbers, criterion codes, task codes, "
         "individual task details, individual criterion findings, awarded marks, total "
@@ -700,8 +707,8 @@ def grade_submission(submission):
 
         "Do NOT include headings, separators, markdown titles, '=' characters, bullet "
         "lists, or a fixed template in overall_summary. Return only the feedback prose. "
-        "Keep the tone appreciative, supportive, professional, and motivating. "
-        "Use varied wording so feedback does not sound identical across submissions. "
+        "Keep the tone appreciative, supportive, professional, and encouraging without "
+        "exaggeration. Use varied wording so feedback does not sound identical across submissions. "
 
         "CRITICAL COMPLETENESS RULE:\n"
         "Return exactly one criterion_evaluation for EVERY task/criterion evaluation "
@@ -1350,10 +1357,9 @@ def grade_submission(submission):
 
     if not overall_feedback:
         overall_feedback = (
-            "Thank you for the effort you have put into this assignment. "
-            "Please review the detailed criterion feedback below for specific "
-            "strengths, areas for development, and recommendations to support "
-            "your continued improvement."
+            "Thank you for completing and submitting this assignment. "
+            "Please review the detailed criterion feedback below for guidance "
+            "on what you have demonstrated and what you can consider next."
         )
 
     submission.feedback = overall_feedback

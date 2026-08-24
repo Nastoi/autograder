@@ -27,6 +27,27 @@ export type SubmissionAuditCriterionEvaluation = {
   mapping_justification: string;
 };
 
+export type OpenAITokenUsage = {
+  input_tokens: number;
+  cached_input_tokens: number;
+  output_tokens: number;
+  reasoning_tokens: number;
+  total_tokens: number;
+};
+
+export type OpenAITokenUsageCall = OpenAITokenUsage & {
+  stage: string;
+};
+
+export type AttemptTokenUsage = {
+  task_mapping?: OpenAITokenUsage;
+  grading?: {
+    calls?: OpenAITokenUsageCall[];
+    total?: OpenAITokenUsage;
+  };
+  total?: OpenAITokenUsage;
+};
+
 export type SubmissionGradingAudit = {
   status: "started" | "completed" | "error" | string;
   model_name: string;
@@ -39,6 +60,7 @@ export type SubmissionGradingAudit = {
     total_max_possible_points?: number | null;
     overall_percentage?: number | null;
     achieved_band?: string | null;
+    token_usage?: AttemptTokenUsage;
     [key: string]: unknown;
   };
   overall_summary: string;
@@ -47,6 +69,17 @@ export type SubmissionGradingAudit = {
   started_at: string | null;
   completed_at: string | null;
   updated_at: string;
+};
+
+export type AdminCriterionResult = {
+  id: string;
+  rubric_criterion: string;
+  criterion_code: string;
+  criterion_title: string;
+  awarded_marks: string;
+  maximum_score: string;
+  achievement_band: string;
+  feedback: string;
 };
 
 export type AdminSubmissionAttempt = {
@@ -65,6 +98,9 @@ export type AdminSubmissionAttempt = {
   completed_at: string | null;
   grading_audit: SubmissionGradingAudit | null;
   process_logs: SubmissionProcessLogEntry[];
+  is_manual_review?: boolean;
+  manual_reviewer?: string | null;
+  criterion_results?: AdminCriterionResult[];
 };
 
 export type AdminSubmissionLearner = {
@@ -82,6 +118,13 @@ export type AdminSubmissionAssignment = {
   title: string;
   unique_learners: number;
   total_attempts: number;
+  latest_result_counts?: {
+    failed: number;
+    foundation: number;
+    proficient_basic: number;
+    proficient_advanced: number;
+    expert: number;
+  };
   learners: AdminSubmissionLearner[];
 };
 

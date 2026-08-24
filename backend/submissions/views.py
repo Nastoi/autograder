@@ -603,6 +603,10 @@ class MappingSubmissionHistoryView(APIView):
                 "assignment_level__assignment",
                 "context",
             )
+            .prefetch_related(
+                "criterion_results__rubric_criterion",
+                "process_logs",
+            )
             .order_by("-attempt_number")
         )
 

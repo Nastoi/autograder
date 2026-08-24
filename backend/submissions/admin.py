@@ -1,66 +1,316 @@
-from django.contrib import admin
+from collections import OrderedDict
+
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
+from lms.permissions import IsMappingAdmin
 
 from .models import LearnerSubmission, SubmissionContext
+from .audit import serialize_grading_audit, serialize_process_logs
 
 
-@admin.register(SubmissionContext)
-class SubmissionContextAdmin(admin.ModelAdmin):
-    list_display = (
-        "learner",
-        "cohort",
-        "assignment_display",
-        "is_active",
-        "created_at",
-    )
+class AdminSubmissionRecordsView(APIView):
 
-    list_filter = (
-        "is_active",
-        "cohort",
-        "assignment_level",
-    )
+    permission_classes = [IsAuthenticated, IsMappingAdmin]
 
-    search_fields = (
-        "learner__username",
-        "learner__email",
-        "cohort__cohort_code",
-        "assignment_level__assignment__assignment_code",
-    )
+    def get(self, request):
+        submissions = (
+            LearnerSubmission.objects
+            .select_related(
+                "learner",
+                "context",
+                "context__cohort",
+                "assignment_level",
+                "assignment_level__assignment",
+                "assignment_level__assignment__module",
+                "grading_audit",
+            )
+            .prefetch_related(
+                "process_logs",
+                "criterion_results__rubric_criterion",
+            )
+            .order_by(
+                "context__cohort__cohort_code",
+                "assignment_level__assignment__assignment_code",
+                "learner__username",
+                "attempt_number",
+                "submitted_at",
+            )
+        )
 
-    @admin.display(description="Assignment")
-    def assignment_display(self, obj):
-        return obj.assignment_level
+        cohort_id = request.query_params.get("cohort_id")
+        assignment_id = request.query_params.get("assignment_id")
 
+        if cohort_id:
+            submissions = submissions.filter(
+                context__cohort_id=cohort_id,
+            )
 
-@admin.register(LearnerSubmission)
-class LearnerSubmissionAdmin(admin.ModelAdmin):
-    list_display = (
-        "learner",
-        "original_filename",
-        "assignment_display",
-        "attempt_number",
-        "status",
-        "submitted_at",
-    )
+        if assignment_id:
+            submissions = submissions.filter(
+                assignment_level__assignment_id=assignment_id,
+            )
 
-    list_filter = (
-        "status",
-        "assignment_level",
-    )
+        # Gradebook learner source:
+        # A learner belongs to the local cohort view once an LTI/submission
+        # context has been created for that learner and cohort. This lets the
+        # Final Gradebook include learners with zero submissions.
+        gradebook_contexts = (
+            SubmissionContext.objects
+            .select_related(
+                "learner",
+                "cohort",
+            )
+            .filter(is_active=True)
+            .order_by(
+                "cohort__cohort_code",
+                "learner__username",
+            )
+        )
 
-    search_fields = (
-        "learner__username",
-        "learner__email",
-        "original_filename",
-        "assignment_level__assignment__assignment_code",
-    )
+        if cohort_id:
+            gradebook_contexts = gradebook_contexts.filter(
+                cohort_id=cohort_id,
+            )
 
-    readonly_fields = (
-        "learner",
-        "assignment_display",
-        "original_filename",
-        "submitted_at",
-    )
+        gradebook_grouped = OrderedDict()
 
-    @admin.display(description="Assignment")
-    def assignment_display(self, obj):
-        return obj.assignment_level
+        for context in gradebook_contexts:
+            cohort = context.cohort
+            learner = context.learner
+
+            cohort_key = str(cohort.id)
+            learner_key = str(learner.id)
+
+            if cohort_key not in gradebook_grouped:
+                gradebook_grouped[cohort_key] = {
+                    "id": cohort_key,
+                    "code": cohort.cohort_code,
+                    "name": cohort.cohort_name,
+                    "learners": OrderedDict(),
+                }
+
+            if (
+                learner_key
+                not in gradebook_grouped[cohort_key]["learners"]
+            ):
+                gradebook_grouped[cohort_key]["learners"][learner_key] = {
+                    "id": learner_key,
+                    "learner_id": learner.username,
+                    "username": learner.username,
+                    "name": (
+                        learner.get_full_name()
+                        or learner.username
+                    ),
+                    "email": learner.email,
+                }
+
+        grouped = OrderedDict()
+
+        for submission in submissions:
+            cohort = submission.context.cohort
+            level = submission.assignment_level
+            assignment = level.assignment
+            learner = submission.learner
+
+            cohort_key = str(cohort.id)
+            assignment_key = str(assignment.id)
+            learner_key = str(learner.id)
+
+            if cohort_key not in grouped:
+                grouped[cohort_key] = {
+                    "id": cohort_key,
+                    "code": cohort.cohort_code,
+                    "name": cohort.cohort_name,
+                    "assignments": OrderedDict(),
+                }
+
+            cohort_group = grouped[cohort_key]
+
+            if assignment_key not in cohort_group["assignments"]:
+                cohort_group["assignments"][assignment_key] = {
+                    "id": assignment_key,
+                    "code": assignment.assignment_code,
+                    "title": assignment.assignment_title,
+                    "unique_learners": 0,
+                    "total_attempts": 0,
+                    "latest_result_counts": {
+                        "failed": 0,
+                        "foundation": 0,
+                        "proficient_basic": 0,
+                        "proficient_advanced": 0,
+                        "expert": 0,
+                    },
+                    "learners": OrderedDict(),
+                }
+
+            assignment_group = cohort_group["assignments"][assignment_key]
+
+            if learner_key not in assignment_group["learners"]:
+                assignment_group["learners"][learner_key] = {
+                    "id": learner_key,
+                    "learner_id": learner.username,
+                    "username": learner.username,
+                    "name": (
+                        learner.get_full_name()
+                        or learner.username
+                    ),
+                    "email": learner.email,
+                    "attempts": [],
+                }
+
+            assignment_group["learners"][learner_key]["attempts"].append(
+                {
+                    "id": str(submission.id),
+                    "attempt_number": submission.attempt_number,
+                    "level_code": level.level_code,
+                    "level_name": level.display_name,
+                    "status": submission.status,
+                    "status_display": submission.get_status_display(),
+                    "final_score": (
+                        str(submission.final_score)
+                        if submission.final_score is not None
+                        else None
+                    ),
+                    "maximum_score": (
+                        str(submission.maximum_score)
+                        if submission.maximum_score is not None
+                        else None
+                    ),
+                    "achieved_band": submission.achieved_band,
+                    "feedback": submission.feedback,
+                    "original_filename": submission.original_filename,
+                    "submitted_at": submission.submitted_at,
+                    "completed_at": submission.completed_at,
+                    "grading_audit": serialize_grading_audit(submission),
+                    "process_logs": serialize_process_logs(submission),
+                    "is_manual_review": any(
+                        log.event_code == "FACULTY_OVERRIDE_CREATED"
+                        for log in submission.process_logs.all()
+                    ),
+                    "manual_reviewer": next(
+                        (
+                            (log.details or {}).get("faculty_name")
+                            for log in submission.process_logs.all()
+                            if log.event_code == "FACULTY_OVERRIDE_CREATED"
+                        ),
+                        None,
+                    ),
+                    "criterion_results": [
+                        {
+                            "id": str(result.id),
+                            "rubric_criterion": str(result.rubric_criterion_id),
+                            "criterion_code": result.rubric_criterion.criterion_code,
+                            "criterion_title": result.rubric_criterion.title,
+                            "awarded_marks": str(result.awarded_marks),
+                            "maximum_score": str(
+                                result.rubric_criterion.maximum_score
+                            ),
+                            "achievement_band": result.achievement_band,
+                            "feedback": result.feedback,
+                        }
+                        for result in submission.criterion_results.all()
+                    ],
+                }
+            )
+
+            assignment_group["total_attempts"] += 1
+
+        response_cohorts = []
+
+        for cohort_group in grouped.values():
+            response_assignments = []
+
+            for assignment_group in cohort_group["assignments"].values():
+                learners = list(
+                    assignment_group["learners"].values()
+                )
+
+                assignment_group["unique_learners"] = len(learners)
+
+                latest_result_counts = {
+                    "failed": 0,
+                    "foundation": 0,
+                    "proficient_basic": 0,
+                    "proficient_advanced": 0,
+                    "expert": 0,
+                }
+
+                for learner in learners:
+                    attempts = learner["attempts"]
+                    if not attempts:
+                        continue
+
+                    latest_attempt = max(
+                        attempts,
+                        key=lambda attempt: (
+                            attempt["attempt_number"],
+                            attempt["submitted_at"],
+                        ),
+                    )
+
+                    band = (latest_attempt.get("achieved_band") or "").lower()
+                    level_code = (
+                        latest_attempt.get("level_code") or ""
+                    ).lower()
+
+                    if band == "failed":
+                        latest_result_counts["failed"] += 1
+                    elif band == "foundation":
+                        latest_result_counts["foundation"] += 1
+                    elif band == "proficient":
+                        if level_code == "basic":
+                            latest_result_counts["proficient_basic"] += 1
+                        elif level_code == "advanced":
+                            latest_result_counts["proficient_advanced"] += 1
+                    elif band == "expert":
+                        latest_result_counts["expert"] += 1
+
+                assignment_group["latest_result_counts"] = latest_result_counts
+                assignment_group["learners"] = learners
+                response_assignments.append(assignment_group)
+
+            cohort_group["assignments"] = response_assignments
+            response_cohorts.append(cohort_group)
+
+        response_gradebook_cohorts = []
+
+        for cohort_group in gradebook_grouped.values():
+            response_gradebook_cohorts.append(
+                {
+                    "id": cohort_group["id"],
+                    "code": cohort_group["code"],
+                    "name": cohort_group["name"],
+                    "learners": list(
+                        cohort_group["learners"].values()
+                    ),
+                }
+            )
+
+        return Response(
+            {
+                "cohorts": response_cohorts,
+                "gradebook_cohorts": response_gradebook_cohorts,
+                "summary": {
+                    "cohorts": len(response_cohorts),
+                    "assignments": sum(
+                        len(cohort["assignments"])
+                        for cohort in response_cohorts
+                    ),
+                    "unique_learners": len(
+                        {
+                            learner["id"]
+                            for cohort in response_cohorts
+                            for assignment in cohort["assignments"]
+                            for learner in assignment["learners"]
+                        }
+                    ),
+                    "total_attempts": sum(
+                        assignment["total_attempts"]
+                        for cohort in response_cohorts
+                        for assignment in cohort["assignments"]
+                    ),
+                },
+            }
+        )

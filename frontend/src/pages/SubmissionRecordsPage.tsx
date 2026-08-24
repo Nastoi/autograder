@@ -21,7 +21,7 @@ import {
   getAdminSubmissionRecords,
   type AdminSubmissionRecordsResponse,
 } from "../api/adminSubmissionRecords";
-import { jsPDF } from "jspdf";
+
 type RecordsTab = "records" | "gradebook";
 
 
@@ -82,6 +82,74 @@ function formatResult(
   return `${percentage.toFixed(2)} / 100`;
 }
 
+
+function getLatestResultCounts(assignment: {
+  learners: Array<{
+    attempts: Array<{
+      attempt_number: number;
+      submitted_at: string;
+      achieved_band: string;
+      level_code: string;
+    }>;
+  }>;
+}) {
+  const counts = {
+    failed: 0,
+    foundation: 0,
+    proficient_basic: 0,
+    proficient_advanced: 0,
+    expert: 0,
+  };
+
+  assignment.learners.forEach((learner) => {
+    if (!learner.attempts.length) {
+      return;
+    }
+
+    const latestAttempt = learner.attempts
+      .slice()
+      .sort((a, b) => {
+        if (a.attempt_number !== b.attempt_number) {
+          return b.attempt_number - a.attempt_number;
+        }
+
+        return (
+          new Date(b.submitted_at).getTime() -
+          new Date(a.submitted_at).getTime()
+        );
+      })[0];
+
+    if (!latestAttempt) {
+      return;
+    }
+
+    const band = (
+      latestAttempt.achieved_band || ""
+    ).trim().toLowerCase();
+
+    const level = (
+      latestAttempt.level_code || ""
+    ).trim().toLowerCase();
+
+    if (band === "failed") {
+      counts.failed += 1;
+    } else if (band === "foundation") {
+      counts.foundation += 1;
+    } else if (band === "proficient") {
+      if (level === "basic") {
+        counts.proficient_basic += 1;
+      } else if (level === "advanced") {
+        counts.proficient_advanced += 1;
+      }
+    } else if (band === "expert") {
+      counts.expert += 1;
+    }
+  });
+
+  return counts;
+}
+
+
 function percentageFromAttempt(attempt: {
   final_score: string | null;
   maximum_score: string | null;
@@ -106,6 +174,82 @@ function percentageFromAttempt(attempt: {
 
   return (score / maximum) * 100;
 }
+
+function formatTokenCount(
+  value: number | null | undefined,
+) {
+  return new Intl.NumberFormat().format(Number(value ?? 0));
+}
+
+
+function getEstimatedApiCost(
+  model: string,
+  inputTokens: number,
+  cachedInputTokens: number,
+  outputTokens: number,
+) {
+  const normalizedModel = model.trim().toLowerCase();
+
+  const pricing: Record<
+    string,
+    {
+      input: number;
+      cachedInput: number;
+      output: number;
+    }
+  > = {
+    "gpt-4o-mini": {
+      input: 0.15,
+      cachedInput: 0.075,
+      output: 0.60,
+    },
+    "gpt-4o-mini-2024-07-18": {
+      input: 0.15,
+      cachedInput: 0.075,
+      output: 0.60,
+    },
+    "gpt-4o": {
+      input: 2.50,
+      cachedInput: 1.25,
+      output: 10.00,
+    },
+    "gpt-4o-2024-08-06": {
+      input: 2.50,
+      cachedInput: 1.25,
+      output: 10.00,
+    },
+    "gpt-4o-2024-11-20": {
+      input: 2.50,
+      cachedInput: 1.25,
+      output: 10.00,
+    },
+  };
+
+  const modelPricing = pricing[normalizedModel];
+
+  if (!modelPricing) {
+    return null;
+  }
+
+  const safeInputTokens = Math.max(inputTokens || 0, 0);
+  const safeCachedInputTokens = Math.min(
+    Math.max(cachedInputTokens || 0, 0),
+    safeInputTokens,
+  );
+  const safeOutputTokens = Math.max(outputTokens || 0, 0);
+
+  const uncachedInputTokens =
+    safeInputTokens - safeCachedInputTokens;
+
+  return (
+    (uncachedInputTokens / 1_000_000) * modelPricing.input +
+    (safeCachedInputTokens / 1_000_000) *
+      modelPricing.cachedInput +
+    (safeOutputTokens / 1_000_000) *
+      modelPricing.output
+  );
+}
+
 
 export function SubmissionRecordsPage() {
   const [data, setData] =
@@ -362,7 +506,7 @@ export function SubmissionRecordsPage() {
 
                 const weightedContribution =
                   mappedAssignment.contributesToFinalMark &&
-                  mappedAssignment.weight > 0
+                    mappedAssignment.weight > 0
                     ? percentage * (mappedAssignment.weight / 100)
                     : 0;
 
@@ -637,6 +781,8 @@ export function SubmissionRecordsPage() {
                               expandedAssignments.includes(
                                 assignmentKey,
                               );
+                            const latestResultCounts =
+                              getLatestResultCounts(assignment);
 
                             return (
                               <div
@@ -669,18 +815,53 @@ export function SubmissionRecordsPage() {
                                     </strong>
                                   </span>
 
-                                  <span className="submission-assignment-stats">
-                                    <span>
-                                      <strong>
-                                        {assignment.unique_learners}
-                                      </strong>
-                                      learners
+                                  <span className="submission-assignment-summary">
+                                    <span className="submission-assignment-stats">
+                                      <span>
+                                        <strong>{assignment.unique_learners}</strong>
+                                        learners
+                                      </span>
+                                      <span>
+                                        <strong>{assignment.total_attempts}</strong>
+                                        attempts
+                                      </span>
                                     </span>
-                                    <span>
-                                      <strong>
-                                        {assignment.total_attempts}
-                                      </strong>
-                                      attempts
+
+                                    <span className="submission-latest-band-counts">
+                                      <span className="latest-band-pill">
+                                        Failed{" "}
+                                        <strong>
+                                          {latestResultCounts.failed}
+                                        </strong>
+                                      </span>
+
+                                      <span className="latest-band-pill">
+                                        Foundation{" "}
+                                        <strong>
+                                          {latestResultCounts.foundation}
+                                        </strong>
+                                      </span>
+
+                                      <span className="latest-band-pill">
+                                        Proficient · Basic{" "}
+                                        <strong>
+                                          {latestResultCounts.proficient_basic}
+                                        </strong>
+                                      </span>
+
+                                      <span className="latest-band-pill">
+                                        Proficient · Advanced{" "}
+                                        <strong>
+                                          {latestResultCounts.proficient_advanced}
+                                        </strong>
+                                      </span>
+
+                                      <span className="latest-band-pill">
+                                        Expert{" "}
+                                        <strong>
+                                          {latestResultCounts.expert}
+                                        </strong>
+                                      </span>
                                     </span>
                                   </span>
                                 </button>
@@ -695,6 +876,19 @@ export function SubmissionRecordsPage() {
                                           expandedLearners.includes(
                                             learnerKey,
                                           );
+
+                                        const latestLearnerAttempt =
+                                          learner.attempts
+                                            .slice()
+                                            .sort((a, b) => {
+                                              if (a.attempt_number !== b.attempt_number) {
+                                                return b.attempt_number - a.attempt_number;
+                                              }
+                                              return (
+                                                new Date(b.submitted_at).getTime() -
+                                                new Date(a.submitted_at).getTime()
+                                              );
+                                            })[0];
 
                                         return (
                                           <div
@@ -773,6 +967,14 @@ export function SubmissionRecordsPage() {
                                                                 {attempt.level_name ||
                                                                   attempt.level_code}
                                                               </span>
+                                                              {attempt.is_manual_review && (
+                                                                <span className="manual-review-pill">
+                                                                  Manual Review
+                                                                  {attempt.manual_reviewer
+                                                                    ? ` by ${attempt.manual_reviewer}`
+                                                                    : ""}
+                                                                </span>
+                                                              )}
                                                             </td>
                                                             <td>
                                                               {displayStatus(attempt.status, attempt.status_display)}
@@ -805,7 +1007,41 @@ export function SubmissionRecordsPage() {
                                                                     "No feedback available."}
                                                                 </p>
 
-                                                                {attempt.grading_audit && (
+                                                                {(attempt.criterion_results?.length ?? 0) > 0 && (
+                                                                  <details className="submission-detail-section">
+                                                                    <summary>Criterion Results</summary>
+                                                                    <div className="submission-criterion-results">
+                                                                      {(attempt.criterion_results ?? []).map(
+                                                                        (criterion) => (
+                                                                          <div
+                                                                            key={criterion.id}
+                                                                            className="submission-criterion-result"
+                                                                          >
+                                                                            <div className="submission-criterion-result-header">
+                                                                              <strong>
+                                                                                {criterion.criterion_code
+                                                                                  ? `${criterion.criterion_code} — `
+                                                                                  : ""}
+                                                                                {criterion.criterion_title || "Criterion"}
+                                                                              </strong>
+                                                                              <span>
+                                                                                {criterion.awarded_marks} / {criterion.maximum_score}
+                                                                              </span>
+                                                                            </div>
+                                                                            <div className="submission-criterion-meta">
+                                                                              Band: <strong>{criterion.achievement_band || "—"}</strong>
+                                                                            </div>
+                                                                            <p>
+                                                                              {criterion.feedback || "No criterion feedback available."}
+                                                                            </p>
+                                                                          </div>
+                                                                        ),
+                                                                      )}
+                                                                    </div>
+                                                                  </details>
+                                                                )}
+
+                                                                {attempt.grading_audit && !attempt.is_manual_review && (
                                                                   <details>
                                                                     <summary>AI Grading Details</summary>
                                                                     <div style={{ marginTop: "12px" }}>
@@ -858,8 +1094,8 @@ export function SubmissionRecordsPage() {
                                                                               Evidence pages:{" "}
                                                                               {evaluation.mapped_page_numbers.length
                                                                                 ? evaluation.mapped_page_numbers.join(
-                                                                                    ", ",
-                                                                                  )
+                                                                                  ", ",
+                                                                                )
                                                                                 : "No mapped pages"}
                                                                             </div>
                                                                             {evaluation.mapping_justification && (
@@ -886,20 +1122,149 @@ export function SubmissionRecordsPage() {
                                                                         {attempt.grading_audit.scoring_snapshot
                                                                           .overall_percentage !== undefined
                                                                           ? `(${Number(
-                                                                              attempt.grading_audit.scoring_snapshot
-                                                                                .overall_percentage,
-                                                                            ).toFixed(2)}%)`
+                                                                            attempt.grading_audit.scoring_snapshot
+                                                                              .overall_percentage,
+                                                                          ).toFixed(2)}%)`
                                                                           : ""}
                                                                       </p>
                                                                     </div>
                                                                   </details>
                                                                 )}
 
-                                                                {attempt.process_logs.length > 0 && (
+                                                                {attempt.id === latestLearnerAttempt?.id &&
+                                                                  attempt.grading_audit &&
+                                                                  !attempt.is_manual_review &&
+                                                                  attempt.grading_audit.scoring_snapshot.token_usage?.total && (
+                                                                  <details className="submission-detail-section">
+                                                                    <summary>AI Token Usage</summary>
+                                                                    <div className="submission-token-usage">
+                                                                      <div className="submission-token-usage-summary">
+                                                                        <div>
+                                                                          <span>Model</span>
+                                                                          <strong>
+                                                                            {attempt.grading_audit.model_name || "—"}
+                                                                          </strong>
+                                                                        </div>
+                                                                        <div>
+                                                                          <span>Input tokens</span>
+                                                                          <strong>
+                                                                            {formatTokenCount(
+                                                                              attempt.grading_audit.scoring_snapshot.token_usage?.total?.input_tokens,
+                                                                            )}
+                                                                          </strong>
+                                                                        </div>
+                                                                        <div>
+                                                                          <span>Cached input</span>
+                                                                          <strong>
+                                                                            {formatTokenCount(
+                                                                              attempt.grading_audit.scoring_snapshot.token_usage?.total?.cached_input_tokens,
+                                                                            )}
+                                                                          </strong>
+                                                                        </div>
+                                                                        <div>
+                                                                          <span>Output tokens</span>
+                                                                          <strong>
+                                                                            {formatTokenCount(
+                                                                              attempt.grading_audit.scoring_snapshot.token_usage?.total?.output_tokens,
+                                                                            )}
+                                                                          </strong>
+                                                                        </div>
+                                                                        <div>
+                                                                          <span>Reasoning tokens</span>
+                                                                          <strong>
+                                                                            {formatTokenCount(
+                                                                              attempt.grading_audit.scoring_snapshot.token_usage?.total?.reasoning_tokens,
+                                                                            )}
+                                                                          </strong>
+                                                                        </div>
+                                                                        <div>
+                                                                          <span>Total tokens</span>
+                                                                          <strong>
+                                                                            {formatTokenCount(
+                                                                              attempt.grading_audit.scoring_snapshot.token_usage?.total?.total_tokens,
+                                                                            )}
+                                                                          </strong>
+                                                                        </div>
+                                                                        <div>
+                                                                          <span>Estimated API Cost</span>
+                                                                          <strong>
+                                                                            {(() => {
+                                                                              const usage =
+                                                                                attempt.grading_audit
+                                                                                  .scoring_snapshot
+                                                                                  .token_usage
+                                                                                  ?.total;
+
+                                                                              if (!usage) {
+                                                                                return "—";
+                                                                              }
+
+                                                                              const estimatedCost =
+                                                                                getEstimatedApiCost(
+                                                                                  attempt.grading_audit.model_name,
+                                                                                  usage.input_tokens,
+                                                                                  usage.cached_input_tokens,
+                                                                                  usage.output_tokens,
+                                                                                );
+
+                                                                              return estimatedCost !== null
+                                                                                ? `$${estimatedCost.toFixed(4)} USD`
+                                                                                : "Pricing unavailable";
+                                                                            })()}
+                                                                          </strong>
+                                                                        </div>
+                                                                      </div>
+
+                                                                      <details>
+                                                                        <summary>Call breakdown</summary>
+                                                                        <div className="submission-token-call-list">
+                                                                          {attempt.grading_audit.scoring_snapshot.token_usage?.task_mapping && (
+                                                                            <div className="submission-token-call">
+                                                                              <strong>Task Mapping</strong>
+                                                                              <span>
+                                                                                Input {formatTokenCount(attempt.grading_audit.scoring_snapshot.token_usage.task_mapping.input_tokens)}
+                                                                                {" · "}Cached {formatTokenCount(attempt.grading_audit.scoring_snapshot.token_usage.task_mapping.cached_input_tokens)}
+                                                                                {" · "}Output {formatTokenCount(attempt.grading_audit.scoring_snapshot.token_usage.task_mapping.output_tokens)}
+                                                                                {" · "}Total {formatTokenCount(attempt.grading_audit.scoring_snapshot.token_usage.task_mapping.total_tokens)}
+                                                                              </span>
+                                                                            </div>
+                                                                          )}
+
+                                                                          {(attempt.grading_audit.scoring_snapshot.token_usage?.grading?.calls ?? []).map(
+                                                                            (call, index) => (
+                                                                              <div
+                                                                                key={`${call.stage}:${index}`}
+                                                                                className="submission-token-call"
+                                                                              >
+                                                                                <strong>
+                                                                                  {call.stage === "criterion_grading"
+                                                                                    ? "Criterion Grading"
+                                                                                    : call.stage === "criterion_grading_retry"
+                                                                                      ? "Criterion Grading Retry"
+                                                                                      : call.stage === "criterion_grading_recovery"
+                                                                                        ? "Criterion Grading Recovery"
+                                                                                        : call.stage}
+                                                                                </strong>
+                                                                                <span>
+                                                                                  Input {formatTokenCount(call.input_tokens)}
+                                                                                  {" · "}Cached {formatTokenCount(call.cached_input_tokens)}
+                                                                                  {" · "}Output {formatTokenCount(call.output_tokens)}
+                                                                                  {" · "}Total {formatTokenCount(call.total_tokens)}
+                                                                                </span>
+                                                                              </div>
+                                                                            ),
+                                                                          )}
+                                                                        </div>
+                                                                      </details>
+                                                                    </div>
+                                                                  </details>
+                                                                )}
+
+                                                                {(attempt.process_logs?.length ?? 0) > 0 && (
                                                                   <details>
                                                                     <summary>Processing Log</summary>
                                                                     <div style={{ marginTop: "12px" }}>
-                                                                      {attempt.process_logs.map(
+                                                                      {(attempt.process_logs ?? []).map(
                                                                         (entry) => (
                                                                           <div
                                                                             key={entry.id}

@@ -26,7 +26,10 @@ class AdminSubmissionRecordsView(APIView):
                 "assignment_level__assignment__module",
                 "grading_audit",
             )
-            .prefetch_related("process_logs")
+            .prefetch_related(
+                "process_logs",
+                "criterion_results__rubric_criterion",
+            )
             .order_by(
                 "context__cohort__cohort_code",
                 "assignment_level__assignment__assignment_code",
@@ -175,6 +178,33 @@ class AdminSubmissionRecordsView(APIView):
                     "completed_at": submission.completed_at,
                     "grading_audit": serialize_grading_audit(submission),
                     "process_logs": serialize_process_logs(submission),
+                    "is_manual_review": any(
+                        log.event_code == "FACULTY_OVERRIDE_CREATED"
+                        for log in submission.process_logs.all()
+                    ),
+                    "manual_reviewer": next(
+                        (
+                            (log.details or {}).get("faculty_name")
+                            for log in submission.process_logs.all()
+                            if log.event_code == "FACULTY_OVERRIDE_CREATED"
+                        ),
+                        None,
+                    ),
+                    "criterion_results": [
+                        {
+                            "id": str(result.id),
+                            "rubric_criterion": str(result.rubric_criterion_id),
+                            "criterion_code": result.rubric_criterion.criterion_code,
+                            "criterion_title": result.rubric_criterion.title,
+                            "awarded_marks": str(result.awarded_marks),
+                            "maximum_score": str(
+                                result.rubric_criterion.maximum_score
+                            ),
+                            "achievement_band": result.achievement_band,
+                            "feedback": result.feedback,
+                        }
+                        for result in submission.criterion_results.all()
+                    ],
                 }
             )
 

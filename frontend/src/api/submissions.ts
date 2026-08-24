@@ -75,6 +75,8 @@ export type Submission = {
   maximum_score: string | null;
   achieved_band: string;
   feedback: string;
+  is_manual_override: boolean;
+  manual_override_by: string | null;
   criterion_results: CriterionResult[];
   submitted_at: string;
   completed_at: string | null;
@@ -152,6 +154,8 @@ function isSubmission(
     "maximum_score" in data &&
     "achieved_band" in data &&
     "feedback" in data &&
+    "is_manual_override" in data &&
+    "manual_override_by" in data &&
     "criterion_results" in data &&
     "submitted_at" in data &&
     "completed_at" in data

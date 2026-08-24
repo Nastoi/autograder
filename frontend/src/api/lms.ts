@@ -2480,6 +2480,8 @@ export type SubmissionGradingAudit = {
 export type InstructorCriterionResult = {
   id: string;
   rubric_criterion: string;
+  criterion_code: string;
+  criterion_title: string;
   awarded_marks: string;
   maximum_score: string;
   achievement_band: string;
@@ -2504,6 +2506,8 @@ export type InstructorMappingAttempt = {
   criterion_results: InstructorCriterionResult[];
   grading_audit: SubmissionGradingAudit | null;
   process_logs: SubmissionProcessLogEntry[];
+  is_manual_override: boolean;
+  manual_override_by: string | null;
 };
 
 export type InstructorMappingLearner = {
@@ -2638,3 +2642,59 @@ export async function downloadInstructorSubmission(
   link.remove();
   window.URL.revokeObjectURL(objectUrl);
 }
+
+export type InstructorGradeOverrideCriterionInput = {
+  rubric_criterion: string;
+  awarded_marks: string;
+  feedback: string;
+};
+
+export type InstructorGradeOverrideInput = {
+  overall_feedback: string;
+  criteria: InstructorGradeOverrideCriterionInput[];
+};
+
+export type InstructorGradeOverrideResult = {
+  id: string;
+  attempt_number: number;
+  final_score: string;
+  maximum_score: string;
+  overall_percentage: number;
+  achieved_band: string;
+  feedback: string;
+  ags_queued: boolean;
+};
+
+export async function createInstructorGradeOverride(
+  mappingId: string,
+  submissionId: string,
+  input: InstructorGradeOverrideInput,
+): Promise<InstructorGradeOverrideResult> {
+  const csrfToken = await getCsrfToken();
+
+  const response = await fetch(
+    `${API_BASE_URL}/lms/assessment-mappings/${mappingId}/instructor/submissions/${submissionId}/override/`,
+    {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRFToken": csrfToken,
+      },
+      body: JSON.stringify(input),
+    },
+  );
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(
+      typeof data?.detail === "string"
+        ? data.detail
+        : "Unable to save the faculty grade override.",
+    );
+  }
+
+  return data as InstructorGradeOverrideResult;
+}
+
