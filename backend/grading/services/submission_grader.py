@@ -252,7 +252,7 @@ def map_submission_tasks(submission):
             },
         ],
         response_format=PDFTaskMappingResponseSchema,
-        temperature=1,
+        temperature=0.0,
     )
 
     mapping_data = completion.choices[0].message.parsed
@@ -743,7 +743,7 @@ def grade_submission(submission):
                 },
             ],
             response_format=GradingResponseSchema,
-            temperature=1,
+            temperature=0.1,
         )
     except Exception as exc:
         record_submission_event(
@@ -888,7 +888,7 @@ def grade_submission(submission):
                     },
                 ],
                 response_format=GradingResponseSchema,
-                temperature=1,
+                temperature=0.0,
             )
         )
 
@@ -1074,7 +1074,7 @@ def grade_submission(submission):
                         },
                     ],
                     response_format=GradingResponseSchema,
-                    temperature=1,
+                    temperature=0.0,
                 )
             )
 
