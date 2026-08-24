@@ -2,7 +2,7 @@ from django.core.cache import cache
 from rest_framework.exceptions import APIException
 
 
-LOCK_TIMEOUT_SECONDS = 120
+LOCK_TIMEOUT_SECONDS = 600
 
 
 class ConfigurationLocked(APIException):
