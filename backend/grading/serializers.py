@@ -108,6 +108,12 @@ class GradingConfigurationSerializer(
 class RubricCriterionSerializer(
     serializers.ModelSerializer
 ):
+    criterion_code = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        max_length=80,
+    )
+
     assignment_code = serializers.CharField(
         source="assignment_level.assignment.assignment_code",
         read_only=True,
@@ -178,6 +184,98 @@ class RubricCriterionSerializer(
                 None,
             ),
         )
+
+        sequence = attrs.get(
+            "sequence",
+            getattr(self.instance, "sequence", None),
+        )
+
+        criterion_code = attrs.get(
+            "criterion_code",
+            getattr(
+                self.instance,
+                "criterion_code",
+                "",
+            ),
+        )
+
+        if (
+            self.instance is None
+            and assignment_level
+            and not str(criterion_code or "").strip()
+        ):
+            if sequence is None:
+                existing_sequences = (
+                    RubricCriterion.objects
+                    .filter(assignment_level=assignment_level)
+                    .values_list("sequence", flat=True)
+                )
+                sequence = max(existing_sequences, default=0) + 1
+                attrs["sequence"] = sequence
+
+            criterion_code = f"C{int(sequence):02d}"
+            attrs["criterion_code"] = criterion_code
+
+        maximum_score = attrs.get(
+            "maximum_score",
+            getattr(
+                self.instance,
+                "maximum_score",
+                None,
+            ),
+        )
+
+        if assignment_level and criterion_code:
+            queryset = RubricCriterion.objects.filter(
+                assignment_level=assignment_level,
+                criterion_code__iexact=criterion_code,
+            )
+
+            if self.instance:
+                queryset = queryset.exclude(
+                    id=self.instance.id,
+                )
+
+            if queryset.exists():
+                raise serializers.ValidationError(
+                    {
+                        "criterion_code": (
+                            "This criterion code already exists "
+                            "for the selected assignment level."
+                        )
+                    }
+                )
+
+        if assignment_level and sequence is not None:
+            queryset = RubricCriterion.objects.filter(
+                assignment_level=assignment_level,
+                sequence=sequence,
+            )
+
+            if self.instance:
+                queryset = queryset.exclude(
+                    id=self.instance.id,
+                )
+
+            if queryset.exists():
+                raise serializers.ValidationError(
+                    {
+                        "sequence": (
+                            "This sequence number is already used "
+                            "for the selected assignment level."
+                        )
+                    }
+                )
+
+        if maximum_score is not None and maximum_score <= 0:
+            raise serializers.ValidationError(
+                {
+                    "maximum_score": (
+                        "Maximum score must be greater than zero."
+                    )
+                }
+            )
+
         return attrs
 
     @transaction.atomic
@@ -250,83 +348,6 @@ class RubricCriterionSerializer(
             )
 
         return criterion
-    
-
-        criterion_code = attrs.get(
-            "criterion_code",
-            getattr(
-                self.instance,
-                "criterion_code",
-                None,
-            ),
-        )
-
-        sequence = attrs.get(
-            "sequence",
-            getattr(self.instance, "sequence", None),
-        )
-
-        maximum_score = attrs.get(
-            "maximum_score",
-            getattr(
-                self.instance,
-                "maximum_score",
-                None,
-            ),
-        )
-
-        if assignment_level and criterion_code:
-            queryset = RubricCriterion.objects.filter(
-                assignment_level=assignment_level,
-                criterion_code__iexact=criterion_code,
-            )
-
-            if self.instance:
-                queryset = queryset.exclude(
-                    id=self.instance.id,
-                )
-
-            if queryset.exists():
-                raise serializers.ValidationError(
-                    {
-                        "criterion_code": (
-                            "This criterion code already exists "
-                            "for the selected assignment level."
-                        )
-                    }
-                )
-
-        if assignment_level and sequence is not None:
-            queryset = RubricCriterion.objects.filter(
-                assignment_level=assignment_level,
-                sequence=sequence,
-            )
-
-            if self.instance:
-                queryset = queryset.exclude(
-                    id=self.instance.id,
-                )
-
-            if queryset.exists():
-                raise serializers.ValidationError(
-                    {
-                        "sequence": (
-                            "This sequence number is already used "
-                            "for the selected assignment level."
-                        )
-                    }
-                )
-
-        if maximum_score is not None and maximum_score <= 0:
-            raise serializers.ValidationError(
-                {
-                    "maximum_score": (
-                        "Maximum score must be greater than zero."
-                    )
-                }
-            )
-
-        return attrs
 
 class RubricBandSerializer(serializers.ModelSerializer):
     criterion_code = serializers.CharField(

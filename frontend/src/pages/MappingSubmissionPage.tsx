@@ -288,10 +288,21 @@ export function MappingSubmissionPage() {
           caughtError,
         );
 
-        setInstructorError(
+        const errorMessage =
           caughtError instanceof Error
-            ? `Unable to refresh LMS due date: ${caughtError.message}`
-            : "Unable to refresh the LMS due date.",
+            ? caughtError.message
+            : "";
+
+        const isLmsSessionError =
+          errorMessage.toLowerCase().includes("anonymous users") ||
+          errorMessage.toLowerCase().includes("permission") ||
+          errorMessage.includes("401") ||
+          errorMessage.includes("403");
+
+        setInstructorError(
+          isLmsSessionError
+            ? "Unable to refresh the LMS due date. The last saved due date is being shown. Please reopen this assignment from the LMS. If the issue continues, sign out of the LMS and sign in again, then reopen the assignment. Avoid using a private/incognito window and make sure your browser allows cookies for the LMS."
+            : "Unable to refresh the LMS due date. The last saved due date is being shown. Please try reopening this assignment from the LMS.",
         );
       }
     }

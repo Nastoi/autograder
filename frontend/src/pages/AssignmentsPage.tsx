@@ -30,6 +30,7 @@ import {
   updateModuleAssignment,
   updateRubricBand,
   updateRubricCriterion,
+  updateTask,
   type AssignmentLevel,
   type Module,
   type ModuleAssignment,
@@ -77,6 +78,11 @@ export function AssignmentsPage() {
     Record<string, { task_code: string; title: string; instructions: string }>
   >({});
   const [savingTaskLevelId, setSavingTaskLevelId] = useState("");
+  const [editingTaskId, setEditingTaskId] = useState("");
+  const [editTaskCode, setEditTaskCode] = useState("");
+  const [editTaskTitle, setEditTaskTitle] = useState("");
+  const [editTaskInstructions, setEditTaskInstructions] = useState("");
+  const [isSavingTaskEdit, setIsSavingTaskEdit] = useState(false);
 
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
@@ -661,6 +667,54 @@ export function AssignmentsPage() {
     }
   }
 
+  function startEditingTask(task: Task) {
+    setEditingTaskId(task.id);
+    setEditTaskCode(task.task_code);
+    setEditTaskTitle(task.title);
+    setEditTaskInstructions(task.instructions);
+  }
+
+  function cancelTaskEdit() {
+    if (isSavingTaskEdit) return;
+
+    setEditingTaskId("");
+    setEditTaskCode("");
+    setEditTaskTitle("");
+    setEditTaskInstructions("");
+  }
+
+  async function saveTaskEdit(task: Task) {
+    if (!editTaskTitle.trim()) {
+      setError("Task title is required.");
+      return;
+    }
+
+    setError("");
+    setIsSavingTaskEdit(true);
+
+    try {
+      await updateTask(task.id, {
+        task_code: editTaskCode.trim() || task.task_code,
+        title: editTaskTitle.trim(),
+        instructions: editTaskInstructions.trim(),
+      });
+
+      await refreshLevelTasks(task.assignment_level);
+      setEditingTaskId("");
+      setEditTaskCode("");
+      setEditTaskTitle("");
+      setEditTaskInstructions("");
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Unable to update task.",
+      );
+    } finally {
+      setIsSavingTaskEdit(false);
+    }
+  }
+
   async function removeTask(task: Task) {
     if (!window.confirm(`Delete task ${task.task_code}?`)) return;
 
@@ -695,10 +749,14 @@ export function AssignmentsPage() {
         0,
       ) + 1;
 
+    const generatedCriterionCode =
+      `C${String(nextSequence).padStart(2, "0")}`;
+
     try {
       await createRubricCriterion({
         assignment_level: assignmentLevelId,
-        criterion_code: criterionCode,
+        criterion_code:
+          criterionCode.trim() || generatedCriterionCode,
         title: criterionTitle,
         description: criterionDescription,
         maximum_score: criterionMaximumScore,
@@ -1878,6 +1936,14 @@ export function AssignmentsPage() {
                           0,
                         ) + 1;
                       const suggestedTaskCode = `T${String(nextTaskNumber).padStart(2, "0")}`;
+                      const nextCriterionNumber =
+                        levelCriteria.reduce(
+                          (max, criterion) =>
+                            Math.max(max, criterion.sequence),
+                          0,
+                        ) + 1;
+                      const suggestedCriterionCode =
+                        `C${String(nextCriterionNumber).padStart(2, "0")}`;
 
                       return (
                         <div
@@ -2181,28 +2247,113 @@ export function AssignmentsPage() {
                                       </tr>
                                     </thead>
                                     <tbody>
-                                      {levelTaskItems.map((task) => (
-                                        <tr key={task.id}>
-                                          <td>{task.task_code}</td>
-                                          <td>
-                                            <strong>{task.title}</strong>
-                                            {task.instructions && (
-                                              <small className="table-subtext">
-                                                {task.instructions}
-                                              </small>
-                                            )}
-                                          </td>
-                                          <td className="table-actions">
-                                            <button
-                                              type="button"
-                                              className="btn-table btn-table-danger"
-                                              onClick={() => void removeTask(task)}
-                                            >
-                                              Delete
-                                            </button>
-                                          </td>
-                                        </tr>
-                                      ))}
+                                      {levelTaskItems.map((task) => {
+                                        const isEditingTask =
+                                          editingTaskId === task.id;
+
+                                        return (
+                                          <tr key={task.id}>
+                                            <td>
+                                              {isEditingTask ? (
+                                                <input
+                                                  value={editTaskCode}
+                                                  onChange={(event) =>
+                                                    setEditTaskCode(
+                                                      event.target.value,
+                                                    )
+                                                  }
+                                                />
+                                              ) : (
+                                                task.task_code
+                                              )}
+                                            </td>
+                                            <td>
+                                              {isEditingTask ? (
+                                                <div className="inline-edit-stack">
+                                                  <input
+                                                    value={editTaskTitle}
+                                                    onChange={(event) =>
+                                                      setEditTaskTitle(
+                                                        event.target.value,
+                                                      )
+                                                    }
+                                                  />
+                                                  <textarea
+                                                    value={editTaskInstructions}
+                                                    onChange={(event) =>
+                                                      setEditTaskInstructions(
+                                                        event.target.value,
+                                                      )
+                                                    }
+                                                    placeholder="Evidence required"
+                                                  />
+                                                </div>
+                                              ) : (
+                                                <>
+                                                  <strong>{task.title}</strong>
+                                                  {task.instructions && (
+                                                    <small className="table-subtext">
+                                                      {task.instructions}
+                                                    </small>
+                                                  )}
+                                                </>
+                                              )}
+                                            </td>
+                                            <td className="table-actions">
+                                              {isEditingTask ? (
+                                                <>
+                                                  <button
+                                                    type="button"
+                                                    className="btn-table"
+                                                    disabled={
+                                                      isSavingTaskEdit ||
+                                                      !editTaskTitle.trim()
+                                                    }
+                                                    onClick={() =>
+                                                      void saveTaskEdit(task)
+                                                    }
+                                                  >
+                                                    {isSavingTaskEdit
+                                                      ? "Saving..."
+                                                      : "Save"}
+                                                  </button>
+                                                  <button
+                                                    type="button"
+                                                    className="btn-table"
+                                                    disabled={isSavingTaskEdit}
+                                                    onClick={cancelTaskEdit}
+                                                  >
+                                                    Cancel
+                                                  </button>
+                                                </>
+                                              ) : (
+                                                <>
+                                                  <button
+                                                    type="button"
+                                                    className="btn-table"
+                                                    disabled={levelReadOnly}
+                                                    onClick={() =>
+                                                      startEditingTask(task)
+                                                    }
+                                                  >
+                                                    Edit
+                                                  </button>
+                                                  <button
+                                                    type="button"
+                                                    className="btn-table btn-table-danger"
+                                                    disabled={levelReadOnly}
+                                                    onClick={() =>
+                                                      void removeTask(task)
+                                                    }
+                                                  >
+                                                    Delete
+                                                  </button>
+                                                </>
+                                              )}
+                                            </td>
+                                          </tr>
+                                        );
+                                      })}
                                     </tbody>
                                   </table>
                                 </div>
@@ -2346,9 +2497,16 @@ export function AssignmentsPage() {
                                             <label>Criterion code</label>
                                             <input
                                               value={criterionCode}
-                                              onChange={(event) => setCriterionCode(event.target.value)}
-                                              required
+                                              placeholder={suggestedCriterionCode}
+                                              onChange={(event) =>
+                                                setCriterionCode(
+                                                  event.target.value,
+                                                )
+                                              }
                                             />
+                                            <small className="table-subtext">
+                                              Leave blank to use {suggestedCriterionCode}.
+                                            </small>
                                           </div>
 
                                           <div className="form-group">
