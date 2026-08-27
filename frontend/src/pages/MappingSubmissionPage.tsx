@@ -649,14 +649,35 @@ export function MappingSubmissionPage() {
 
   
 
+  function getOverrideCriteria(attempt: InstructorMappingAttempt) {
+    if (attempt.criterion_results.length > 0) {
+      return attempt.criterion_results.map((criterion) => ({
+        rubric_criterion: criterion.rubric_criterion,
+        criterion_code: criterion.criterion_code,
+        criterion_title: criterion.criterion_title,
+        maximum_score: criterion.maximum_score,
+        awarded_marks: criterion.awarded_marks,
+        feedback: criterion.feedback || "",
+      }));
+    }
+
+    return (attempt.configured_criteria || []).map((criterion) => ({
+      ...criterion,
+      awarded_marks: "",
+      feedback: "",
+    }));
+  }
+
   function openInstructorOverride(
     learner: InstructorMappingLearner,
     attempt: InstructorMappingAttempt,
   ) {
+    const overrideCriteria = getOverrideCriteria(attempt);
+
     setOverrideTarget({ learner, attempt });
     setOverrideScores(
       Object.fromEntries(
-        attempt.criterion_results.map((criterion) => [
+        overrideCriteria.map((criterion) => [
           criterion.rubric_criterion,
           criterion.awarded_marks,
         ]),
@@ -664,9 +685,9 @@ export function MappingSubmissionPage() {
     );
     setOverrideFeedback(
       Object.fromEntries(
-        attempt.criterion_results.map((criterion) => [
+        overrideCriteria.map((criterion) => [
           criterion.rubric_criterion,
-          criterion.feedback || "",
+          criterion.feedback,
         ]),
       ),
     );
@@ -699,7 +720,7 @@ export function MappingSubmissionPage() {
         overrideTarget.attempt.id,
         {
           overall_feedback: overrideOverallFeedback,
-          criteria: overrideTarget.attempt.criterion_results.map(
+          criteria: getOverrideCriteria(overrideTarget.attempt).map(
             (criterion) => ({
               rubric_criterion: criterion.rubric_criterion,
               awarded_marks:
@@ -1862,21 +1883,25 @@ export function MappingSubmissionPage() {
                                                 </button>
                                               )}
 
-                                              {attempt.status === "completed" &&
-                                                attempt.criterion_results.length > 0 && (
-                                                  <button
-                                                    type="button"
-                                                    className="btn-action"
-                                                    onClick={() =>
-                                                      openInstructorOverride(
-                                                        learner,
-                                                        attempt,
-                                                      )
-                                                    }
-                                                  >
-                                                    Override
-                                                  </button>
-                                                )}
+                                              {(
+                                                attempt.criterion_results.length > 0 ||
+                                                (attempt.configured_criteria?.length ?? 0) > 0
+                                              ) && (
+                                                <button
+                                                  type="button"
+                                                  className="btn-action"
+                                                  onClick={() =>
+                                                    openInstructorOverride(
+                                                      learner,
+                                                      attempt,
+                                                    )
+                                                  }
+                                                >
+                                                  {attempt.status === "completed"
+                                                    ? "Override"
+                                                    : "Manual Review"}
+                                                </button>
+                                              )}
                                             </div>
                                           ) : (
                                             <span>—</span>
@@ -2106,7 +2131,7 @@ export function MappingSubmissionPage() {
             </div>
 
             <div className="faculty-override-body">
-              {overrideTarget.attempt.criterion_results.map(
+              {getOverrideCriteria(overrideTarget.attempt).map(
                 (criterion, index) => (
                   <section
                     className="faculty-override-criterion"

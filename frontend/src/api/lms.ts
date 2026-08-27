@@ -2488,6 +2488,13 @@ export type InstructorCriterionResult = {
   feedback: string;
 };
 
+export type InstructorConfiguredCriterion = {
+  rubric_criterion: string;
+  criterion_code: string;
+  criterion_title: string;
+  maximum_score: string;
+};
+
 export type InstructorMappingAttempt = {
   id: string;
   attempt_number: number;
@@ -2504,6 +2511,7 @@ export type InstructorMappingAttempt = {
   submitted_at: string;
   completed_at: string | null;
   criterion_results: InstructorCriterionResult[];
+  configured_criteria: InstructorConfiguredCriterion[];
   grading_audit: SubmissionGradingAudit | null;
   process_logs: SubmissionProcessLogEntry[];
   is_manual_override: boolean;

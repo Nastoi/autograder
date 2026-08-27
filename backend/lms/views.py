@@ -937,6 +937,17 @@ class InstructorMappingDashboardView(APIView):
                         for result
                         in submission.criterion_results.all()
                     ],
+                    "configured_criteria": [
+                        {
+                            "rubric_criterion": str(criterion.id),
+                            "criterion_code": criterion.criterion_code,
+                            "criterion_title": criterion.title,
+                            "maximum_score": str(criterion.maximum_score),
+                        }
+                        for criterion in RubricCriterion.objects.filter(
+                            assignment_level=submission.assignment_level,
+                        ).order_by("sequence")
+                    ],
                 }
             )
 
@@ -1134,9 +1145,22 @@ class InstructorSubmissionOverrideView(
             assignment_level__assignment=mapping.assignment,
         )
 
-        if source_submission.status != LearnerSubmission.Status.COMPLETED:
+        allowed_override_statuses = {
+            LearnerSubmission.Status.UPLOADED,
+            LearnerSubmission.Status.PROCESSING,
+            LearnerSubmission.Status.COMPLETED,
+            LearnerSubmission.Status.ERROR,
+            LearnerSubmission.Status.MANUAL_REVIEW,
+        }
+
+        if source_submission.status not in allowed_override_statuses:
             return Response(
-                {"detail": "Only a completed latest attempt can be overridden."},
+                {
+                    "detail": (
+                        "This submission cannot be manually reviewed "
+                        "in its current status."
+                    )
+                },
                 status=status.HTTP_409_CONFLICT,
             )
 
