@@ -1438,25 +1438,10 @@ export async function getRubricCriteria(
         )}`
         : "";
 
-    const response = await fetch(
+    return fetchAllPaginatedResults<RubricCriterion>(
         `${API_BASE_URL}/grading/rubric-criteria/${query}`,
-        {
-            method: "GET",
-            credentials: "include",
-        },
+        "Unable to load rubric criteria.",
     );
-
-    const data = await response.json();
-
-    if (!response.ok) {
-        throw new Error(
-            typeof data?.detail === "string"
-                ? data.detail
-                : "Unable to load rubric criteria.",
-        );
-    }
-
-    return extractResults<RubricCriterion>(data);
 }
 
 export async function createRubricCriterion(
@@ -1480,11 +1465,27 @@ export async function createRubricCriterion(
     const data = await response.json();
 
     if (!response.ok) {
-        throw new Error(
-            typeof data?.detail === "string"
-                ? data.detail
-                : "Unable to create rubric criterion.",
-        );
+        if (typeof data?.detail === "string") {
+            throw new Error(data.detail);
+        }
+
+        if (data && typeof data === "object") {
+            const messages = Object.entries(data)
+                .map(([field, errors]) => {
+                    const message = Array.isArray(errors)
+                        ? errors.join(", ")
+                        : String(errors);
+
+                    return `${field}: ${message}`;
+                })
+                .join(" | ");
+
+            if (messages) {
+                throw new Error(messages);
+            }
+        }
+
+        throw new Error("Unable to create rubric criterion.");
     }
 
     return data as RubricCriterion;
@@ -1823,25 +1824,10 @@ export async function getTasks(
         ? `?assignment_level_id=${encodeURIComponent(assignmentLevelId)}`
         : "";
 
-    const response = await fetch(
+    return fetchAllPaginatedResults<Task>(
         `${API_BASE_URL}/grading/tasks/${query}`,
-        {
-            method: "GET",
-            credentials: "include",
-        },
+        "Unable to load tasks.",
     );
-
-    const data = await response.json();
-
-    if (!response.ok) {
-        throw new Error(
-            typeof data?.detail === "string"
-                ? data.detail
-                : "Unable to load tasks.",
-        );
-    }
-
-    return extractResults<Task>(data);
 }
 
 export async function createTask(
