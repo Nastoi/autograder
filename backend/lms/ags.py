@@ -77,33 +77,6 @@ def get_lti_access_token(
     return access_token
 
 
-def get_ags_lineitem(
-    *,
-    client_id: str,
-    token_url: str,
-    lineitem_url: str,
-) -> dict:
-    """Fetch one AGS line item from the LMS."""
-    if not lineitem_url:
-        raise ValueError("AGS line item URL is missing.")
-
-    access_token = get_lti_access_token(
-        client_id=client_id,
-        token_url=token_url,
-        scope=AGS_LINEITEM_SCOPE,
-    )
-
-    response = requests.get(
-        lineitem_url,
-        headers={
-            "Authorization": f"Bearer {access_token}",
-            "Accept": "application/vnd.ims.lis.v2.lineitem+json",
-        },
-        timeout=15,
-    )
-    response.raise_for_status()
-
-    return response.json()
 
 
 def send_ags_score(
@@ -193,36 +166,3 @@ def clear_ags_score(
         "response": response.text,
     }
 
-
-def get_ags_result(
-    *,
-    client_id: str,
-    token_url: str,
-    lineitem_url: str,
-    lti_user_id: str,
-):
-    access_token = get_lti_access_token(
-        client_id=client_id,
-        token_url=token_url,
-    )
-
-    result_url = (
-        f"{lineitem_url.rstrip('/')}/results/"
-        f"{lti_user_id}"
-    )
-
-    response = requests.get(
-        result_url,
-        headers={
-            "Authorization": f"Bearer {access_token}",
-            "Accept": "application/vnd.ims.lis.v2.resultcontainer+json",
-        },
-        timeout=15,
-    )
-
-    response.raise_for_status()
-
-    return {
-        "status_code": response.status_code,
-        "data": response.json(),
-    }

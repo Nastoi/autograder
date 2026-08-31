@@ -8,7 +8,6 @@ from .views import (
     AssessmentMappingSubmissionView,
     LtiLoginView,
     LtiLaunchView,
-    AssessmentMappingLtiRegistrationView,
     InstructorMappingDashboardView,
     InstructorSubmissionDownloadView,
     InstructorSubmissionOverrideView,
@@ -35,11 +34,6 @@ urlpatterns = [
         "assessment-mappings/<uuid:mapping_id>/submission/",
         AssessmentMappingSubmissionView.as_view(),
         name="assessment-mapping-submission",
-    ),
-    path(
-        "assessment-mappings/<uuid:mapping_id>/lti-registration/",
-        AssessmentMappingLtiRegistrationView.as_view(),
-        name="assessment-mapping-lti-registration",
     ),
     path(
         "lti/login/",

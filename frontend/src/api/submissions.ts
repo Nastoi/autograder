@@ -413,3 +413,60 @@ export async function getMappingSubmissionHistory(
       data.attempt_policy as AttemptPolicy,
   };
 }
+
+
+export type MappingSubmissionContext = {
+    mapping_id: string;
+
+    cohort: {
+        id: number;
+        code: string;
+        name: string;
+    };
+
+    assignment: {
+        id: string;
+        code: string;
+        title: string;
+        maximum_score: string;
+    };
+
+    assignment_levels: {
+        id: string;
+        level_code: "basic" | "advanced";
+        display_name: string;
+        title: string;
+    }[];
+
+    due_date: string | null;
+    deadline_passed: boolean;
+    is_instructor: boolean;
+    lms_platform_url: string | null;
+    lms_course_id: string | null;
+    lms_resource_link_id: string | null;
+    show_result_to_learner: boolean;
+};
+
+export async function getMappingSubmissionContext(
+    mappingId: string,
+): Promise<MappingSubmissionContext> {
+    const response = await fetch(
+        `${API_BASE_URL}/lms/assessment-mappings/${mappingId}/submission/`,
+        {
+            method: "GET",
+            credentials: "include",
+        },
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+        throw new Error(
+            typeof data?.detail === "string"
+                ? data.detail
+                : "Unable to load assignment.",
+        );
+    }
+
+    return data as MappingSubmissionContext;
+}

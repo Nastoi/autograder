@@ -1,9 +1,5 @@
 from django.urls import path
 
-from .assignment_delete import (
-    ModuleAssignmentDeleteImpactView,
-    ModuleAssignmentSafeDetailView,
-)
 from .views import (
     AssignmentLevelDetailView,
     AssignmentLevelConfigurationLockView,
@@ -12,6 +8,8 @@ from .views import (
     CohortDetailView,
     CohortListCreateView,
     ModuleAssignmentListCreateView,
+    ModuleAssignmentDeleteImpactView,
+    ModuleAssignmentSafeDetailView,
     ModuleDeleteImpactView,
     ModuleDetailView,
     ModuleListCreateView,

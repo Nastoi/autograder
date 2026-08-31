@@ -63,6 +63,7 @@ class AssessmentMappingSerializer(
             "can_delete",
             "created_at",
             "updated_at",
+            "show_result_to_learner",
         )
 
         read_only_fields = (

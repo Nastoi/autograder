@@ -4,31 +4,7 @@ const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ||
   "http://localhost:8000/api";
 
-type PaginatedResponse<T> = {
-  count: number;
-  next: string | null;
-  previous: string | null;
-  results: T[];
-};
 
-function extractResults<T>(
-  data: T[] | PaginatedResponse<T>,
-): T[] {
-  if (Array.isArray(data)) {
-    return data;
-  }
-
-  if (
-    data &&
-    typeof data === "object" &&
-    "results" in data &&
-    Array.isArray(data.results)
-  ) {
-    return data.results;
-  }
-
-  throw new Error("Invalid API response.");
-}
 
 async function fetchAllPaginatedResults<T>(
   initialUrl: string,

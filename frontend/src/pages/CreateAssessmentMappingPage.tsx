@@ -14,12 +14,15 @@ import "../css/AssessmentMappings.css";
 import {
   createAssessmentMapping,
   getAssessmentMappings,
+  type AssessmentMapping,
+} from "../api/assessmentMappings";
+
+import {
   getCohorts,
   getModuleAssignments,
-  type AssessmentMapping,
   type Cohort,
   type ModuleAssignment,
-} from "../api/lms";
+} from "../api/courses";
 
 export function CreateAssessmentMappingPage() {
   const navigate = useNavigate();

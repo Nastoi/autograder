@@ -16,7 +16,8 @@ import "../css/SubmissionRecordsPage.css";
 import {
   getAssessmentMappings,
   type AssessmentMapping,
-} from "../api/lms";
+} from "../api/assessmentMappings";
+
 import {
   getAdminSubmissionRecords,
   type AdminSubmissionRecordsResponse,

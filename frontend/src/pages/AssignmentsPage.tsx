@@ -1,7 +1,7 @@
 import "../css/AssessmentMappings.css";
 import "../css/QualificationsPage.css";
-import { Link } from "react-router";
-import { GraduationCap, Package, ClipboardList, Search, X } from "lucide-react";
+import "../css/AssignmentsPage.css";
+
 import {
   useEffect,
   useState,
@@ -10,35 +10,38 @@ import {
 
 import {
   createModuleAssignment,
-  createRubricBand,
-  createRubricCriterion,
-  createTask,
   deleteModuleAssignment,
-  deleteRubricBand,
-  deleteRubricCriterion,
-  deleteTask,
   getAssignmentLevels,
   getModuleAssignments,
   getModules,
   getQualifications,
-  getRubricBands,
-  getRubricCriteria,
-  getTasks,
-  importAssignmentConfigurationCsv,
   updateAssignmentConfigurationLock,
   updateAssignmentLevel,
   updateModuleAssignment,
-  updateRubricBand,
-  updateRubricCriterion,
-  updateTask,
   type AssignmentLevel,
   type Module,
   type ModuleAssignment,
   type Qualification,
+} from "../api/courses";
+
+import {
+  createRubricBand,
+  createRubricCriterion,
+  createTask,
+  deleteRubricBand,
+  deleteRubricCriterion,
+  deleteTask,
+  getRubricBands,
+  getRubricCriteria,
+  getTasks,
+  importAssignmentConfigurationCsv,
+  updateRubricBand,
+  updateRubricCriterion,
+  updateTask,
   type RubricBand,
   type RubricCriterion,
   type Task,
-} from "../api/lms";
+} from "../api/grading";
 
 import {
   createTaskCriteriaMapping,
@@ -53,8 +56,17 @@ import {
   type AssignmentDeleteImpact,
 } from "../api/assignmentDelete";
 
-import { AuditTrailButton } from "../components/AuditTrailButton";
 import { RecentDeletedAuditButton } from "../components/RecentDeletedAuditButton";
+import { AssignmentSummaryCards } from "../components/assignments/AssignmentSummaryCards";
+import { AssignmentListContent } from "../components/assignments/AssignmentListContent";
+import { AssignmentWorkspaceShell } from "../components/assignments/AssignmentWorkspaceShell";
+import { AssignmentManagementModals } from "../components/assignments/AssignmentManagementModals";
+import { AssignmentOverviewPanel } from "../components/assignments/AssignmentOverviewPanel";
+import { AssignmentLevelRequirements } from "../components/assignments/AssignmentLevelRequirements";
+import { AssignmentTasksSection } from "../components/assignments/AssignmentTasksSection";
+import { AssignmentCriteriaSection } from "../components/assignments/AssignmentCriteriaSection";
+import { AssignmentBandsSection } from "../components/assignments/AssignmentBandsSection";
+
 
 type WorkspaceTab = "overview" | "configuration";
 
@@ -1205,2296 +1217,505 @@ export function AssignmentsPage() {
         </p>
       )}
 
-      <section style={{ marginBottom: '40px' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px', marginBottom: '32px' }}>
-          <Link to="/admin/qualifications" className="metric-card-modern">
-            <div className="metric-icon-wrapper purple">
-              <GraduationCap size={24} />
-            </div>
-            <div className="metric-content">
-              <span className="metric-label" style={{ textTransform: 'uppercase', fontSize: '11px', fontWeight: 700 }}>Qualifications</span>
-              <span className="metric-value" style={{ marginTop: '4px' }}>{qualifications.length}</span>
-            </div>
-          </Link>
-
-          <Link to="/admin/modules" className="metric-card-modern">
-            <div className="metric-icon-wrapper blue">
-              <Package size={24} />
-            </div>
-            <div className="metric-content">
-              <span className="metric-label" style={{ textTransform: 'uppercase', fontSize: '11px', fontWeight: 700 }}>Modules</span>
-              <span className="metric-value" style={{ marginTop: '4px' }}>{modules.length}</span>
-            </div>
-          </Link>
-
-          <Link to="/admin/assignments" className="metric-card-modern">
-            <div className="metric-icon-wrapper orange">
-              <ClipboardList size={24} />
-            </div>
-            <div className="metric-content">
-              <span className="metric-label" style={{ textTransform: 'uppercase', fontSize: '11px', fontWeight: 700 }}>Assignments</span>
-              <span className="metric-value" style={{ marginTop: '4px' }}>{assignments.length}</span>
-            </div>
-          </Link>
-        </div>
-      </section>
+      <AssignmentSummaryCards
+        qualificationCount={qualifications.length}
+        moduleCount={modules.length}
+        assignmentCount={assignments.length}
+      />
 
       <section className="page-section">
-        <div className="section-header">
-          <div>
-            <h2>Assignment list</h2>
-            <p className="section-description">
-              Select an assignment to open its workspace.
-            </p>
-          </div>
 
-          <div style={{ display: "flex", gap: "16px", alignItems: "center" }}>
-            <div style={{ position: "relative" }}>
-              <Search
-                size={16}
-                style={{
-                  position: "absolute",
-                  left: "10px",
-                  top: "50%",
-                  transform: "translateY(-50%)",
-                  color: "var(--text-muted)",
-                }}
-              />
-              <input
-                type="text"
-                placeholder="Search assignments..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                style={{
-                  paddingLeft: "32px",
-                  height: "36px",
-                  borderRadius: "var(--radius-md)",
-                  border: "1px solid var(--border)",
-                  width: "250px",
-                  fontSize: "14px",
-                }}
-              />
-            </div>
-            <button
-              type="button"
-              className="btn-primary"
-              onClick={() => setShowCreateAssignment((current) => !current)}
-            >
-              {showCreateAssignment ? "Close" : "+ New Assignment"}
-            </button>
-          </div>
-        </div>
+        <AssignmentListContent
+          filteredAssignments={filteredAssignments}
+          qualifications={qualifications}
+          filteredModules={filteredModules}
+          selectedAssignmentId={selectedAssignmentId}
+          searchTerm={searchTerm}
+          showCreateAssignment={showCreateAssignment}
+          qualificationId={qualificationId}
+          moduleId={moduleId}
+          code={code}
+          maximumScore={maximumScore}
+          minimumPassScore={minimumPassScore}
+          finalMarkWeight={finalMarkWeight}
+          isSummative={isSummative}
+          contributesToFinalMark={contributesToFinalMark}
+          isActive={isActive}
+          isSubmitting={isSubmitting}
+          setSearchTerm={setSearchTerm}
+          setShowCreateAssignment={
+            setShowCreateAssignment
+          }
+          setQualificationId={setQualificationId}
+          setModuleId={setModuleId}
+          setCode={setCode}
+          setMaximumScore={setMaximumScore}
+          setMinimumPassScore={
+            setMinimumPassScore
+          }
+          setFinalMarkWeight={setFinalMarkWeight}
+          setIsSummative={setIsSummative}
+          setContributesToFinalMark={
+            setContributesToFinalMark
+          }
+          setIsActive={setIsActive}
+          handleSubmit={handleSubmit}
+          setSelectedAssignmentId={
+            setSelectedAssignmentId
+          }
+          setActiveWorkspaceTab={
+            setActiveWorkspaceTab
+          }
+          startEditingAssignment={
+            startEditingAssignment
+          }
+          openAssignmentDelete={
+            openAssignmentDelete
+          }
+        />
 
-        {showCreateAssignment && (
-          <form
-            onSubmit={handleSubmit}
-            className="modern-form assignment-create-form"
-          >
-            <div className="form-grid form-grid-2">
-              <div className="form-group">
-                <label htmlFor="assignment-qualification">Qualification</label>
-                <select
-                  id="assignment-qualification"
-                  value={qualificationId}
-                  onChange={(event) => {
-                    setQualificationId(event.target.value);
-                    setModuleId("");
-                  }}
-                  required
-                >
-                  <option value="">Select qualification</option>
-                  {qualifications.map((qualification) => (
-                    <option key={qualification.id} value={qualification.id}>
-                      {qualification.qualification_code} - {qualification.qualification_name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="assignment-module">Module</label>
-                <select
-                  id="assignment-module"
-                  value={moduleId}
-                  onChange={(event) => setModuleId(event.target.value)}
-                  disabled={!qualificationId}
-                  required
-                >
-                  <option value="">Select module</option>
-                  {filteredModules.map((module) => (
-                    <option key={module.id} value={module.id}>
-                      {module.module_code} - {module.module_name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="assignment-code">Code</label>
-                <input
-                  id="assignment-code"
-                  value={code}
-                  onChange={(event) => setCode(event.target.value)}
-                  required
-                />
-              </div>
-
-
-
-              <div className="form-group">
-                <label htmlFor="maximum-score">Maximum score</label>
-                <input
-                  id="maximum-score"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={maximumScore}
-                  onChange={(event) => setMaximumScore(event.target.value)}
-                  required
-                />
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="minimum-pass-score">Minimum pass score</label>
-                <input
-                  id="minimum-pass-score"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={minimumPassScore}
-                  onChange={(event) => setMinimumPassScore(event.target.value)}
-                  required
-                />
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="final-mark-weight">Final mark weight</label>
-                <input
-                  id="final-mark-weight"
-                  type="number"
-                  min="0"
-                  max="100"
-                  step="0.01"
-                  value={finalMarkWeight}
-                  onChange={(event) => setFinalMarkWeight(event.target.value)}
-                  disabled={!contributesToFinalMark}
-                  required={contributesToFinalMark}
-                />
-              </div>
-            </div>
-
-            <div className="checkbox-row">
-              <label className="checkbox-group">
-                <input
-                  type="checkbox"
-                  checked={isSummative}
-                  onChange={(event) => setIsSummative(event.target.checked)}
-                />
-                Summative
-              </label>
-
-              <label className="checkbox-group">
-                <input
-                  type="checkbox"
-                  checked={contributesToFinalMark}
-                  onChange={(event) =>
-                    setContributesToFinalMark(event.target.checked)
-                  }
-                />
-                Contributes to final mark
-              </label>
-
-              <label className="checkbox-group">
-                <input
-                  type="checkbox"
-                  checked={isActive}
-                  onChange={(event) => setIsActive(event.target.checked)}
-                />
-                Active
-              </label>
-            </div>
-
-            <div className="form-actions form-actions-compact">
-              <button
-                type="submit"
-                className="btn-primary"
-                disabled={isSubmitting || !qualificationId || !moduleId}
-              >
-                {isSubmitting ? "Creating..." : "Create Assignment"}
-              </button>
-              <button
-                type="button"
-                className="btn-secondary"
-                disabled={isSubmitting}
-                onClick={() => setShowCreateAssignment(false)}
-              >
-                Cancel
-              </button>
-            </div>
-          </form>
-        )}
-
-        {filteredAssignments.length === 0 ? (
-          <div className="empty-state">No assignments found.</div>
-        ) : (
-          <div className="table-container assignment-table-container">
-            <table className="modern-table assignment-table">
-              <thead>
-                <tr>
-                  <th>Qualification</th>
-                  <th>Module</th>
-                  <th>No.</th>
-                  <th>Code</th>
-                  <th>Max</th>
-                  <th>Pass</th>
-                  <th>Status</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredAssignments.map((assignment) => {
-                  const isSelected = selectedAssignmentId === assignment.id;
-
-                  return (
-                    <tr
-                      key={assignment.id}
-                      className={isSelected ? "selected-row" : undefined}
-                      onClick={() => {
-                        setSelectedAssignmentId(assignment.id);
-                        setActiveWorkspaceTab("overview");
-                      }}
-                    >
-                      <td>{assignment.qualification_code}</td>
-                      <td>{assignment.module_code}</td>
-                      <td>-</td>
-                      <td>
-                        <div
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "8px",
-                          }}
-                        >
-                          <span>{assignment.assignment_code}</span>
-
-                          {assignment.is_summative && (
-                            <span
-                              className="status-badge"
-                              style={{
-                                fontSize: "11px",
-                                padding: "2px 7px",
-                              }}
-                            >
-                              Summative
-                            </span>
-                          )}
-                        </div>
-                      </td>
-
-                      <td>{assignment.maximum_score}</td>
-                      <td>{assignment.minimum_pass_score}</td>
-                      <td>
-                        <span
-                          className={`status-badge ${assignment.is_active ? "status-active" : "status-inactive"
-                            }`}
-                        >
-                          {assignment.is_active ? "Active" : "Inactive"}
-                        </span>
-                      </td>
-                      <td
-                        className="table-actions"
-                        onClick={(event) => event.stopPropagation()}
-                      >
-                        <div
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "8px",
-                          }}
-                        >
-                          <AuditTrailButton
-                            objectType="assignment"
-                            objectId={assignment.id}
-                            label={assignment.assignment_code}
-                          />
-
-                          <button
-                            type="button"
-                            className="btn-table"
-                            onClick={() => startEditingAssignment(assignment)}
-                          >
-                            Edit
-                          </button>
-
-                          <button
-                            type="button"
-                            className="btn-table btn-table-danger"
-                            onClick={() =>
-                              void openAssignmentDelete(assignment.id)
-                            }
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
 
         {selectedAssignment && (
-          <>
-            <div
-              style={{
-                position: 'fixed',
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                backgroundColor: 'rgba(0, 0, 0, 0.4)',
-                zIndex: 9998,
-              }}
-              onClick={() => {
-                const levelId = expandedLevelIds[0];
-                if (levelId) {
-                  void releaseLevelLock(levelId);
-                }
-                setExpandedLevelIds([]);
-                setSelectedAssignmentId("");
-              }}
-            />
-            <section
-              className="assignment-workspace content-card assignment-workspace-modal"
-            >
-              <div className="section-header assignment-workspace-header" style={{ position: 'sticky', top: 0, backgroundColor: 'white', zIndex: 10, padding: '24px 24px 0', borderBottom: '1px solid var(--border)', margin: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                <div>
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "8px",
-                      marginBottom: "8px",
-                    }}
-                  >
-                    <h2 style={{ margin: 0 }}>
-                      {selectedAssignment.assignment_code}
-                    </h2>
+          <AssignmentWorkspaceShell
+            assignment={selectedAssignment}
+            activeWorkspaceTab={activeWorkspaceTab}
+            onClose={() => {
+              const levelId = expandedLevelIds[0];
 
-                    {selectedAssignment.is_summative && (
-                      <span
-                        className="status-badge"
-                        style={{
-                          fontSize: "11px",
-                          padding: "2px 7px",
-                        }}
-                      >
-                        Summative
-                      </span>
-                    )}
+              if (levelId) {
+                void releaseLevelLock(levelId);
+              }
+
+              setExpandedLevelIds([]);
+              setSelectedAssignmentId("");
+            }}
+            onTabChange={setActiveWorkspaceTab}
+          >
+
+            {activeWorkspaceTab === "overview" && (
+              <AssignmentOverviewPanel
+                assignment={selectedAssignment}
+                levels={selectedAssignmentLevels}
+                tasks={tasks}
+                criteria={criteria}
+                bands={bands}
+                taskCriteriaMappings={taskCriteriaMappings}
+              />
+            )}
+
+            {activeWorkspaceTab === "configuration" && (
+              <div className="workspace-panel">
+                <div className="section-header compact-section-header">
+                  <div>
+                    <h3>Submission configuration</h3>
+                    <p className="section-description">
+                      Configure Basic and Advanced requirements, tasks and rubrics.
+                    </p>
                   </div>
-                  <p className="section-description" style={{ margin: 0, paddingBottom: '16px' }}>
-                    {selectedAssignment.qualification_code} → {selectedAssignment.module_code}
-                  </p>
+
                 </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const levelId = expandedLevelIds[0];
-                    if (levelId) {
-                      void releaseLevelLock(levelId);
-                    }
-                    setExpandedLevelIds([]);
-                    setSelectedAssignmentId("");
-                  }}
-                  style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: '4px', display: 'flex' }}
-                  aria-label="Close panel"
-                >
-                  <X size={20} color="var(--text-muted)" />
-                </button>
-              </div>
 
-              <div className="workspace-tabs">
-                <button
-                  type="button"
-                  className={
-                    activeWorkspaceTab === "overview"
-                      ? "workspace-tab active"
-                      : "workspace-tab"
-                  }
-                  onClick={() => setActiveWorkspaceTab("overview")}
-                >
-                  Overview
-                </button>
-                <button
-                  type="button"
-                  className={
-                    activeWorkspaceTab === "configuration"
-                      ? "workspace-tab active"
-                      : "workspace-tab"
-                  }
-                  onClick={() => setActiveWorkspaceTab("configuration")}
-                >
-                  Submission Configuration
-                </button>
-              </div>
-
-              {activeWorkspaceTab === "overview" && (
-                <div className="workspace-panel">
-                  <div className="overview-grid">
-                    <div>
-                      <span className="detail-label">Qualification</span>
-                      <strong>{selectedAssignment.qualification_code}</strong>
-                    </div>
-
-                    <div>
-                      <span className="detail-label">Module</span>
-                      <strong>{selectedAssignment.module_code}</strong>
-                    </div>
-
-                    <div>
-                      <span className="detail-label">Assignment</span>
-                      <strong>{selectedAssignment.assignment_code}</strong>
-                    </div>
-
-                    <div>
-                      <span className="detail-label">Maximum score</span>
-                      <strong>{selectedAssignment.maximum_score}</strong>
-                    </div>
-                  </div>
-
-                  {selectedAssignmentLevels.map((level) => {
-                    const levelTasks = tasks.filter(
-                      (task) => task.assignment_level === level.id,
+                <div className="level-grid">
+                  {(["basic", "advanced"] as const).map((levelCode) => {
+                    const level = selectedAssignmentLevels.find(
+                      (item) => item.level_code === levelCode,
                     );
 
-                    const levelCriteria = criteria.filter(
-                      (criterion) => criterion.assignment_level === level.id,
-                    );
-
-                    const criterionIds = levelCriteria.map(
-                      (criterion) => criterion.id,
-                    );
-
-                    const levelBands = bands.filter(
-                      (band) => criterionIds.includes(band.rubric_criterion),
-                    );
-
-                    return (
-                      <div
-                        key={level.id}
-                        className="level-overview-card"
-                      >
-                        <div className="level-card-header">
-                          <div>
-                            <span className="path-label">
-                              {level.level_code === "basic"
-                                ? "Basic submission"
-                                : "Advanced submission"}
-                            </span>
-                            <h3>{level.display_name}</h3>
-                          </div>
-
-                          <span
-                            className={`status-badge ${level.configuration_status === "ready"
-                              ? "status-active"
-                              : "status-inactive"
-                              }`}
-                          >
-                            {level.configuration_status}
-                          </span>
-                        </div>
-
-                        <div className="overview-grid">
-                          <div>
-                            <span className="detail-label">Skill code</span>
-                            <strong>{level.skill_statement_code || "—"}</strong>
-                          </div>
-
-                          <div>
-                            <span className="detail-label">Tasks</span>
-                            <strong>{levelTasks.length}</strong>
-                          </div>
-
-                          <div>
-                            <span className="detail-label">Criteria</span>
-                            <strong>{levelCriteria.length}</strong>
-                          </div>
-
-                          <div>
-                            <span className="detail-label">Bands</span>
-                            <strong>{levelBands.length}</strong>
-                          </div>
-                        </div>
-
-                        <div className="detail-block">
-                          <span className="detail-label">Objective</span>
-                          <p>{level.objective || "—"}</p>
-                        </div>
-
-                        <div className="detail-block">
-                          <span className="detail-label">Skill statement</span>
-                          <p>{level.skill_statement || "—"}</p>
-                        </div>
-
-                        <div className="overview-subsection">
-                          <span className="detail-label">
-                            Task → Rubric mapping
-                          </span>
-
-                          {levelCriteria.length === 0 ? (
-                            <p>—</p>
-                          ) : (
-                            <div className="overview-mapping-list">
-                              {levelCriteria.map((criterion) => {
-                                const criterionMappings =
-                                  taskCriteriaMappings.filter(
-                                    (mapping) =>
-                                      mapping.rubric_criterion === criterion.id,
-                                  );
-
-                                const mappedTasks = levelTasks.filter(
-                                  (task) =>
-                                    criterionMappings.some(
-                                      (mapping) => mapping.task === task.id,
-                                    ),
-                                );
-
-                                return (
-                                  <div
-                                    key={criterion.id}
-                                    className="overview-mapping-row"
-                                  >
-                                    <div className="overview-mapping-criterion">
-                                      <strong>
-                                        {criterion.criterion_code}
-                                      </strong>
-
-                                      <span>{criterion.title}</span>
-
-                                      <small>
-                                        {criterion.maximum_score} marks
-                                      </small>
-                                    </div>
-
-                                    <div className="overview-mapping-arrow">
-                                      →
-                                    </div>
-
-                                    <div className="overview-mapping-tasks">
-                                      {mappedTasks.length === 0 ? (
-                                        <span className="table-subtext">
-                                          No tasks assigned
-                                        </span>
-                                      ) : (
-                                        mappedTasks.map((task) => (
-                                          <span
-                                            key={task.id}
-                                            className="tag-pill"
-                                            title={task.title}
-                                          >
-                                            {task.task_code}
-                                          </span>
-                                        ))
-                                      )}
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          )}
-
-                          {levelTasks.some(
-                            (task) =>
-                              !taskCriteriaMappings.some(
-                                (mapping) =>
-                                  mapping.task === task.id &&
-                                  levelCriteria.some(
-                                    (criterion) =>
-                                      criterion.id ===
-                                      mapping.rubric_criterion,
-                                  ),
-                              ),
-                          ) && (
-                              <div className="overview-unmapped-tasks">
-                                <span className="detail-label">
-                                  Unassigned tasks
-                                </span>
-
-                                <div className="overview-mapping-tasks">
-                                  {levelTasks
-                                    .filter(
-                                      (task) =>
-                                        !taskCriteriaMappings.some(
-                                          (mapping) =>
-                                            mapping.task === task.id &&
-                                            levelCriteria.some(
-                                              (criterion) =>
-                                                criterion.id ===
-                                                mapping.rubric_criterion,
-                                            ),
-                                        ),
-                                    )
-                                    .map((task) => (
-                                      <span
-                                        key={task.id}
-                                        className="tag-pill"
-                                        title={task.title}
-                                      >
-                                        {task.task_code}
-                                      </span>
-                                    ))}
-                                </div>
-                              </div>
-                            )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-
-              {activeWorkspaceTab === "configuration" && (
-                <div className="workspace-panel">
-                  <div className="section-header compact-section-header">
-                    <div>
-                      <h3>Submission configuration</h3>
-                      <p className="section-description">
-                        Configure Basic and Advanced requirements, tasks and rubrics.
-                      </p>
-                    </div>
-
-                  </div>
-
-                  <div className="level-grid">
-                    {(["basic", "advanced"] as const).map((levelCode) => {
-                      const level = selectedAssignmentLevels.find(
-                        (item) => item.level_code === levelCode,
-                      );
-
-                      if (!level) {
-                        return (
-                          <div key={levelCode}>
-                            <div className="submission-path-card">
-                              <span className="path-label">
-                                {levelCode === "basic"
-                                  ? "Basic submission"
-                                  : "Advanced submission"}
-                              </span>
-                              <strong>
-                                {levelCode === "basic"
-                                  ? "Foundation + Proficient"
-                                  : "Proficient + Expert"}
-                              </strong>
-                              <small className="table-subtext">
-                                Grading level data is not available yet.
-                              </small>
-                            </div>
-                          </div>
-                        );
-                      }
-
-                      const isExpanded = expandedLevelIds.includes(level.id);
-                      const levelLock = levelLocks[level.id];
-                      const levelReadOnly =
-                        Boolean(levelLock?.locked) &&
-                        !levelLock?.owned_by_me;
-                      const levelTaskItems = selectedAssignmentTasks.filter(
-                        (task) => task.assignment_level === level.id,
-                      );
-                      const levelCriteria = selectedAssignmentCriteria.filter(
-                        (criterion) => criterion.assignment_level === level.id,
-
-                      );
-                      const hasUnmappedCriteria = levelCriteria.some(
-                        (criterion) =>
-                          !taskCriteriaMappings.some(
-                            (mapping) =>
-                              mapping.rubric_criterion === criterion.id,
-                          ),
-                      );
-
-                      const levelCriterionIds = levelCriteria.map(
-                        (criterion) => criterion.id,
-                      );
-                      const levelBands = selectedAssignmentBands.filter(
-                        (band) => levelCriterionIds.includes(band.rubric_criterion),
-                      );
-                      const activeMappingCriterion = levelCriteria.find(
-                        (criterion) => criterion.id === mappingCriterionId,
-                      );
-                      const taskDraft = taskDrafts[level.id] ?? {
-                        task_code: "",
-                        title: "",
-                        instructions: "",
-                      };
-                      const nextTaskNumber =
-                        levelTaskItems.reduce(
-                          (max, task) => Math.max(max, task.sequence),
-                          0,
-                        ) + 1;
-                      const suggestedTaskCode = `T${String(nextTaskNumber).padStart(2, "0")}`;
-                      const nextCriterionNumber =
-                        levelCriteria.reduce(
-                          (max, criterion) =>
-                            Math.max(max, criterion.sequence),
-                          0,
-                        ) + 1;
-                      const suggestedCriterionCode =
-                        `C${String(nextCriterionNumber).padStart(2, "0")}`;
-
+                    if (!level) {
                       return (
-                        <div
-                          key={level.id}
-                          className={`level-config-item ${isExpanded ? "expanded" : ""}`}
-                        >
-                          <div
-                            className="submission-path-card"
-                            role="button"
-                            tabIndex={0}
-                            onClick={() => void toggleLevel(level.id)}
-                            onKeyDown={(event) => {
-                              if (event.key === "Enter" || event.key === " ") {
-                                event.preventDefault();
-                                void toggleLevel(level.id);
-                              }
-                            }}
-                            style={{ cursor: "pointer" }}
-                          >
+                        <div key={levelCode}>
+                          <div className="submission-path-card">
                             <span className="path-label">
-                              {level.level_code === "basic"
+                              {levelCode === "basic"
                                 ? "Basic submission"
                                 : "Advanced submission"}
                             </span>
                             <strong>
-                              {level.level_code === "basic"
+                              {levelCode === "basic"
                                 ? "Foundation + Proficient"
                                 : "Proficient + Expert"}
                             </strong>
                             <small className="table-subtext">
-                              {isExpanded ? "Click to collapse" : "Click to configure"}
+                              Grading level data is not available yet.
                             </small>
                           </div>
-
-                          {isExpanded && (
-                            <article className="level-card" style={{ marginTop: "16px" }}>
-                              <div className="level-editing-banner">
-                                <div>
-                                  <span className="level-editing-eyebrow">You are editing</span>
-                                  <strong>
-                                    {level.level_code === "basic"
-                                      ? "Basic Submission"
-                                      : "Advanced Submission"}
-                                  </strong>
-                                </div>
-                                <span className="level-editing-track">
-                                  {level.level_code === "basic"
-                                    ? "Foundation + Proficient"
-                                    : "Proficient + Expert"}
-                                </span>
-                              </div>
-
-
-                              <div
-                                className="section-actions"
-                                style={{
-                                  display: "flex",
-                                  gap: "8px",
-                                  marginBottom: "16px",
-                                  flexWrap: "wrap",
-                                }}
-                              >
-                                <button
-                                  type="button"
-                                  className="btn-secondary"
-                                  onClick={() =>
-                                    downloadConfigurationCsvTemplate(level)
-                                  }
-                                >
-                                  Download CSV Template
-                                </button>
-
-                                <label
-                                  className="btn-primary"
-                                  style={{
-                                    cursor:
-                                      importingLevelId === level.id ||
-                                      levelReadOnly
-                                        ? "not-allowed"
-                                        : "pointer",
-                                    opacity:
-                                      importingLevelId === level.id ||
-                                      levelReadOnly
-                                        ? 0.65
-                                        : 1,
-                                  }}
-                                >
-                                  {importingLevelId === level.id
-                                    ? "Importing..."
-                                    : "Import Configuration CSV"}
-
-                                  <input
-                                    type="file"
-                                    accept=".csv,text/csv"
-                                    disabled={importingLevelId === level.id}
-                                    style={{ display: "none" }}
-                                    onChange={(event) => {
-                                      const file = event.target.files?.[0];
-
-                                      if (file) {
-                                        void importConfigurationCsv(level, file);
-                                      }
-
-                                      event.currentTarget.value = "";
-                                    }}
-                                  />
-                                </label>
-                              </div>
-
-                              {levelReadOnly && (
-                                <p
-                                  className="error-message"
-                                  style={{ marginBottom: "16px" }}
-                                >
-                                  {levelLock?.locked_by || "Another administrator"}{" "}
-                                  is currently editing this configuration.
-                                  You can view it, but editing is temporarily disabled.
-                                </p>
-                              )}
-
-                              <div className="level-card-header">
-                                <div>
-                                  <span className="path-label">{level.level_code}</span>
-                                  <h3>{level.display_name}</h3>
-                                </div>
-                                <span
-                                  className={`status-badge ${level.configuration_status === "ready"
-                                    ? "status-active"
-                                    : "status-inactive"
-                                    }`}
-                                >
-                                  {level.configuration_status}
-                                </span>
-                              </div>
-
-                              {editingLevelId === level.id ? (
-                                <div className="level-edit-form">
-                                  <div className="form-grid form-grid-2">
-                                    <div className="form-group">
-                                      <label>Title</label>
-                                      <input
-                                        value={levelTitle}
-                                        onChange={(event) => setLevelTitle(event.target.value)}
-                                      />
-                                    </div>
-                                    <div className="form-group">
-                                      <label>Skill statement code</label>
-                                      <input
-                                        value={levelSkillStatementCode}
-                                        onChange={(event) =>
-                                          setLevelSkillStatementCode(event.target.value)
-                                        }
-                                      />
-                                    </div>
-                                  </div>
-                                  <div className="form-group">
-                                    <label>Skill statement</label>
-                                    <textarea
-                                      value={levelSkillStatement}
-                                      onChange={(event) =>
-                                        setLevelSkillStatement(event.target.value)
-                                      }
-                                    />
-                                  </div>
-                                  <div className="form-group">
-                                    <label>Objective</label>
-                                    <textarea
-                                      value={levelObjective}
-                                      onChange={(event) => setLevelObjective(event.target.value)}
-                                    />
-                                  </div>
-                                  <div className="form-group">
-                                    <label>Scenario</label>
-                                    <textarea
-                                      value={levelScenario}
-                                      onChange={(event) => setLevelScenario(event.target.value)}
-                                    />
-                                  </div>
-                                  <div className="form-group">
-                                    <label>Instructions</label>
-                                    <textarea
-                                      value={levelInstructions}
-                                      onChange={(event) =>
-                                        setLevelInstructions(event.target.value)
-                                      }
-                                    />
-                                  </div>
-                                  <div className="form-group">
-                                    <label>Deliverables</label>
-                                    <textarea
-                                      value={levelDeliverables}
-                                      onChange={(event) =>
-                                        setLevelDeliverables(event.target.value)
-                                      }
-                                      placeholder="One deliverable per line"
-                                    />
-                                  </div>
-                                  <div className="form-group">
-                                    <label>Expected outcome</label>
-                                    <textarea
-                                      value={levelExpectedOutcome}
-                                      onChange={(event) =>
-                                        setLevelExpectedOutcome(event.target.value)
-                                      }
-                                    />
-                                  </div>
-                                  <div className="form-actions form-actions-compact">
-                                    <button
-                                      type="button"
-                                      className="btn-primary"
-                                      disabled={isSavingLevel}
-                                      onClick={() => void saveLevel(level)}
-                                    >
-                                      {isSavingLevel ? "Saving..." : "Save Requirements"}
-                                    </button>
-                                    <button
-                                      type="button"
-                                      className="btn-secondary"
-                                      disabled={isSavingLevel}
-                                      onClick={() => setEditingLevelId("")}
-                                    >
-                                      Cancel
-                                    </button>
-                                  </div>
-                                </div>
-                              ) : (
-                                <>
-                                  <div className="overview-grid level-requirement-summary">
-                                    <div>
-                                      <span className="detail-label">Skill statement code</span>
-                                      <strong>{level.skill_statement_code || "—"}</strong>
-                                    </div>
-                                    <div>
-                                      <span className="detail-label">Title</span>
-                                      <strong>{level.title || "—"}</strong>
-                                    </div>
-                                  </div>
-                                  <div className="overview-stack">
-                                    <div className="detail-block">
-                                      <span className="detail-label">Skill statement</span>
-                                      <p>{level.skill_statement || "—"}</p>
-                                    </div>
-                                    <div className="detail-block">
-                                      <span className="detail-label">Objective</span>
-                                      <p>{level.objective || "—"}</p>
-                                    </div>
-                                    <div className="detail-block">
-                                      <span className="detail-label">Scenario</span>
-                                      <p>{level.scenario || "—"}</p>
-                                    </div>
-                                    <div className="detail-block">
-                                      <span className="detail-label">Instructions</span>
-                                      <p>{level.instructions || "—"}</p>
-                                    </div>
-                                    <div className="detail-block">
-                                      <span className="detail-label">Expected outcome</span>
-                                      <p>{level.expected_outcome || "—"}</p>
-                                    </div>
-                                  </div>
-                                  <div className="section-actions compact-section-header">
-                                    <button
-                                      type="button"
-                                      className="btn-secondary"
-                                      onClick={() => startEditingLevel(level)}
-                                      disabled={levelReadOnly}
-                                    >
-                                      Edit Requirements
-                                    </button>
-                                  </div>
-                                </>
-                              )}
-
-                              <div className="section-header compact-section-header">
-                                <div>
-                                  <h3>Assignment tasks</h3>
-                                  <p className="section-description">
-                                    Requirements the learner must complete for this submission level.
-                                  </p>
-                                </div>
-
-                                <button
-                                  type="button"
-                                  className="btn-primary"
-                                  onClick={() => setTaskFormLevelId(level.id)}
-                                  disabled={levelReadOnly}
-                                >
-                                  + Add Task
-                                </button>
-                              </div>
-
-                              {levelTaskItems.length === 0 ? (
-                                <div className="empty-state">No tasks added yet.</div>
-                              ) : (
-                                <div className="table-container rubric-table-container">
-                                  <table className="modern-table">
-                                    <thead>
-                                      <tr>
-                                        <th>Code</th>
-                                        <th>Task</th>
-                                        <th>Actions</th>
-                                      </tr>
-                                    </thead>
-                                    <tbody>
-                                      {levelTaskItems.map((task) => {
-                                        const isEditingTask =
-                                          editingTaskId === task.id;
-
-                                        return (
-                                          <tr key={task.id}>
-                                            <td>
-                                              {isEditingTask ? (
-                                                <input
-                                                  value={editTaskCode}
-                                                  onChange={(event) =>
-                                                    setEditTaskCode(
-                                                      event.target.value,
-                                                    )
-                                                  }
-                                                />
-                                              ) : (
-                                                task.task_code
-                                              )}
-                                            </td>
-                                            <td>
-                                              {isEditingTask ? (
-                                                <div className="inline-edit-stack">
-                                                  <input
-                                                    value={editTaskTitle}
-                                                    onChange={(event) =>
-                                                      setEditTaskTitle(
-                                                        event.target.value,
-                                                      )
-                                                    }
-                                                  />
-                                                  <textarea
-                                                    value={editTaskInstructions}
-                                                    onChange={(event) =>
-                                                      setEditTaskInstructions(
-                                                        event.target.value,
-                                                      )
-                                                    }
-                                                    placeholder="Evidence required"
-                                                  />
-                                                </div>
-                                              ) : (
-                                                <>
-                                                  <strong>{task.title}</strong>
-                                                  {task.instructions && (
-                                                    <small className="table-subtext">
-                                                      {task.instructions}
-                                                    </small>
-                                                  )}
-                                                </>
-                                              )}
-                                            </td>
-                                            <td className="table-actions">
-                                              {isEditingTask ? (
-                                                <>
-                                                  <button
-                                                    type="button"
-                                                    className="btn-table"
-                                                    disabled={
-                                                      isSavingTaskEdit ||
-                                                      !editTaskTitle.trim()
-                                                    }
-                                                    onClick={() =>
-                                                      void saveTaskEdit(task)
-                                                    }
-                                                  >
-                                                    {isSavingTaskEdit
-                                                      ? "Saving..."
-                                                      : "Save"}
-                                                  </button>
-                                                  <button
-                                                    type="button"
-                                                    className="btn-table"
-                                                    disabled={isSavingTaskEdit}
-                                                    onClick={cancelTaskEdit}
-                                                  >
-                                                    Cancel
-                                                  </button>
-                                                </>
-                                              ) : (
-                                                <>
-                                                  <button
-                                                    type="button"
-                                                    className="btn-table"
-                                                    disabled={levelReadOnly}
-                                                    onClick={() =>
-                                                      startEditingTask(task)
-                                                    }
-                                                  >
-                                                    Edit
-                                                  </button>
-                                                  <button
-                                                    type="button"
-                                                    className="btn-table btn-table-danger"
-                                                    disabled={levelReadOnly}
-                                                    onClick={() =>
-                                                      void removeTask(task)
-                                                    }
-                                                  >
-                                                    Delete
-                                                  </button>
-                                                </>
-                                              )}
-                                            </td>
-                                          </tr>
-                                        );
-                                      })}
-                                    </tbody>
-                                  </table>
-                                </div>
-                              )}
-
-                              {taskFormLevelId === level.id && (
-                                <div className="config-modal-backdrop">
-                                  <div className="config-modal">
-                                    <div className="config-modal-header">
-                                      <h3>Add Task</h3>
-                                      <button
-                                        type="button"
-                                        className="config-modal-close"
-                                        onClick={() => setTaskFormLevelId("")}
-                                      >
-                                        <X size={20} />
-                                      </button>
-                                    </div>
-
-                                    <form
-                                      className="modern-form"
-                                      onSubmit={(event) => void saveNewTask(event, level)}
-                                    >
-                                      <div className="form-grid form-grid-2">
-                                        <div className="form-group">
-                                          <label>Task code</label>
-                                          <input
-                                            value={taskDraft.task_code}
-                                            placeholder={suggestedTaskCode}
-                                            onChange={(event) =>
-                                              updateTaskDraft(
-                                                level.id,
-                                                "task_code",
-                                                event.target.value,
-                                              )
-                                            }
-                                          />
-                                        </div>
-
-                                        <div className="form-group">
-                                          <label>Task</label>
-                                          <input
-                                            value={taskDraft.title}
-                                            onChange={(event) =>
-                                              updateTaskDraft(
-                                                level.id,
-                                                "title",
-                                                event.target.value,
-                                              )
-                                            }
-                                            required
-                                          />
-                                        </div>
-                                      </div>
-
-                                      <div className="form-group">
-                                        <label>Evidence required</label>
-                                        <textarea
-                                          value={taskDraft.instructions}
-                                          onChange={(event) =>
-                                            updateTaskDraft(
-                                              level.id,
-                                              "instructions",
-                                              event.target.value,
-                                            )
-                                          }
-                                          placeholder="Describe the evidence the learner must provide to demonstrate completion of this task."
-                                        />
-                                      </div>
-
-                                      <div className="form-actions">
-                                        <button
-                                          type="button"
-                                          className="btn-secondary"
-                                          onClick={() => setTaskFormLevelId("")}
-                                        >
-                                          Cancel
-                                        </button>
-
-                                        <button
-                                          type="submit"
-                                          className="btn-primary"
-                                          disabled={savingTaskLevelId === level.id}
-                                        >
-                                          {savingTaskLevelId === level.id
-                                            ? "Adding..."
-                                            : "Add Task"}
-                                        </button>
-                                      </div>
-                                    </form>
-                                  </div>
-                                </div>
-                              )}
-                              <section className="rubric-section level-rubric-section">
-                                <div className="section-header compact-section-header">
-                                  <div>
-                                    <h3>{level.display_name} rubric criteria</h3>
-
-                                    <p className="section-description">
-                                      Criteria for this submission path.
-                                    </p>
-                                  </div>
-
-                                  <button
-                                    type="button"
-                                    className="btn-primary"
-                                    onClick={() => setCriterionFormLevelId(level.id)}
-                                    disabled={levelReadOnly}
-                                  >
-                                    + Add Criterion
-                                  </button>
-                                </div>
-
-                                {hasUnmappedCriteria && (
-                                  <p className="error-message">
-                                    Every rubric criterion must be assigned to at least one task before grading.
-                                  </p>
-                                )}
-
-                                {criterionFormLevelId === level.id && (
-                                  <div className="config-modal-backdrop">
-                                    <div className="config-modal">
-                                      <div className="config-modal-header">
-                                        <h3>Add Rubric Criterion</h3>
-
-                                        <button
-                                          type="button"
-                                          className="config-modal-close"
-                                          onClick={() => setCriterionFormLevelId("")}
-                                        >
-                                          <X size={20} />
-                                        </button>
-                                      </div>
-
-                                      <form
-                                        className="modern-form"
-                                        onSubmit={(event) => void saveCriterion(event, level.id)}
-                                      >
-                                        <div className="form-grid form-grid-2">
-                                          <div className="form-group">
-                                            <label>Criterion code</label>
-                                            <input
-                                              value={criterionCode}
-                                              placeholder={suggestedCriterionCode}
-                                              onChange={(event) =>
-                                                setCriterionCode(
-                                                  event.target.value,
-                                                )
-                                              }
-                                            />
-                                            <small className="table-subtext">
-                                              Leave blank to use {suggestedCriterionCode}.
-                                            </small>
-                                          </div>
-
-                                          <div className="form-group">
-                                            <label>Title</label>
-                                            <input
-                                              value={criterionTitle}
-                                              onChange={(event) => setCriterionTitle(event.target.value)}
-                                              required
-                                            />
-                                          </div>
-
-                                          <div className="form-group">
-                                            <label>Maximum score</label>
-                                            <input
-                                              type="number"
-                                              min="0.01"
-                                              step="0.01"
-                                              value={criterionMaximumScore}
-                                              onChange={(event) =>
-                                                setCriterionMaximumScore(event.target.value)
-                                              }
-                                              required
-                                            />
-                                          </div>
-
-                                        </div>
-
-                                        <div className="form-group">
-                                          <label>Description</label>
-                                          <textarea
-                                            value={criterionDescription}
-                                            onChange={(event) =>
-                                              setCriterionDescription(event.target.value)
-                                            }
-                                          />
-                                        </div>
-
-                                        <div className="form-actions">
-                                          <button
-                                            type="button"
-                                            className="btn-secondary"
-                                            onClick={() => setCriterionFormLevelId("")}
-                                          >
-                                            Cancel
-                                          </button>
-
-                                          <button
-                                            type="submit"
-                                            className="btn-primary"
-                                            disabled={isSavingCriterion}
-                                          >
-                                            {isSavingCriterion ? "Adding..." : "Add Criterion"}
-                                          </button>
-                                        </div>
-                                      </form>
-                                    </div>
-                                  </div>
-                                )}
-
-                                {levelCriteria.length === 0 ? (
-                                  <div className="empty-state">No rubric criteria added yet.</div>
-                                ) : (
-                                  <div className="table-container rubric-table-container">
-                                    <table className="modern-table">
-                                      <thead>
-                                        <tr>
-                                          <th>Code</th>
-                                          <th>Criterion</th>
-                                          <th>Max</th>
-                                          <th>Assigned tasks</th>
-                                          <th>Actions</th>
-                                        </tr>
-                                      </thead>
-                                      <tbody>
-                                        {levelCriteria.map((criterion) => {
-                                          const isEditing =
-                                            editingCriterionId === criterion.id;
-
-                                          const criterionMappings =
-                                            taskCriteriaMappings.filter(
-                                              (mapping) =>
-                                                mapping.rubric_criterion === criterion.id,
-                                            );
-
-                                          const assignedTasks = levelTaskItems.filter(
-                                            (task) =>
-                                              criterionMappings.some(
-                                                (mapping) => mapping.task === task.id,
-                                              ),
-                                          );
-
-                                          return (
-                                            <tr key={criterion.id}>
-                                              <td>{criterion.criterion_code}</td>
-                                              <td>
-                                                {isEditing ? (
-                                                  <div className="inline-edit-stack">
-                                                    <input
-                                                      value={editCriterionTitle}
-                                                      onChange={(event) =>
-                                                        setEditCriterionTitle(event.target.value)
-                                                      }
-                                                    />
-                                                    <textarea
-                                                      value={editCriterionDescription}
-                                                      onChange={(event) =>
-                                                        setEditCriterionDescription(event.target.value)
-                                                      }
-                                                    />
-                                                  </div>
-                                                ) : (
-                                                  <div>
-                                                    <strong>{criterion.title}</strong>
-                                                    {criterion.description && (
-                                                      <small className="table-subtext">
-                                                        {criterion.description}
-                                                      </small>
-                                                    )}
-                                                  </div>
-                                                )}
-                                              </td>
-                                              <td>
-                                                {isEditing ? (
-                                                  <input
-                                                    className="table-number-input"
-                                                    type="number"
-                                                    step="0.01"
-                                                    value={editCriterionMaximumScore}
-                                                    onChange={(event) =>
-                                                      setEditCriterionMaximumScore(
-                                                        event.target.value,
-                                                      )
-                                                    }
-                                                  />
-                                                ) : (
-                                                  criterion.maximum_score
-                                                )}
-                                              </td>
-                                              <td>
-                                                {assignedTasks.length === 0 ? (
-                                                  <span className="table-subtext">
-                                                    None
-                                                  </span>
-                                                ) : (
-                                                  <div className="criterion-task-tags">
-                                                    {assignedTasks.map((task) => (
-                                                      <span
-                                                        key={task.id}
-                                                        className="tag-pill"
-                                                        title={task.title}
-                                                      >
-                                                        {task.task_code}
-                                                      </span>
-                                                    ))}
-                                                  </div>
-                                                )}
-                                              </td>
-                                              <td className="table-actions">
-                                                {isEditing ? (
-                                                  <>
-                                                    <button
-                                                      type="button"
-                                                      className="btn-table"
-                                                      onClick={() =>
-                                                        void saveCriterionEdit(criterion)
-                                                      }
-                                                    >
-                                                      Save
-                                                    </button>
-                                                    <button
-                                                      type="button"
-                                                      className="btn-table"
-                                                      onClick={() =>
-                                                        setEditingCriterionId("")
-                                                      }
-                                                    >
-                                                      Cancel
-                                                    </button>
-                                                  </>
-                                                ) : (
-                                                  <>
-                                                    <button
-                                                      type="button"
-                                                      className="btn-table"
-                                                      onClick={() =>
-                                                        openTaskMapping(criterion)
-                                                      }
-                                                      disabled={levelReadOnly}
-                                                    >
-                                                      Assign Tasks
-                                                    </button>
-                                                    <button
-                                                      type="button"
-                                                      className="btn-table"
-                                                      onClick={() =>
-                                                        startEditingCriterion(criterion)
-                                                      }
-                                                      disabled={levelReadOnly}
-                                                    >
-                                                      Edit
-                                                    </button>
-                                                    <button
-                                                      type="button"
-                                                      className="btn-table btn-table-danger"
-                                                      onClick={() =>
-                                                        void removeCriterion(criterion.id)
-                                                      }
-                                                      disabled={levelReadOnly}
-                                                    >
-                                                      Delete
-                                                    </button>
-                                                  </>
-                                                )}
-                                              </td>
-                                            </tr>
-                                          );
-                                        })}
-                                      </tbody>
-                                    </table>
-                                  </div>
-                                )}
-
-                                {activeMappingCriterion && (
-                                  <div className="config-modal-backdrop">
-                                    <div
-                                      className="config-modal"
-                                      style={{
-                                        width: "min(900px, 92vw)",
-                                        maxWidth: "900px",
-                                        maxHeight: "85vh",
-                                        display: "flex",
-                                        flexDirection: "column",
-                                      }}
-                                    >
-                                      <div className="config-modal-header">
-                                        <div>
-                                          <h3>Assign Tasks to Rubric Criterion</h3>
-                                          <p className="section-description">
-                                            {activeMappingCriterion.criterion_code} —{" "}
-                                            {activeMappingCriterion.title}
-                                          </p>
-                                        </div>
-
-                                        <button
-                                          type="button"
-                                          className="config-modal-close"
-                                          onClick={() => {
-                                            setMappingCriterionId("");
-                                            setSelectedMappingTaskIds([]);
-                                          }}
-                                        >
-                                          <X size={20} />
-                                        </button>
-                                      </div>
-
-                                      {levelTaskItems.length === 0 ? (
-                                        <div className="empty-state">
-                                          No tasks exist for this submission level yet.
-                                          Add tasks first, then assign them to the criterion.
-                                        </div>
-                                      ) : (
-                                        <div
-                                          className="task-mapping-list"
-                                          style={{
-                                            maxHeight: "55vh",
-                                            overflowY: "auto",
-                                            paddingRight: "4px",
-                                          }}
-                                        >
-                                          {levelTaskItems.map((task) => {
-                                            const checked =
-                                              selectedMappingTaskIds.includes(task.id);
-
-                                            return (
-                                              <label
-                                                key={task.id}
-                                                className={
-                                                  checked
-                                                    ? "task-mapping-option selected"
-                                                    : "task-mapping-option"
-                                                }
-                                              >
-                                                <input
-                                                  type="checkbox"
-                                                  checked={checked}
-                                                  onChange={() =>
-                                                    toggleTaskMappingSelection(task.id)
-                                                  }
-                                                />
-
-                                                <div>
-                                                  <strong>
-                                                    {task.task_code} — {task.title}
-                                                  </strong>
-
-                                                  {task.instructions && (
-                                                    <small className="table-subtext">
-                                                      {task.instructions}
-                                                    </small>
-                                                  )}
-                                                </div>
-                                              </label>
-                                            );
-                                          })}
-                                        </div>
-                                      )}
-
-                                      <div className="form-actions">
-                                        <button
-                                          type="button"
-                                          className="btn-secondary"
-                                          disabled={isSavingTaskMapping}
-                                          onClick={() => {
-                                            setMappingCriterionId("");
-                                            setSelectedMappingTaskIds([]);
-                                          }}
-                                        >
-                                          Cancel
-                                        </button>
-
-                                        <button
-                                          type="button"
-                                          className="btn-primary"
-                                          disabled={
-                                            isSavingTaskMapping ||
-                                            levelTaskItems.length === 0
-                                          }
-                                          onClick={() =>
-                                            void saveTaskMappings(
-                                              activeMappingCriterion,
-                                              level,
-                                            )
-                                          }
-                                        >
-                                          {isSavingTaskMapping
-                                            ? "Saving..."
-                                            : "Save Task Assignment"}
-                                        </button>
-                                      </div>
-                                    </div>
-                                  </div>
-                                )}
-                              </section>
-
-                              <section className="rubric-section level-rubric-section">
-                                <div className="section-header compact-section-header">
-                                  <div>
-                                    <h3>{level.display_name} rubric bands</h3>
-                                    <p className="section-description">
-                                      Performance bands for this submission path.
-                                    </p>
-                                  </div>
-
-                                  <button
-                                    type="button"
-                                    className="btn-primary"
-                                    onClick={() => {
-                                      setBandCriterionId("");
-                                      setBandFormLevelId(level.id);
-                                    }}
-                                    disabled={levelReadOnly}
-                                  >
-                                    + Add Band
-                                  </button>
-                                </div>
-
-                                {levelBands.some((band) => !band.descriptor?.trim()) && (
-                                  <p className="error-message">
-                                    Please fill up all descriptor fields and save.
-                                  </p>
-                                )}
-
-
-                                {bandFormLevelId === level.id && (
-                                  <div className="config-modal-backdrop">
-                                    <div className="config-modal">
-                                      <div className="config-modal-header">
-                                        <h3>Add Rubric Band</h3>
-
-                                        <button
-                                          type="button"
-                                          className="config-modal-close"
-                                          onClick={() => setBandFormLevelId("")}
-                                        >
-                                          <X size={20} />
-                                        </button>
-                                      </div>
-
-                                      <form
-                                        className="modern-form"
-                                        onSubmit={saveBand}
-                                      >
-                                        <div className="form-grid form-grid-2">
-                                          <div className="form-group">
-                                            <label>Criterion</label>
-                                            <select
-                                              value={bandCriterionId}
-                                              onChange={(event) => {
-                                                const criterionId = event.target.value;
-                                                setBandCriterionId(criterionId);
-                                                setBandCode("failed");
-                                                setBandDisplayName("Failed");
-
-                                                const existingBands = bands.filter(
-                                                  (band) => band.rubric_criterion === criterionId,
-                                                );
-
-                                                setBandSequence(String(existingBands.length + 1));
-                                              }}
-                                              required
-                                            >
-                                              <option value="">Select criterion</option>
-                                              {levelCriteria.map((criterion) => (
-                                                <option key={criterion.id} value={criterion.id}>
-                                                  {criterion.criterion_code} - {criterion.title}
-                                                </option>
-                                              ))}
-                                            </select>
-                                          </div>
-
-                                          <div className="form-group">
-                                            <label>Band</label>
-                                            <select
-                                              value={bandCode}
-                                              onChange={(event) => {
-                                                const value =
-                                                  event.target.value as RubricBand["band_code"];
-
-                                                setBandCode(value);
-                                                setBandDisplayName(
-                                                  value.charAt(0).toUpperCase() + value.slice(1),
-                                                );
-                                              }}
-                                            >
-                                              {(level.level_code === "advanced"
-                                                ? ["failed", "proficient", "expert"]
-                                                : ["failed", "foundation", "proficient"]
-                                              ).map((code) => (
-                                                <option key={code} value={code}>
-                                                  {code.charAt(0).toUpperCase() + code.slice(1)}
-                                                </option>
-                                              ))}
-                                            </select>
-                                          </div>
-
-                                          <div className="form-group">
-                                            <label>Minimum percentage</label>
-                                            <input
-                                              type="number"
-                                              min="0"
-                                              max="100"
-                                              step="0.01"
-                                              value={bandMinimumPercentage}
-                                              onChange={(event) =>
-                                                setBandMinimumPercentage(event.target.value)
-                                              }
-                                              required
-                                            />
-                                          </div>
-
-                                          <div className="form-group">
-                                            <label>Maximum percentage</label>
-                                            <input
-                                              type="number"
-                                              min="0"
-                                              max="100"
-                                              step="0.01"
-                                              value={bandMaximumPercentage}
-                                              onChange={(event) =>
-                                                setBandMaximumPercentage(event.target.value)
-                                              }
-                                              required
-                                            />
-                                          </div>
-
-                                          <div className="form-group">
-                                            <label>Sequence</label>
-                                            <input
-                                              type="number"
-                                              min="1"
-                                              value={bandSequence}
-                                              onChange={(event) => setBandSequence(event.target.value)}
-                                              required
-                                            />
-                                          </div>
-                                        </div>
-
-                                        <div className="form-group">
-                                          <label>Descriptor</label>
-                                          <textarea
-                                            value={bandDescriptor}
-                                            onChange={(event) => setBandDescriptor(event.target.value)}
-                                            required
-                                          />
-                                        </div>
-
-                                        <div className="form-actions">
-                                          <button
-                                            type="button"
-                                            className="btn-secondary"
-                                            onClick={() => setBandFormLevelId("")}
-                                          >
-                                            Cancel
-                                          </button>
-
-                                          <button
-                                            type="submit"
-                                            className="btn-primary"
-                                            disabled={isSavingBand || !bandCriterionId}
-                                          >
-                                            {isSavingBand ? "Adding..." : "Add Rubric Band"}
-                                          </button>
-                                        </div>
-                                      </form>
-                                    </div>
-                                  </div>
-                                )}
-
-                                {levelBands.length === 0 ? (
-                                  <div className="empty-state">No rubric bands added yet.</div>
-                                ) : (
-                                  <div className="table-container rubric-band-table-container">
-                                    <table className="modern-table">
-                                      <thead>
-                                        <tr>
-                                          <th>Criterion</th>
-                                          <th>Band</th>
-                                          <th>Range</th>
-                                          <th>Descriptor</th>
-                                          <th>Actions</th>
-                                        </tr>
-                                      </thead>
-                                      <tbody>
-                                        {levelBands.map((band) => {
-                                          const isEditing = editingBandId === band.id;
-                                          return (
-                                            <tr key={band.id}>
-                                              <td>{band.criterion_title}</td>
-                                              <td>{band.display_name}</td>
-                                              <td>
-                                                {isEditing ? (
-                                                  <div className="range-edit">
-                                                    <input
-                                                      className="table-number-input"
-                                                      type="number"
-                                                      min="0"
-                                                      max="100"
-                                                      value={editBandMinimum}
-                                                      onChange={(event) =>
-                                                        setEditBandMinimum(event.target.value)
-                                                      }
-                                                    />
-                                                    <span>–</span>
-                                                    <input
-                                                      className="table-number-input"
-                                                      type="number"
-                                                      min="0"
-                                                      max="100"
-                                                      value={editBandMaximum}
-                                                      onChange={(event) =>
-                                                        setEditBandMaximum(event.target.value)
-                                                      }
-                                                    />
-                                                  </div>
-                                                ) : (
-                                                  `${band.minimum_percentage}% – ${band.maximum_percentage}%`
-                                                )}
-                                              </td>
-                                              <td>
-                                                {isEditing ? (
-                                                  <textarea
-                                                    value={editBandDescriptor}
-                                                    onChange={(event) =>
-                                                      setEditBandDescriptor(event.target.value)
-                                                    }
-                                                  />
-                                                ) : (
-                                                  band.descriptor
-                                                )}
-                                              </td>
-                                              <td className="table-actions">
-                                                {isEditing ? (
-                                                  <>
-                                                    <button
-                                                      type="button"
-                                                      className="btn-table"
-                                                      onClick={() => void saveBandEdit(band)}
-                                                    >
-                                                      Save
-                                                    </button>
-                                                    <button
-                                                      type="button"
-                                                      className="btn-table"
-                                                      onClick={() => setEditingBandId("")}
-                                                    >
-                                                      Cancel
-                                                    </button>
-                                                  </>
-                                                ) : (
-                                                  <>
-                                                    <button
-                                                      type="button"
-                                                      className="btn-table"
-                                                      onClick={() => startEditingBand(band)}
-                                                    >
-                                                      Edit
-                                                    </button>
-                                                    <button
-                                                      type="button"
-                                                      className="btn-table btn-table-danger"
-                                                      onClick={() => void removeBand(band.id)}
-                                                    >
-                                                      Delete
-                                                    </button>
-                                                  </>
-                                                )}
-                                              </td>
-                                            </tr>
-                                          );
-                                        })}
-                                      </tbody>
-                                    </table>
-                                  </div>
-                                )}
-                              </section>
-
-
-                            </article>
-                          )}
                         </div>
                       );
-                    })}
-                  </div>
+                    }
+
+                    const isExpanded = expandedLevelIds.includes(level.id);
+                    const levelLock = levelLocks[level.id];
+                    const levelReadOnly =
+                      Boolean(levelLock?.locked) &&
+                      !levelLock?.owned_by_me;
+                    const levelTaskItems = selectedAssignmentTasks.filter(
+                      (task) => task.assignment_level === level.id,
+                    );
+                    const levelCriteria = selectedAssignmentCriteria.filter(
+                      (criterion) => criterion.assignment_level === level.id,
+
+                    );
+                    const hasUnmappedCriteria = levelCriteria.some(
+                      (criterion) =>
+                        !taskCriteriaMappings.some(
+                          (mapping) =>
+                            mapping.rubric_criterion === criterion.id,
+                        ),
+                    );
+
+                    const levelCriterionIds = levelCriteria.map(
+                      (criterion) => criterion.id,
+                    );
+                    const levelBands = selectedAssignmentBands.filter(
+                      (band) => levelCriterionIds.includes(band.rubric_criterion),
+                    );
+                    const activeMappingCriterion = levelCriteria.find(
+                      (criterion) => criterion.id === mappingCriterionId,
+                    );
+                    const taskDraft = taskDrafts[level.id] ?? {
+                      task_code: "",
+                      title: "",
+                      instructions: "",
+                    };
+                    const nextTaskNumber =
+                      levelTaskItems.reduce(
+                        (max, task) => Math.max(max, task.sequence),
+                        0,
+                      ) + 1;
+                    const suggestedTaskCode = `T${String(nextTaskNumber).padStart(2, "0")}`;
+                    const nextCriterionNumber =
+                      levelCriteria.reduce(
+                        (max, criterion) =>
+                          Math.max(max, criterion.sequence),
+                        0,
+                      ) + 1;
+                    const suggestedCriterionCode =
+                      `C${String(nextCriterionNumber).padStart(2, "0")}`;
+
+                    return (
+                      <div
+                        key={level.id}
+                        className={`level-config-item ${isExpanded ? "expanded" : ""}`}
+                      >
+                        <div
+                          className="submission-path-card"
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => void toggleLevel(level.id)}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter" || event.key === " ") {
+                              event.preventDefault();
+                              void toggleLevel(level.id);
+                            }
+                          }}
+                          style={{ cursor: "pointer" }}
+                        >
+                          <span className="path-label">
+                            {level.level_code === "basic"
+                              ? "Basic submission"
+                              : "Advanced submission"}
+                          </span>
+                          <strong>
+                            {level.level_code === "basic"
+                              ? "Foundation + Proficient"
+                              : "Proficient + Expert"}
+                          </strong>
+                          <small className="table-subtext">
+                            {isExpanded ? "Click to collapse" : "Click to configure"}
+                          </small>
+                        </div>
+
+                        {isExpanded && (
+                          <article className="level-card" style={{ marginTop: "16px" }}>
+                            <AssignmentLevelRequirements
+                              level={level}
+                              levelReadOnly={levelReadOnly}
+                              lockedBy={levelLock?.locked_by}
+                              importingLevelId={importingLevelId}
+
+                              editingLevelId={editingLevelId}
+
+                              levelTitle={levelTitle}
+                              levelSkillStatementCode={levelSkillStatementCode}
+                              levelSkillStatement={levelSkillStatement}
+                              levelObjective={levelObjective}
+                              levelScenario={levelScenario}
+                              levelInstructions={levelInstructions}
+                              levelDeliverables={levelDeliverables}
+                              levelExpectedOutcome={levelExpectedOutcome}
+
+                              isSavingLevel={isSavingLevel}
+
+                              setLevelTitle={setLevelTitle}
+                              setLevelSkillStatementCode={
+                                setLevelSkillStatementCode
+                              }
+                              setLevelSkillStatement={
+                                setLevelSkillStatement
+                              }
+                              setLevelObjective={setLevelObjective}
+                              setLevelScenario={setLevelScenario}
+                              setLevelInstructions={
+                                setLevelInstructions
+                              }
+                              setLevelDeliverables={
+                                setLevelDeliverables
+                              }
+                              setLevelExpectedOutcome={
+                                setLevelExpectedOutcome
+                              }
+                              setEditingLevelId={setEditingLevelId}
+
+                              downloadConfigurationCsvTemplate={
+                                downloadConfigurationCsvTemplate
+                              }
+                              importConfigurationCsv={
+                                importConfigurationCsv
+                              }
+                              startEditingLevel={startEditingLevel}
+                              saveLevel={saveLevel}
+                            />
+
+                            <AssignmentTasksSection
+                              level={level}
+                              levelReadOnly={levelReadOnly}
+                              levelTaskItems={levelTaskItems}
+
+                              taskFormLevelId={taskFormLevelId}
+                              savingTaskLevelId={savingTaskLevelId}
+                              editingTaskId={editingTaskId}
+                              isSavingTaskEdit={isSavingTaskEdit}
+
+                              editTaskCode={editTaskCode}
+                              editTaskTitle={editTaskTitle}
+                              editTaskInstructions={editTaskInstructions}
+
+                              taskDraft={taskDraft}
+                              suggestedTaskCode={suggestedTaskCode}
+
+                              setTaskFormLevelId={setTaskFormLevelId}
+
+                              setEditTaskCode={setEditTaskCode}
+                              setEditTaskTitle={setEditTaskTitle}
+                              setEditTaskInstructions={
+                                setEditTaskInstructions
+                              }
+
+                              updateTaskDraft={updateTaskDraft}
+                              saveNewTask={saveNewTask}
+                              startEditingTask={startEditingTask}
+                              cancelTaskEdit={cancelTaskEdit}
+                              saveTaskEdit={saveTaskEdit}
+                              removeTask={removeTask}
+                            />
+
+                            <AssignmentCriteriaSection
+                              level={level}
+                              levelReadOnly={levelReadOnly}
+
+                              levelCriteria={levelCriteria}
+                              levelTaskItems={levelTaskItems}
+                              taskCriteriaMappings={
+                                taskCriteriaMappings
+                              }
+
+                              hasUnmappedCriteria={
+                                hasUnmappedCriteria
+                              }
+
+                              criterionFormLevelId={
+                                criterionFormLevelId
+                              }
+                              criterionCode={criterionCode}
+                              criterionTitle={criterionTitle}
+                              criterionDescription={
+                                criterionDescription
+                              }
+                              criterionMaximumScore={
+                                criterionMaximumScore
+                              }
+                              isSavingCriterion={
+                                isSavingCriterion
+                              }
+
+                              editingCriterionId={
+                                editingCriterionId
+                              }
+                              editCriterionTitle={
+                                editCriterionTitle
+                              }
+                              editCriterionDescription={
+                                editCriterionDescription
+                              }
+                              editCriterionMaximumScore={
+                                editCriterionMaximumScore
+                              }
+
+                              suggestedCriterionCode={
+                                suggestedCriterionCode
+                              }
+
+                              activeMappingCriterion={
+                                activeMappingCriterion
+                              }
+
+                              selectedMappingTaskIds={
+                                selectedMappingTaskIds
+                              }
+                              isSavingTaskMapping={
+                                isSavingTaskMapping
+                              }
+
+                              setCriterionFormLevelId={
+                                setCriterionFormLevelId
+                              }
+                              setCriterionCode={
+                                setCriterionCode
+                              }
+                              setCriterionTitle={
+                                setCriterionTitle
+                              }
+                              setCriterionDescription={
+                                setCriterionDescription
+                              }
+                              setCriterionMaximumScore={
+                                setCriterionMaximumScore
+                              }
+
+                              setEditingCriterionId={
+                                setEditingCriterionId
+                              }
+                              setEditCriterionTitle={
+                                setEditCriterionTitle
+                              }
+                              setEditCriterionDescription={
+                                setEditCriterionDescription
+                              }
+                              setEditCriterionMaximumScore={
+                                setEditCriterionMaximumScore
+                              }
+
+                              setMappingCriterionId={
+                                setMappingCriterionId
+                              }
+                              setSelectedMappingTaskIds={
+                                setSelectedMappingTaskIds
+                              }
+
+                              saveCriterion={saveCriterion}
+
+                              openTaskMapping={openTaskMapping}
+                              startEditingCriterion={
+                                startEditingCriterion
+                              }
+                              saveCriterionEdit={
+                                saveCriterionEdit
+                              }
+                              removeCriterion={removeCriterion}
+
+                              toggleTaskMappingSelection={
+                                toggleTaskMappingSelection
+                              }
+                              saveTaskMappings={
+                                saveTaskMappings
+                              }
+                            />
+
+                            <AssignmentBandsSection
+                              level={level}
+                              levelReadOnly={levelReadOnly}
+
+                              levelBands={levelBands}
+                              levelCriteria={levelCriteria}
+                              bands={bands}
+
+                              bandFormLevelId={bandFormLevelId}
+                              bandCriterionId={bandCriterionId}
+                              bandCode={bandCode}
+                              bandDisplayName={bandDisplayName}
+                              bandMinimumPercentage={bandMinimumPercentage}
+                              bandMaximumPercentage={bandMaximumPercentage}
+                              bandDescriptor={bandDescriptor}
+                              bandSequence={bandSequence}
+
+                              isSavingBand={isSavingBand}
+
+                              editingBandId={editingBandId}
+                              editBandMinimum={editBandMinimum}
+                              editBandMaximum={editBandMaximum}
+                              editBandDescriptor={editBandDescriptor}
+
+                              setBandFormLevelId={setBandFormLevelId}
+                              setBandCriterionId={setBandCriterionId}
+                              setBandCode={setBandCode}
+                              setBandDisplayName={setBandDisplayName}
+                              setBandMinimumPercentage={
+                                setBandMinimumPercentage
+                              }
+                              setBandMaximumPercentage={
+                                setBandMaximumPercentage
+                              }
+                              setBandDescriptor={setBandDescriptor}
+                              setBandSequence={setBandSequence}
+
+                              setEditingBandId={setEditingBandId}
+                              setEditBandMinimum={setEditBandMinimum}
+                              setEditBandMaximum={setEditBandMaximum}
+                              setEditBandDescriptor={setEditBandDescriptor}
+
+                              saveBand={saveBand}
+                              startEditingBand={startEditingBand}
+                              saveBandEdit={saveBandEdit}
+                              removeBand={removeBand}
+                            />
+
+
+                          </article>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
-              )}
-            </section>
-          </>
+              </div>
+            )}
+          </AssignmentWorkspaceShell>
         )}
       </section>
 
-      {editingAssignmentId && (() => {
-        const assignment = assignments.find(
-          (item) => item.id === editingAssignmentId,
-        );
+      <AssignmentManagementModals
+        assignments={assignments}
+        editingAssignmentId={editingAssignmentId}
+        deleteAssignmentId={deleteAssignmentId}
 
-        if (!assignment) return null;
+        editCode={editCode}
+        editMaximumScore={editMaximumScore}
+        editMinimumPassScore={editMinimumPassScore}
+        editIsSummative={editIsSummative}
+        editContributesToFinalMark={editContributesToFinalMark}
+        editFinalMarkWeight={editFinalMarkWeight}
+        editIsActive={editIsActive}
 
-        return (
-          <div className="config-modal-backdrop">
-            <div className="config-modal">
-              <div className="config-modal-header">
-                <div>
-                  <h3>Edit Assignment</h3>
-                  <p className="section-description">
-                    {assignment.qualification_code} → {assignment.module_code}
-                  </p>
-                </div>
+        isSavingAssignmentEdit={isSavingAssignmentEdit}
 
-                <button
-                  type="button"
-                  className="config-modal-close"
-                  onClick={closeAssignmentEdit}
-                  disabled={isSavingAssignmentEdit}
-                >
-                  <X size={20} />
-                </button>
-              </div>
+        deleteImpact={deleteImpact}
+        isCheckingDeleteImpact={isCheckingDeleteImpact}
+        isDeletingAssignment={isDeletingAssignment}
 
-              <form
-                className="modern-form"
-                onSubmit={(event) =>
-                  void saveAssignmentEdit(event, assignment)
-                }
-              >
-                <div className="form-grid form-grid-2">
-                  <div className="form-group">
-                    <label>Qualification</label>
-                    <input
-                      value={assignment.qualification_code}
-                      disabled
-                    />
-                  </div>
+        setEditCode={setEditCode}
+        setEditMaximumScore={setEditMaximumScore}
+        setEditMinimumPassScore={setEditMinimumPassScore}
+        setEditIsSummative={setEditIsSummative}
+        setEditContributesToFinalMark={setEditContributesToFinalMark}
+        setEditFinalMarkWeight={setEditFinalMarkWeight}
+        setEditIsActive={setEditIsActive}
 
-                  <div className="form-group">
-                    <label>Module</label>
-                    <input
-                      value={assignment.module_code}
-                      disabled
-                    />
-                  </div>
+        closeAssignmentEdit={closeAssignmentEdit}
+        closeAssignmentDelete={closeAssignmentDelete}
 
-                  <div className="form-group">
-                    <label htmlFor="edit-assignment-code">
-                      Code
-                    </label>
-                    <input
-                      id="edit-assignment-code"
-                      value={editCode}
-                      onChange={(event) =>
-                        setEditCode(event.target.value)
-                      }
-                      required
-                    />
-                  </div>
+        saveAssignmentEdit={saveAssignmentEdit}
+        confirmAssignmentDelete={confirmAssignmentDelete}
+      />
 
-                  <div className="form-group">
-                    <label htmlFor="edit-maximum-score">
-                      Maximum score
-                    </label>
-                    <input
-                      id="edit-maximum-score"
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={editMaximumScore}
-                      onChange={(event) =>
-                        setEditMaximumScore(event.target.value)
-                      }
-                      required
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label htmlFor="edit-minimum-pass-score">
-                      Minimum pass score
-                    </label>
-                    <input
-                      id="edit-minimum-pass-score"
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={editMinimumPassScore}
-                      onChange={(event) =>
-                        setEditMinimumPassScore(event.target.value)
-                      }
-                      required
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label htmlFor="edit-final-mark-weight">
-                      Final mark weight
-                    </label>
-                    <input
-                      id="edit-final-mark-weight"
-                      type="number"
-                      min="0"
-                      max="100"
-                      step="0.01"
-                      value={editFinalMarkWeight}
-                      onChange={(event) =>
-                        setEditFinalMarkWeight(event.target.value)
-                      }
-                      disabled={!editContributesToFinalMark}
-                      required={editContributesToFinalMark}
-                    />
-                  </div>
-                </div>
-
-                <div className="checkbox-row">
-                  <label className="checkbox-group">
-                    <input
-                      type="checkbox"
-                      checked={editIsSummative}
-                      onChange={(event) =>
-                        setEditIsSummative(event.target.checked)
-                      }
-                    />
-                    Summative
-                  </label>
-
-                  <label className="checkbox-group">
-                    <input
-                      type="checkbox"
-                      checked={editContributesToFinalMark}
-                      onChange={(event) => {
-                        const checked = event.target.checked;
-                        setEditContributesToFinalMark(checked);
-
-                        if (!checked) {
-                          setEditFinalMarkWeight("0");
-                        } else if (
-                          Number(editFinalMarkWeight) <= 0
-                        ) {
-                          setEditFinalMarkWeight(
-                            assignment.final_mark_weight || "100",
-                          );
-                        }
-                      }}
-                    />
-                    Contributes to final mark
-                  </label>
-
-                  <label className="checkbox-group">
-                    <input
-                      type="checkbox"
-                      checked={editIsActive}
-                      onChange={(event) =>
-                        setEditIsActive(event.target.checked)
-                      }
-                    />
-                    Active
-                  </label>
-                </div>
-
-                <div className="form-actions">
-                  <button
-                    type="button"
-                    className="btn-secondary"
-                    onClick={closeAssignmentEdit}
-                    disabled={isSavingAssignmentEdit}
-                  >
-                    Cancel
-                  </button>
-
-                  <button
-                    type="submit"
-                    className="btn-primary"
-                    disabled={
-                      isSavingAssignmentEdit ||
-                      !editCode.trim()
-                    }
-                  >
-                    {isSavingAssignmentEdit
-                      ? "Saving..."
-                      : "Save Assignment"}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        );
-      })()}
-
-      {deleteAssignmentId && (
-        <div className="config-modal-backdrop">
-          <div className="config-modal assignment-delete-modal">
-            <div className="config-modal-header">
-              <div>
-                <h3>Delete Assignment?</h3>
-                <p className="section-description">
-                  {assignments.find(
-                    (assignment) =>
-                      assignment.id === deleteAssignmentId,
-                  )?.assignment_code}
-                </p>
-              </div>
-
-              <button
-                type="button"
-                className="config-modal-close"
-                onClick={closeAssignmentDelete}
-                disabled={isDeletingAssignment}
-              >
-                <X size={20} />
-              </button>
-            </div>
-
-            {isCheckingDeleteImpact || !deleteImpact ? (
-              <p>Checking assignment dependencies...</p>
-            ) : !deleteImpact.can_delete ? (
-              <>
-                <div className="delete-warning-block">
-                  <strong>This assignment cannot be deleted.</strong>
-                  <p>
-                    It is currently tied to LMS or learner submission
-                    records. Remove those dependencies first.
-                  </p>
-                </div>
-
-                <div className="delete-impact-list">
-                  {deleteImpact.blockers.assessment_mappings.length > 0 && (
-                    <div>
-                      <strong>
-                        LMS assessment mappings (
-                        {deleteImpact.blockers.assessment_mappings.length})
-                      </strong>
-                      <ul>
-                        {deleteImpact.blockers.assessment_mappings.map(
-                          (mapping) => (
-                            <li key={mapping.id}>
-                              {mapping.name} — {mapping.cohort}
-                            </li>
-                          ),
-                        )}
-                      </ul>
-                    </div>
-                  )}
-
-                  {deleteImpact.blockers.submissions > 0 && (
-                    <div>
-                      <strong>
-                        Learner submissions:{" "}
-                        {deleteImpact.blockers.submissions}
-                      </strong>
-                      <p className="table-subtext">
-                        Submission history is protected and will never
-                        be silently deleted.
-                      </p>
-                    </div>
-                  )}
-                </div>
-
-                <div className="form-actions">
-                  <button
-                    type="button"
-                    className="btn-secondary"
-                    onClick={closeAssignmentDelete}
-                  >
-                    Close
-                  </button>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="delete-warning-block">
-                  <strong>This action is permanent.</strong>
-                  <p>
-                    The assignment has no LMS mapping or learner
-                    submission blockers. Its unused configuration
-                    records below will also be removed.
-                  </p>
-                </div>
-
-                <div className="delete-impact-grid">
-                  <div>
-                    <span>Submission levels</span>
-                    <strong>
-                      {deleteImpact.affected.assignment_levels}
-                    </strong>
-                  </div>
-                  <div>
-                    <span>Tasks</span>
-                    <strong>{deleteImpact.affected.tasks}</strong>
-                  </div>
-                  <div>
-                    <span>Rubric criteria</span>
-                    <strong>
-                      {deleteImpact.affected.rubric_criteria}
-                    </strong>
-                  </div>
-                  <div>
-                    <span>Rubric bands</span>
-                    <strong>
-                      {deleteImpact.affected.rubric_bands}
-                    </strong>
-                  </div>
-                  <div>
-                    <span>Task mappings</span>
-                    <strong>
-                      {deleteImpact.affected.task_criteria_mappings}
-                    </strong>
-                  </div>
-                  <div>
-                    <span>Empty submission contexts</span>
-                    <strong>
-                      {deleteImpact.affected.submission_contexts}
-                    </strong>
-                  </div>
-                </div>
-
-                <div className="form-actions">
-                  <button
-                    type="button"
-                    className="btn-secondary"
-                    onClick={closeAssignmentDelete}
-                    disabled={isDeletingAssignment}
-                  >
-                    Cancel
-                  </button>
-
-                  <button
-                    type="button"
-                    className="btn-table btn-table-danger"
-                    onClick={() => void confirmAssignmentDelete()}
-                    disabled={isDeletingAssignment}
-                  >
-                    {isDeletingAssignment
-                      ? "Deleting..."
-                      : "Delete Assignment"}
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      )}
-
-    </main>
+    </main >
   );
 }

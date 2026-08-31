@@ -118,13 +118,6 @@ export type AdminSubmissionAssignment = {
   title: string;
   unique_learners: number;
   total_attempts: number;
-  latest_result_counts?: {
-    failed: number;
-    foundation: number;
-    proficient_basic: number;
-    proficient_advanced: number;
-    expert: number;
-  };
   learners: AdminSubmissionLearner[];
 };
 

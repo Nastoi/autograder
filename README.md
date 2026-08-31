@@ -1,134 +1,129 @@
-# Autograder
+# AutoGrad3r
 
-This repository contains the Django-based auto-grader backend and frontend for assessment workflows. The current implementation includes submission intake, learner authentication, course and assignment models, and a placeholder mock grading pipeline.
+AutoGrad3r is a Django and React application for managing assessment configuration, learner submissions, rubric-based grading, and LMS integration.
 
-## New auto-grader design
+## Repository Structure
 
-The auto-grader uses a fixed master assessor prompt combined with dynamically supplied structured data from Django.
+```text
+autograder/
+├── backend/
+│   ├── accounts/          # Authentication, users, roles, activity/log-related endpoints
+│   ├── config/            # Django project settings and root configuration
+│   ├── courses/           # Qualifications, modules, cohorts, assignments, assignment levels
+│   ├── grading/           # Rubrics, bands, tasks, task-to-criterion mappings, grading services
+│   ├── lms/               # LMS / LTI 1.3 integration and assessment mappings
+│   ├── prompts/           # Prompt templates used by grading services
+│   ├── submissions/       # Submission contexts, attempts, processing, records, history
+│   └── manage.py
+├── frontend/
+│   ├── src/
+│   │   ├── api/           # Domain-based frontend API clients
+│   │   ├── components/    # Shared and feature components
+│   │   ├── css/           # Shared and page-specific styles
+│   │   └── pages/         # Application pages
+│   └── package.json
+├── docs/
+│   ├── ARCHITECTURE.md
+│   ├── DATABASE.md
+│   ├── DEPLOYMENT.md
+│   └── TEAM_SETUP.md
+├── compose.yaml
+├── .env.example
+└── README.md
+```
 
-Implemented components:
-- `backend/prompts/assessor_system_prompt.txt`
-- `backend/prompts/criterion_assessment_prompt.txt`
-- `backend/grading/services/prompt_builder.py`
-- `backend/grading/services/openai_client.py`
-- `backend/grading/services/criterion_assessor.py`
-- AI grading integration in `backend/submissions/views.py`
-- AI grading workflow in `backend/submissions/services.py`
+## Main Backend Domains
 
-This design ensures consistent grading behavior across assignments and avoids free-form prompt drift.
+- **accounts** — authentication, users, roles and account-related activity.
+- **courses** — qualifications, modules, cohorts, assignments and assignment levels.
+- **grading** — rubric criteria, rubric bands, tasks, task-to-criterion mappings and grading logic.
+- **submissions** — learner submission contexts, attempts, processing, grading results and history.
+- **lms** — Open edX / LTI 1.3 integration, assessment mappings, instructor-facing LMS actions and grade-related integration.
 
-## Implementation overview
+Backend `views.py` files act as stable facades and re-export views from each app's `view_handlers/` package.
 
-### 1. Fixed master assessor prompt
-A stable system prompt is stored in `backend/prompts/assessor_system_prompt.txt`.
+## Main Frontend API Modules
 
-The system prompt defines:
-- evidence-only assessment rules
-- fair and consistent assessor behavior
-- BASIC vs ADVANCED assignment scoring rules
-- forbidden learner instructions
-- strict JSON output requirements
-- criterion-level grading procedure
+The frontend API layer is split by domain instead of using one large LMS API file.
 
-### 2. Dynamic rubric and evidence prompt
-A user prompt template is stored in `backend/prompts/criterion_assessment_prompt.txt`.
+```text
+frontend/src/api/
+├── assessmentMappings.ts
+├── courses.ts
+├── grading.ts
+├── instructor.ts
+├── submissions.ts
+├── taskCriteriaMappings.ts
+├── adminSubmissionRecords.ts
+└── utils.ts
+```
 
-Django populates this template with:
-- assignment metadata
-- task instructions
-- criterion requirements
-- rubric descriptors and score bands
-- deterministic check results
-- learner evidence payloads
-- assessor guidance
-- output JSON schema
+## Local Development
 
-### 3. One-criterion-per-request grading
-The current implementation grades one rubric criterion per AI request.
-This reduces hallucination and makes evidence mapping deterministic.
+Create the environment file:
 
-### 4. Structured evidence payloads
-Evidence is sent as structured records with stable IDs.
-Current proof-of-concept evidence includes `FILE_METADATA` and deterministic check records.
+```bash
+cp .env.example .env
+```
 
-### 5. Deterministic checks
-The workflow includes deterministic check payloads such as `DC_FILE_EXISTS`.
-These are treated as formal evidence in the prompt.
+Build and start the application:
 
-### 6. Backend validation and persistence
-The prompt builder renders JSON payloads and the AI client requests grading from OpenAI.
-The response is currently mapped into submission fields in `backend/submissions/services.py`.
+```bash
+docker compose up -d --build
+```
 
-The Django service saves:
-- `final_score`
-- `maximum_score`
-- `achieved_band`
-- `feedback`
-- status updates and timestamps
+Apply migrations:
 
-## Assignment types and valid achievement levels
+```bash
+docker compose exec backend python manage.py migrate
+```
 
-- BASIC: `FAILED`, `FOUNDATION`, `PROFICIENT`
-- ADVANCED: `FAILED`, `PROFICIENT`, `EXPERT`
+Check the backend:
 
-The assessor prompt enforces:
-- no `EXPERT` for BASIC assignments
-- no `FOUNDATION` for ADVANCED assignments
+```bash
+docker compose exec backend python manage.py check
+```
 
-## Current status
+Build the frontend:
 
-Completed:
-- stable system prompt file
-- criterion assessment prompt template
-- prompt builder service
-- OpenAI-assessment client
-- criterion assessor orchestration
-- submission grading route wiring
+```bash
+cd frontend
+npm run build
+```
 
-Work in progress:
-- schema validation of AI responses in `backend/grading/services/schemas.py`
-- robust evidence extraction from uploaded files
-- human-review fallback for uncertain results
-- full audit metadata and versioning
+Use the ports configured in `compose.yaml` and the environment files for the actual local URLs.
 
-## Next implementation steps
+## Development Checks
 
-1. Add strict AI response validation in `backend/grading/services/schemas.py`
-2. Implement robust evidence extraction for uploaded assignments
-3. Add human-review and uncertainty routing for low-confidence grades
-4. Expand deterministic checks for assignment-specific requirements
-5. Store prompt and rubric versions with each graded submission
+Before committing backend changes:
 
-## How to test the AI grading flow
+```bash
+docker compose exec backend python manage.py check
+```
 
-1. Set environment variables:
-   - `OPENAI_API_KEY` with a valid OpenAI key.
-   - `OPENAI_API_MODEL` optionally, e.g. `gpt-4o-mini`.
+If models changed:
 
-2. Start the backend from the `autograder` root:
-   - `docker compose up -d --build`
+```bash
+docker compose exec backend python manage.py makemigrations
+docker compose exec backend python manage.py migrate
+```
 
-3. Create or use an existing learner account and assignment context.
+Before committing frontend changes:
 
-4. Submit a file to the learner submission endpoint:
-   - POST to `/api/submissions/<context_id>/` with `submitted_file` as multipart form-data.
+```bash
+cd frontend
+npm run build
+```
 
-5. Confirm the submission completes and the response contains:
-   - `final_score`
-   - `maximum_score`
-   - `achieved_band`
-   - `feedback`
-   - `status` set to `COMPLETED`
+## Documentation
 
-6. Check the backend logs for any OpenAI request or JSON parsing errors.
+- [Architecture](docs/ARCHITECTURE.md)
+- [Database](docs/DATABASE.md)
+- [Deployment](docs/DEPLOYMENT.md)
+- [Team setup and Git workflow](docs/TEAM_SETUP.md)
 
-7. If grading fails, verify:
-   - `OPENAI_API_KEY` is correct
-   - the backend can reach the OpenAI API
-   - the prompt templates are present under `backend/prompts`
+## Source of Truth
 
-## What this README change provides
+Code, Django models, migrations, URL configuration and environment templates are the source of truth.
 
-This README now documents the actual implemented grading flow and the next work needed to complete a production-ready AI-assisted auto-grader.
-
-Use this as the source of truth for backend grading development.
+Documentation should describe the current implementation and should not be treated as a substitute for checking the code when behavior changes.

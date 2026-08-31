@@ -38,7 +38,7 @@ import {
   type Module,
   type Qualification,
   type QualificationDeleteImpact,
-} from "../api/lms";
+} from "../api/courses";
 
 import { AuditTrailButton } from "../components/AuditTrailButton";
 import { RecentDeletedAuditButton } from "../components/RecentDeletedAuditButton";

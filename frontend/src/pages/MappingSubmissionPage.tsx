@@ -19,21 +19,23 @@ import {
   createInstructorGradeOverride,
   downloadInstructorSubmission,
   getInstructorMappingDashboard,
-  getMappingSubmissionContext,
   syncInstructorMappingDueDate,
+  updateInstructorResultVisibility,
   type InstructorMappingAttempt,
   type InstructorMappingDashboard,
   type InstructorMappingLearner,
-  type MappingSubmissionContext,
-} from "../api/lms";
+} from "../api/instructor";
 
 import {
+  getMappingSubmissionContext,
   getMappingSubmissionHistory,
   resolveMappingContext,
   submitAssignment,
   type AttemptPolicy,
+  type MappingSubmissionContext,
   type Submission,
 } from "../api/submissions";
+
 
 import { jsPDF } from "jspdf";
 
@@ -41,15 +43,11 @@ import { jsPDF } from "jspdf";
 
 type SubmissionTrack = "basic" | "advanced";
 
-// Keep learner grading results hidden until you intentionally release them.
-// Change this to true only when learners are allowed to see grades/feedback.
-// IMPORTANT: Keep false until learner grades/feedback are officially released.
-// While false, learners with a submission see only the holding message below.
-const SHOW_LEARNER_RESULTS = false;
 
 export function MappingSubmissionPage() {
   const [attempts, setAttempts] = useState<Submission[]>([]);
-  const [attemptPolicy, setAttemptPolicy] = useState<AttemptPolicy | null>(null);
+  const [, setAttemptPolicy] =
+    useState<AttemptPolicy | null>(null);
   const { mappingId } = useParams();
 
   const [context, setContext] =
@@ -73,6 +71,8 @@ export function MappingSubmissionPage() {
     useState<InstructorMappingDashboard | null>(null);
   const [isLoadingInstructor, setIsLoadingInstructor] = useState(false);
   const [instructorError, setInstructorError] = useState("");
+  const [isUpdatingResultVisibility, setIsUpdatingResultVisibility] =
+    useState(false);
   const [expandedInstructorLearners, setExpandedInstructorLearners] =
     useState<string[]>([]);
   const [overrideTarget, setOverrideTarget] = useState<{
@@ -259,23 +259,23 @@ export function MappingSubmissionPage() {
         setContext((current) =>
           current
             ? {
-                ...current,
-                due_date: synced.due_date,
-                deadline_passed: synced.deadline_passed,
-              }
+              ...current,
+              due_date: synced.due_date,
+              deadline_passed: synced.deadline_passed,
+            }
             : current,
         );
 
         setInstructorData((current) =>
           current
             ? {
-                ...current,
-                mapping: {
-                  ...current.mapping,
-                  due_date: synced.due_date,
-                  deadline_passed: synced.deadline_passed,
-                },
-              }
+              ...current,
+              mapping: {
+                ...current.mapping,
+                due_date: synced.due_date,
+                deadline_passed: synced.deadline_passed,
+              },
+            }
             : current,
         );
       } catch (caughtError) {
@@ -288,22 +288,6 @@ export function MappingSubmissionPage() {
           caughtError,
         );
 
-        const errorMessage =
-          caughtError instanceof Error
-            ? caughtError.message
-            : "";
-
-        const isLmsSessionError =
-          errorMessage.toLowerCase().includes("anonymous users") ||
-          errorMessage.toLowerCase().includes("permission") ||
-          errorMessage.includes("401") ||
-          errorMessage.includes("403");
-
-        setInstructorError(
-          isLmsSessionError
-            ? "Unable to refresh the LMS due date. The last saved due date is being shown. Please reopen this assignment from the LMS. If the issue continues, sign out of the LMS and sign in again, then reopen the assignment. Avoid using a private/incognito window and make sure your browser allows cookies for the LMS."
-            : "Unable to refresh the LMS due date. The last saved due date is being shown. Please try reopening this assignment from the LMS.",
-        );
       }
     }
 
@@ -386,7 +370,7 @@ export function MappingSubmissionPage() {
         }
 
         setInstructorData(result);
-    
+
         // Keep all learner cards closed initially so the instructor
         // can scan the learner list and open only the learner needed.
         setExpandedInstructorLearners([]);
@@ -586,7 +570,7 @@ export function MappingSubmissionPage() {
     validateFile(file);
   }
 
-  
+
 
   function formatInstructorDate(value: string | null) {
     if (!value) return "—";
@@ -621,6 +605,54 @@ export function MappingSubmissionPage() {
     return `${percentage.toFixed(2)} / 100`;
   }
 
+  async function handleResultVisibilityChange(
+    showResultToLearner: boolean,
+  ) {
+    if (!mappingId) {
+      setInstructorError("Assessment mapping is missing.");
+      return;
+    }
+
+    setInstructorError("");
+    setIsUpdatingResultVisibility(true);
+
+    try {
+      await updateInstructorResultVisibility(
+        mappingId,
+        showResultToLearner,
+      );
+
+      setContext((current) =>
+        current
+          ? {
+            ...current,
+            show_result_to_learner: showResultToLearner,
+          }
+          : current,
+      );
+
+      setInstructorData((current) =>
+        current
+          ? {
+            ...current,
+            mapping: {
+              ...current.mapping,
+              show_result_to_learner: showResultToLearner,
+            },
+          }
+          : current,
+      );
+    } catch (caughtError) {
+      setInstructorError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Unable to update learner result visibility.",
+      );
+    } finally {
+      setIsUpdatingResultVisibility(false);
+    }
+  }
+
   async function handleInstructorSubmissionDownload(
     submissionId: string,
     filename: string,
@@ -647,7 +679,7 @@ export function MappingSubmissionPage() {
     }
   }
 
-  
+
 
   function getOverrideCriteria(attempt: InstructorMappingAttempt) {
     if (attempt.criterion_results.length > 0) {
@@ -1128,11 +1160,11 @@ export function MappingSubmissionPage() {
           </div>
         )} */}
 
-           
+
 
             <div className="new-attempt-heading">
               <h2>
-                {!SHOW_LEARNER_RESULTS
+                {!context.show_result_to_learner
                   ? "Submit Assignment"
                   : latestAttemptFailed
                     ? "Resubmit Assignment"
@@ -1142,7 +1174,7 @@ export function MappingSubmissionPage() {
               </h2>
 
               <p>
-                {SHOW_LEARNER_RESULTS && latestAttemptFailed
+                {context.show_result_to_learner && latestAttemptFailed
                   ? "Your latest graded attempt was Failed. Review the feedback, make your changes, then upload a revised submission."
                   : "Choose the submission track and upload your completed assignment."}
               </p>
@@ -1169,7 +1201,7 @@ export function MappingSubmissionPage() {
                   : "Submit Assignment"} */}
 
 
-            {SHOW_LEARNER_RESULTS && latestAttemptFailed && (
+            {context.show_result_to_learner && latestAttemptFailed && (
               <div className="grading-wait-message">
                 <strong>
                   Your latest result is Failed.
@@ -1386,12 +1418,12 @@ export function MappingSubmissionPage() {
                     //   ? "No Attempts Remaining"
                     //   : 
                     deadlinePassed
-                        ? "Deadline Passed"
-                        : isWaitingForGrading
+                      ? "Deadline Passed"
+                      : isWaitingForGrading
                         ? "Waiting for Grading"
                         : isSubmitting
                           ? "Submitting..."
-                          : !SHOW_LEARNER_RESULTS
+                          : !context.show_result_to_learner
                             ? "Submit Assignment"
                             : latestAttemptFailed
                               ? "Resubmit Assignment"
@@ -1402,7 +1434,7 @@ export function MappingSubmissionPage() {
               </div>
             </form>
 
-            {!SHOW_LEARNER_RESULTS && attempts.length > 0 && (
+            {!context.show_result_to_learner && attempts.length > 0 && (
               <div className="grading-wait-message">
                 <strong>Submission received.</strong>
                 <p>
@@ -1412,7 +1444,7 @@ export function MappingSubmissionPage() {
               </div>
             )}
 
-            {SHOW_LEARNER_RESULTS && attempts.length > 0 && (
+            {context.show_result_to_learner && attempts.length > 0 && (
               <section className="latest-result">
                 <div className="latest-result-heading">
                   <div>
@@ -1591,7 +1623,7 @@ export function MappingSubmissionPage() {
 
 
 
-            {SHOW_LEARNER_RESULTS && attempts.length > 1 && (
+            {context.show_result_to_learner && attempts.length > 1 && (
               <section
                 className="submission-history"
                 aria-label="Previous submission attempts"
@@ -1735,6 +1767,47 @@ export function MappingSubmissionPage() {
                   </p>
                 )}
 
+                <div
+                  className="content-card"
+                  style={{
+                    padding: "18px 20px",
+                    marginBottom: "20px",
+                  }}
+                >
+                  <label
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "10px",
+                      cursor: isUpdatingResultVisibility
+                        ? "default"
+                        : "pointer",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={context.show_result_to_learner}
+                      onChange={(event) =>
+                        void handleResultVisibilityChange(
+                          event.target.checked,
+                        )
+                      }
+                      disabled={isUpdatingResultVisibility}
+                    />
+
+                    <strong>
+                      Show grading result to learner
+                    </strong>
+                  </label>
+
+                  <p
+                    className="table-subtext"
+                    style={{ marginTop: "6px" }}
+                  >
+                    When enabled, learners can view their grading result
+                    and feedback for this assignment.
+                  </p>
+                </div>
 
                 <section className="submission-record-metrics">
                   <div className="submission-record-metric">
@@ -1764,7 +1837,7 @@ export function MappingSubmissionPage() {
                     </strong>
                   </div>
 
-                  
+
                 </section>
 
                 <section className="submission-record-list">
@@ -1887,21 +1960,21 @@ export function MappingSubmissionPage() {
                                                 attempt.criterion_results.length > 0 ||
                                                 (attempt.configured_criteria?.length ?? 0) > 0
                                               ) && (
-                                                <button
-                                                  type="button"
-                                                  className="btn-action"
-                                                  onClick={() =>
-                                                    openInstructorOverride(
-                                                      learner,
-                                                      attempt,
-                                                    )
-                                                  }
-                                                >
-                                                  {attempt.status === "completed"
-                                                    ? "Override"
-                                                    : "Manual Review"}
-                                                </button>
-                                              )}
+                                                  <button
+                                                    type="button"
+                                                    className="btn-action"
+                                                    onClick={() =>
+                                                      openInstructorOverride(
+                                                        learner,
+                                                        attempt,
+                                                      )
+                                                    }
+                                                  >
+                                                    {attempt.status === "completed"
+                                                      ? "Override"
+                                                      : "Manual Review"}
+                                                  </button>
+                                                )}
                                             </div>
                                           ) : (
                                             <span>—</span>
@@ -2049,16 +2122,16 @@ export function MappingSubmissionPage() {
                                                     {attempt.grading_audit.scoring_snapshot
                                                       .overall_percentage !== undefined
                                                       ? `(${Number(
-                                                          attempt.grading_audit.scoring_snapshot
-                                                            .overall_percentage,
-                                                        ).toFixed(2)}%)`
+                                                        attempt.grading_audit.scoring_snapshot
+                                                          .overall_percentage,
+                                                      ).toFixed(2)}%)`
                                                       : ""}
                                                   </p>
                                                 </div>
                                               </details>
                                             )}
 
-                                            
+
                                           </div>
                                         </td>
                                       </tr>
@@ -2125,7 +2198,7 @@ export function MappingSubmissionPage() {
               <strong>
                 {overrideTarget.attempt.achieved_band
                   ? overrideTarget.attempt.achieved_band.charAt(0).toUpperCase() +
-                    overrideTarget.attempt.achieved_band.slice(1)
+                  overrideTarget.attempt.achieved_band.slice(1)
                   : "—"}
               </strong>
             </div>

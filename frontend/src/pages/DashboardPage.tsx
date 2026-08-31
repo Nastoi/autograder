@@ -13,11 +13,14 @@ import "../css/QualificationsPage.css"; // Import for modern layout classes
 
 import {
   getAssessmentMappings,
+} from "../api/assessmentMappings";
+
+import {
   getCohorts,
   getModuleAssignments,
   getModules,
   getQualifications,
-} from "../api/lms";
+} from "../api/courses";
 
 export function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true);

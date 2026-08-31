@@ -1,32 +1,18 @@
 from django.urls import path
 
 from .views import (
-    AIGradingProfileDetailView,
-    AIGradingProfileListCreateView,
-    CriterionResultDetailView,
-    CriterionResultListCreateView,
     ExtractedEvidenceDetailView,
     ExtractedEvidenceListCreateView,
     GradingConfigurationDetailView,
     GradingConfigurationListCreateView,
-    PromptDetailView,
-    PromptListCreateView,
-    ResponseDetailView,
-    ResponseListCreateView,
     RubricBandDetailView,
     RubricBandListCreateView,
     RubricCriterionDetailView,
     RubricCriterionListCreateView,
     TaskCriteriaMappingDetailView,
     TaskCriteriaMappingListCreateView,
-    TaskCriterionWeightDetailView,
-    TaskCriterionWeightListCreateView,
     TaskDetailView,
     TaskListCreateView,
-    TaskEvidenceMapDetailView,
-    TaskEvidenceMapListCreateView,
-    TaskMappingProcessView,
-    Gpt4oDispatchView,
     AssignmentLevelConfigurationCsvImportView,
 )
 
@@ -62,16 +48,6 @@ urlpatterns = [
         name="rubric-band-detail",
     ),
     path(
-        "ai-grading-profiles/",
-        AIGradingProfileListCreateView.as_view(),
-        name="ai-grading-profile-list-create",
-    ),
-    path(
-        "ai-grading-profiles/<uuid:id>/",
-        AIGradingProfileDetailView.as_view(),
-        name="ai-grading-profile-detail",
-    ),
-    path(
         "tasks/",
         TaskListCreateView.as_view(),
         name="task-list-create",
@@ -80,16 +56,6 @@ urlpatterns = [
         "tasks/<uuid:id>/",
         TaskDetailView.as_view(),
         name="task-detail",
-    ),
-    path(
-        "task-criterion-weights/",
-        TaskCriterionWeightListCreateView.as_view(),
-        name="task-criterion-weight-list-create",
-    ),
-    path(
-        "task-criterion-weights/<uuid:id>/",
-        TaskCriterionWeightDetailView.as_view(),
-        name="task-criterion-weight-detail",
     ),
     path(
         "task-criteria-mappings/",
@@ -112,58 +78,8 @@ urlpatterns = [
         name="extracted-evidence-detail",
     ),
     path(
-        "task-evidence-maps/",
-        TaskEvidenceMapListCreateView.as_view(),
-        name="task-evidence-map-list-create",
-    ),
-    path(
-        "task-evidence-maps/<uuid:id>/",
-        TaskEvidenceMapDetailView.as_view(),
-        name="task-evidence-map-detail",
-    ),
-    path(
-        "prompts/",
-        PromptListCreateView.as_view(),
-        name="prompt-list-create",
-    ),
-    path(
-        "prompts/<uuid:id>/",
-        PromptDetailView.as_view(),
-        name="prompt-detail",
-    ),
-    path(
-        "responses/",
-        ResponseListCreateView.as_view(),
-        name="response-list-create",
-    ),
-    path(
-        "responses/<uuid:id>/",
-        ResponseDetailView.as_view(),
-        name="response-detail",
-    ),
-    path(
-        "criterion-results/",
-        CriterionResultListCreateView.as_view(),
-        name="criterion-result-list-create",
-    ),
-    path(
-        "criterion-results/<uuid:id>/",
-        CriterionResultDetailView.as_view(),
-        name="criterion-result-detail",
-    ),
-    path(
         "assignment-levels/<uuid:assignment_level_id>/import-csv/",
         AssignmentLevelConfigurationCsvImportView.as_view(),
         name="assignment-level-configuration-import-csv",
-    ),
-    path(
-        "map-tasks-page/",
-        TaskMappingProcessView.as_view(),
-        name="task-mapping-process",
-    ),
-    path(
-        "gpt4o-dispatch/", 
-        Gpt4oDispatchView.as_view(), 
-        name="gpt4o-dispatch"
     ),
 ]

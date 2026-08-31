@@ -1,0 +1,131 @@
+@media (max-width: 900px) {
+  .assignment-workspace-modal {
+    inset: 2vh 2vw;
+    height: 96vh;
+  }
+}
+
+.assignment-workspace-header {
+  margin: 0;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border);
+}
+
+.level-card {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 18px;
+
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+
+  background: var(--bg-surface);
+}
+
+.level-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.level-card-header h3 {
+  margin: 3px 0 0;
+}
+
+.rubric-section + .rubric-section {
+  padding-top: 28px;
+  border-top: 1px solid var(--border);
+}
+
+.assignment-workspace-modal {
+  position: fixed;
+  inset: 4vh 3vw;
+  width: auto;
+  height: 92vh;
+  margin: 0;
+  z-index: 9999;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-surface);
+}
+
+.assignment-workspace-modal .assignment-workspace-header {
+  flex: 0 0 auto;
+}
+
+.assignment-workspace-modal .workspace-tabs {
+  flex: 0 0 auto;
+}
+
+.assignment-workspace-modal .workspace-panel {
+  flex: 1 1 auto;
+  overflow-y: auto;
+}
+
+.level-config-item.expanded .level-card {
+  width: 100%;
+}
+
+.level-rubric-section {
+  margin-top: 30px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+}
+
+
+
+/* Assignment delete impact modal */
+.assignment-delete-modal {
+  width: min(720px, 100%);
+}
+
+.delete-warning-block {
+  margin-bottom: 18px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: #f8fafc;
+}
+
+.delete-warning-block p {
+  margin: 6px 0 0;
+}
+
+
+
+.delete-impact-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.delete-impact-grid > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.delete-impact-grid span {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.delete-impact-grid strong {
+  font-size: 20px;
+}
+
+@media (max-width: 700px) {
+  .delete-impact-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}

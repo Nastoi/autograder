@@ -6,6 +6,10 @@ from django.db import models
 
 
 class AssessmentMapping(models.Model):
+
+    show_result_to_learner = models.BooleanField(default=True)
+
+    
     id = models.UUIDField(
         primary_key=True,
         default=uuid.uuid4,

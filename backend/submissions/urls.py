@@ -11,6 +11,7 @@ from .views import (
     SubmissionDetailView,
     MappingSubmissionContextView,
     MappingSubmissionHistoryView,
+    SaPrReportView,
 )
 
 app_name = "submissions"
@@ -60,7 +61,12 @@ urlpatterns = [
         MappingSubmissionHistoryView.as_view(),
         name="mapping-submission-history",
     ),
-
+    path(
+        "reports/sa-pr/",
+        SaPrReportView.as_view(),
+        name="sa-pr-report",
+    ),
+    
     # 2. Router Fallback (POST / and ViewSet actions like /<pk>/grade/)
     path("", include(router.urls)),
 ]

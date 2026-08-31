@@ -19,21 +19,24 @@ import {
 
 import {
   createCohort,
-  getAssessmentMappings,
   getCohorts,
   getModules,
   getQualifications,
-  type AssessmentMapping,
   deleteCohort,
   getCohortDeleteImpact,
   updateCohort,
-  updateAssessmentMapping,
-  deleteAssessmentMapping,
   type CohortDeleteImpact,
   type Cohort,
   type Module,
   type Qualification,
-} from "../api/lms";
+} from "../api/courses";
+
+import {
+  getAssessmentMappings,
+  updateAssessmentMapping,
+  deleteAssessmentMapping,
+  type AssessmentMapping,
+} from "../api/assessmentMappings";
 
 import "../css/AssessmentMappings.css";
 import "../css/QualificationsPage.css"; // For modern UI classes
@@ -455,8 +458,8 @@ export function CohortsPage() {
     if (updatedTotal > 100.0001) {
       setMappingError(
         `Cannot save ${numericWeight.toFixed(2)}%. ` +
-          `The cohort total would become ${updatedTotal.toFixed(2)}%. ` +
-          "Final mark allocation cannot exceed 100%.",
+        `The cohort total would become ${updatedTotal.toFixed(2)}%. ` +
+        "Final mark allocation cannot exceed 100%.",
       );
       return;
     }
@@ -481,6 +484,39 @@ export function CohortsPage() {
       setIsSavingMappingWeight(false);
     }
   }
+
+
+  async function toggleLearnerResultVisibility(
+    mapping: AssessmentMapping,
+  ) {
+    setMappingError("");
+
+    try {
+      await updateAssessmentMapping(mapping.id, {
+        show_result_to_learner:
+          !mapping.show_result_to_learner,
+      });
+
+      setMappings((current) =>
+        current.map((item) =>
+          item.id === mapping.id
+            ? {
+              ...item,
+              show_result_to_learner:
+                !mapping.show_result_to_learner,
+            }
+            : item,
+        ),
+      );
+    } catch (caughtError) {
+      setMappingError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Unable to update learner result visibility.",
+      );
+    }
+  }
+
 
   async function unassignAssessment(
     mapping: AssessmentMapping,
@@ -1034,7 +1070,7 @@ export function CohortsPage() {
                 </button>
               </div>
 
-            {selectedCohortMappings.length > 0 && (
+              {selectedCohortMappings.length > 0 && (
                 <div
                   className="detail-block"
                   style={{ marginBottom: "16px" }}
@@ -1264,6 +1300,36 @@ export function CohortsPage() {
                               <LinkIcon size={14} />
                               Embedding URL
                             </button>
+
+                            <div className="learner-result-action">
+                              <span>Results</span>
+
+                              <label
+                                className="learner-result-switch"
+                                title={
+                                  mapping.show_result_to_learner
+                                    ? "Hide results from learners"
+                                    : "Show results to learners"
+                                }
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={mapping.show_result_to_learner}
+                                  onChange={() =>
+                                    void toggleLearnerResultVisibility(mapping)
+                                  }
+                                />
+
+                                <span className="learner-result-switch-slider" />
+                              </label>
+
+                              <small>
+                                {mapping.show_result_to_learner
+                                  ? "Visible"
+                                  : "Hidden"}
+                              </small>
+                            </div>
+
 
                             <button
                               type="button"

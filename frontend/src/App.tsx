@@ -19,15 +19,7 @@ import { QualificationsPage } from "./pages/QualificationsPage";
 import { CohortsPage } from "./pages/CohortsPage";
 import { AssignmentsPage } from "./pages/AssignmentsPage";
 import { SubmissionRecordsPage } from "./pages/SubmissionRecordsPage";
-// <<<<<<< HEAD
-// =======
-// import { GradingConfigurationsPage } from "./pages/GradingConfigurationsPage";
-// import { AssignmentLevelsPage } from "./pages/AssignmentLevelsPage";
-// import { RubricCriteriaPage } from "./pages/RubricCriteriaPage";
-// import { RubricBandsPage } from "./pages/RubricBandsPage";
-// import { AIGradingProfilesPage } from "./pages/AIGradingProfilesPage";
-// import { TaskCriteriaMappingsPage } from "./pages/TaskCriteriaMappingsPage";
-// >>>>>>> origin/feature/update_11Aug_8PM_MMT
+
 
 import { MappingSubmissionPage } from "./pages/MappingSubmissionPage";
 import { UserManagementPage } from "./pages/UserManagementPage";

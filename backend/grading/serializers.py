@@ -1,18 +1,13 @@
 from rest_framework import serializers
 from django.db import transaction
 from .models import (
-    AIGradingProfile,
     CriterionResult,
     ExtractedEvidence,
     GradingConfiguration,
-    Prompt,
-    Response,
     RubricBand,
     RubricCriterion,
     Task,
-    TaskCriterionWeight,
     TaskCriteriaMapping,
-    TaskEvidenceMap,
 )
 
 
@@ -523,91 +518,6 @@ class RubricBandSerializer(serializers.ModelSerializer):
         return attrs
 
 
-class AIGradingProfileSerializer(
-    serializers.ModelSerializer
-):
-    assignment_code = serializers.CharField(
-        source="assignment_level.assignment.assignment_code",
-        read_only=True,
-    )
-
-    assignment_title = serializers.CharField(
-        source="assignment_level.assignment.assignment_title",
-        read_only=True,
-    )
-
-    level_code = serializers.CharField(
-        source="assignment_level.level_code",
-        read_only=True,
-    )
-
-    level_display_name = serializers.CharField(
-        source="assignment_level.display_name",
-        read_only=True,
-    )
-
-    class Meta:
-        model = AIGradingProfile
-        fields = (
-            "id",
-            "assignment_level",
-            "assignment_code",
-            "assignment_title",
-            "level_code",
-            "level_display_name",
-            "profile_name",
-            "system_prompt",
-            "output_schema",
-            "temperature",
-            "model_provider",
-            "model_name",
-            "is_active",
-            "created_at",
-            "updated_at",
-        )
-
-        read_only_fields = (
-            "id",
-            "assignment_code",
-            "assignment_title",
-            "level_code",
-            "level_display_name",
-            "created_at",
-            "updated_at",
-        )
-
-    def validate_temperature(self, value):
-        if value < 0 or value > 2:
-            raise serializers.ValidationError(
-                "Temperature must be between 0.00 and 2.00."
-            )
-
-        return value
-
-    def validate_output_schema(self, value):
-        if not isinstance(value, dict):
-            raise serializers.ValidationError(
-                "Output schema must be a JSON object."
-            )
-
-        return value
-
-    def validate_assignment_level(self, value):
-        queryset = AIGradingProfile.objects.filter(
-            assignment_level=value,
-        )
-
-        if self.instance:
-            queryset = queryset.exclude(
-                id=self.instance.id,
-            )
-
-        if queryset.exists():
-            raise serializers.ValidationError(
-                "This assignment level already has an AI grading profile."
-            )
-
-        return value
 
 
 class TaskSerializer(serializers.ModelSerializer):
@@ -641,33 +551,6 @@ class TaskSerializer(serializers.ModelSerializer):
             "created_at",
         )
 
-
-class TaskCriterionWeightSerializer(serializers.ModelSerializer):
-    task_code = serializers.CharField(
-        source="task.task_code",
-        read_only=True,
-    )
-    criterion_code = serializers.CharField(
-        source="rubric_criterion.criterion_code",
-        read_only=True,
-    )
-
-    class Meta:
-        model = TaskCriterionWeight
-        fields = (
-            "id",
-            "task",
-            "task_code",
-            "rubric_criterion",
-            "criterion_code",
-            "weight_percentage",
-            "band",
-        )
-        read_only_fields = (
-            "id",
-            "task_code",
-            "criterion_code",
-        )
 
 
 class TaskCriteriaMappingSerializer(serializers.ModelSerializer):
@@ -720,53 +603,6 @@ class ExtractedEvidenceSerializer(serializers.ModelSerializer):
             "created_at",
         )
         read_only_fields = ("id", "created_at")
-class TaskEvidenceMapSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = TaskEvidenceMap
-        fields = (
-            "id",
-            "task",
-            "evidence",
-            "mapping_role",
-            "confidence_score",
-        )
-        read_only_fields = (
-            "id",
-        )
-
-
-class PromptSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Prompt
-        fields = (
-            "id",
-            "submission",
-            "stage",
-            "prompt_text",
-            "prompt_payload",
-            "created_at",
-        )
-        read_only_fields = (
-            "id",
-            "created_at",
-        )
-
-
-class ResponseSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Response
-        fields = (
-            "id",
-            "prompt",
-            "model_name",
-            "response_payload",
-            "confidence_score",
-            "created_at",
-        )
-        read_only_fields = (
-            "id",
-            "created_at",
-        )
 
 
 class CriterionResultSerializer(serializers.ModelSerializer):
@@ -794,8 +630,4 @@ class AIDispatchRequestSerializer(serializers.Serializer):
         help_text="Target URL of the external AI Agent API"
     )
 
-class AIDispatchResponseSerializer(serializers.Serializer):
-    submission_id = serializers.UUIDField()
-    status = serializers.CharField()
-    evidence_count = serializers.IntegerField()
-    ai_response = serializers.JSONField()
+
