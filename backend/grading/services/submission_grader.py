@@ -67,31 +67,6 @@ def _sum_usage_snapshots(items):
     }
 
 
-PROHIBITED_QUALITATIVE_FEEDBACK = (
-    "solid",
-    "strong",
-    "good",
-    "very good",
-    "excellent",
-    "outstanding",
-    "impressive",
-    "exceptional",
-    "robust",
-    "high-quality",
-    "great",
-    "well done",
-    "well-done",
-    "well executed",
-    "well-executed",
-)
-
-
-def _contains_prohibited_qualitative_feedback(value):
-    normalized = (value or "").strip().lower()
-    return any(
-        phrase in normalized
-        for phrase in PROHIBITED_QUALITATIVE_FEEDBACK
-    )
 
 
 def _neutral_overall_feedback():
@@ -569,14 +544,6 @@ def grade_submission(submission):
             [],
         )
 
-        submission_task_mapping = next(
-            (
-                item
-                for item in task_mappings
-                if item.task_id == task_code
-            ),
-            None,
-        )
 
         user_content.append(
             {
@@ -630,6 +597,16 @@ def grade_submission(submission):
                 "image_data",
                 None,
             ):
+                user_content.append(
+                    {
+                        "type": "text",
+                        "text": (
+                            f"--- [Page {page_num} Rendered PDF Image "
+                            f"for {task_code}] ---"
+                        ),
+                    }
+                )
+
                 b64_image = base64.b64encode(
                     page_obj.image_data
                 ).decode("utf-8")
@@ -648,6 +625,26 @@ def grade_submission(submission):
                                 f"data:{mime_type};base64,"
                                 f"{b64_image}"
                             )
+                        },
+                    }
+                )
+
+            elif getattr(page_obj, "image_url", None):
+                user_content.append(
+                    {
+                        "type": "text",
+                        "text": (
+                            f"--- [Page {page_num} Rendered PDF Image "
+                            f"for {task_code}] ---"
+                        ),
+                    }
+                )
+
+                user_content.append(
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": page_obj.image_url
                         },
                     }
                 )
@@ -677,146 +674,72 @@ def grade_submission(submission):
     )
 
     system_prompt = (
-        "You are an academic grader. "
-        "Evaluate the evidence provided for each task/criterion against the "
+        "You are an academic grader. Evaluate each task/criterion using only the "
         "assignment scenario, objective, task requirements, criterion description, "
-        "and rubric bands. "
+        "rubric bands, and supplied evidence. Assign a score_percentage from 0.0 to "
+        "100.0 for each evaluation. Award credit only for what is supported by the "
+        "evidence; do not award full credit merely because work is technically valid "
+        "if it does not satisfy the stated task or criterion. "
 
-        "For each criterion evaluation, assign a score_percentage between "
-        "0.0 and 100.0 based on completion quality. "
-        "Do not award full credit merely because work is technically valid "
-        "if it does not reasonably address the stated scenario or criterion. "
-        "Use only the supplied evidence and requirements. "
-
-        "EVIDENCE CONSISTENCY AND TASK-AWARE GRADING RULES:\n"
-        "Evaluate the evidence according to what the task actually requires. "
-        "Not every task requires screenshot or visual evidence. "
-
-        "For text-based, explanatory, reflective, descriptive, or knowledge "
-        "tasks, relevant written evidence may be sufficient when it satisfies "
-        "the task and rubric. Do not penalise a learner for not providing a "
-        "screenshot when the task does not require observable visual evidence. "
-
-        "For tasks requiring implementation, configuration, model state, "
-        "relationships, screenshots, outputs, dashboards, validation results, "
-        "or another observable artefact, use the relevant direct evidence "
-        "together with the learner's written explanation. "
-
-        "When multiple evidence sources are supplied for the same task, compare "
-        "their meaning and determine whether they are consistent. If the written "
-        "response and the visual or technical evidence support the same result, "
-        "treat them as mutually reinforcing evidence. "
-
-        "If the evidence sources conflict, do not automatically prefer one "
-        "source merely because it is visual or written. Instead, determine what "
-        "can actually be verified against the task requirement and rubric. "
-        "A written claim cannot by itself verify an observable implementation "
-        "when the supplied artefact visibly fails to demonstrate that feature. "
-        "Likewise, do not disregard correct written evidence for a task that "
-        "does not require visual proof. "
-
-        "If required evidence is absent or the supplied sources cannot be "
-        "reconciled, award credit only for what is supported by the available "
-        "evidence and rubric. Partial credit may be appropriate where genuine "
-        "understanding or partial completion is demonstrated. "
-
-        "When evidence conflicts materially, explain the discrepancy clearly "
-        "and neutrally in the criterion feedback. "
+        "EVIDENCE RULES:\n"
+        "Images supplied in the grading evidence are rendered images of the learner's "
+        "PDF pages. Inspect the visible page content directly when the task requires "
+        "visual or observable evidence. Extracted text may not capture information "
+        "contained inside screenshots, dashboards, diagrams, configuration screens, "
+        "tables, interfaces, or other visual artefacts. "
+        "Evaluate evidence according to what the task requires. Written evidence may "
+        "be sufficient for explanatory, reflective, descriptive, or knowledge-based "
+        "tasks. Do not require screenshots unless the task calls for observable "
+        "implementation, configuration, output, dashboard, validation, interface state, "
+        "or another visible artefact. "
+        "When multiple evidence sources are supplied, compare them for consistency. "
+        "If they conflict, rely only on what can be verified against the task and rubric "
+        "and explain the discrepancy neutrally. A written claim does not by itself verify "
+        "an observable implementation when the supplied artefact contradicts it. "
+        "If evidence is missing, incomplete, or inconsistent, award only the credit "
+        "supported by the available evidence. "
+        
 
         "CRITERION FEEDBACK:\n"
-        "For each individual task/criterion evaluation, provide learner-facing "
-        "feedback that is specific, evidence-based, and actionable. "
+        "For each task/criterion evaluation, provide learner-facing feedback that is "
+        "specific, evidence-based, concise, and actionable. Describe what the evidence "
+        "demonstrates and identify anything missing, incomplete, unclear, incorrect, or "
+        "inconsistent when applicable. "
+        "Use neutral and factual wording consistent with the assigned score_percentage. "
+        "Avoid exaggerated or qualitative praise such as 'good', 'very good', 'strong', "
+        "'solid', 'excellent', 'outstanding', 'impressive', 'exceptional', 'robust', "
+        "'high-quality', 'great', or similar wording. "
 
-        "Explain what the learner demonstrated from the supplied evidence. "
-        "Use neutral, factual wording that does not imply a higher or lower "
-        "achievement level than the calculated score. Do NOT describe the work "
-        "using qualitative praise such as 'good', 'very good', 'strong', 'solid', "
-        "'excellent', 'outstanding', 'impressive', 'exceptional', 'robust', "
-        "'high-quality', 'great', or similar evaluative wording. State only what "
-        "is demonstrated, what is missing or unclear, and what should be improved. "
-        "Whenever score_percentage is below 100, clearly state the specific "
-        "things that should be improved, enhanced, corrected, added, verified, "
-        "or demonstrated next. Focus directly on the learner's work and the "
-        "required task or rubric expectations. Do not discuss scoring mechanics, "
-        "lost marks, full credit, deductions, or why a particular score was awarded. "
-
-        "The amount of improvement guidance should reflect the size of the gap. "
-        "For a high score with only minor weaknesses, give concise, specific "
-        "refinements or enhancements. For a moderate score, explain the main "
-        "areas that should be improved and give clear actions for each important "
-        "gap. For a low score, provide more detailed guidance, identify the major "
-        "missing or incorrect elements, prioritise what the learner should fix "
-        "first, and explain what evidence or implementation should be shown. "
-
-        "If evidence is missing, say what required evidence should be provided. "
-        "If implementation is incorrect, say what should be corrected. "
-        "If evidence conflicts, explain the discrepancy and state what should "
-        "be fixed or demonstrated. "
-
-        "All recommendations must be grounded only in the assignment instructions, "
-        "criterion description, rubric bands, and supplied evidence. Do not invent "
-        "extra requirements just to create improvement advice. "
-
-        "If score_percentage is 100, do not invent a deficiency. State directly "
-        "what the evidence demonstrates. An optional enhancement may be included "
-        "only when clearly framed as further development or an extension, not "
-        "as a missing requirement. "
-
-        "Avoid vague recommendations such as 'improve clarity', 'provide more detail', "
-        "'enhance the model', 'further development is needed', or 'review your work' "
-        "unless you immediately explain exactly what should be changed, added, "
-        "corrected, verified, or demonstrated. "
+        "If score_percentage is below 100, the feedback MUST include at least one "
+        "specific and practical improvement action. Explain exactly what the learner "
+        "should change, add, correct, verify, or demonstrate. Do not use vague advice "
+        "such as 'improve clarity', 'provide more detail', 'requires refinement', or "
+        "'needs further development' unless you immediately explain how. "
+        "Make the amount of guidance proportionate to the gap: minor gaps need concise "
+        "refinements; larger gaps need clearer and more detailed actions. "
+        "If score_percentage is 100, do not invent a deficiency. State what the evidence "
+        "demonstrates; optional further-development suggestions are allowed only when "
+        "clearly framed as enhancements rather than missing requirements. "
+        "Do not discuss lost marks, deductions, full credit, scoring mechanics, or why "
+        "a particular score was awarded. All recommendations must remain grounded in "
+        "the supplied requirements, rubric, and evidence. "
 
         "OVERALL SUMMARY:\n"
-        "The overall_summary is learner-facing GENERAL overall feedback. "
-        "It MUST consider the learner's work across the entire assignment, "
-        "but it must stay high-level rather than repeating the detailed rubric feedback. "
-
-        "Write 2 to 4 natural sentences that acknowledge the learner's effort and "
-        "encourage them to continue developing their work. Keep the wording "
-        "appreciative, supportive, professional, measured, and factual. Appreciation "
-        "must be directed at the learner's effort or completion of the submission, "
-        "not at the quality or achievement level of the work. Direct the learner to "
-        "review the detailed criterion feedback below for specific observations and "
-        "recommendations for improvement. "
-
-        "Do NOT use qualitative praise or evaluative descriptions such as 'good', "
-        "'very good', 'strong', 'solid', 'excellent', 'outstanding', 'impressive', "
-        "'exceptional', 'high-quality', 'robust', 'great', 'well done', 'well-executed', "
-        "or similar wording. Do not describe the submission as successful, effective, "
-        "high-quality, capable, or otherwise imply an achievement level. The calculated "
-        "score and rubric band determine achievement separately. "
-
-        "IMPORTANT: Do NOT mention criterion numbers, criterion codes, task codes, "
-        "individual task details, individual criterion findings, awarded marks, total "
-        "marks, percentages, calculated scores, or grading-band names such as Failed, "
-        "Foundation, Proficient, or Expert in overall_summary. "
-
-        "Do NOT state or imply a different grade or achievement level using grading "
-        "language such as 'proficient', 'expert', 'failed', 'pass', 'foundation', "
-        "'achieved the required standard', or similar phrases. The application's own "
-        "calculation determines the final score and band separately. "
-
-        "Do NOT include headings, separators, markdown titles, '=' characters, bullet "
-        "lists, or a fixed template in overall_summary. Return only the feedback prose. "
-        "Use varied wording so feedback does not sound identical across submissions. "
-
-        "CRITICAL COMPLETENESS RULE:\n"
-        "Return exactly one criterion_evaluation for EVERY task/criterion evaluation "
-        "target supplied in the user message. Do not omit a target even when evidence "
-        "is weak, missing, duplicated across tasks, or the same task is mapped to more "
-        "than one rubric criterion. Each Task Code + Rubric Criterion ID pair is a "
-        "distinct required evaluation. "
-
-        "Use the Task Code and Rubric Criterion ID EXACTLY as supplied. "
-        "Do not substitute a Rubric Criterion ID from another task or criterion. "
-        "Do not merge evaluations when the same task belongs to multiple rubric "
-        "criteria. For example, if T03 is mapped to two criteria, return two separate "
-        "criterion_evaluation objects for T03, one for each required Rubric Criterion ID. "
-
-        "The REQUIRED EVALUATION PAIRS list in the user message is authoritative. "
-        "Your response must contain every listed pair exactly once and must not contain "
-        "any pair that is not listed."
+        "Write overall_summary as 3 to 5 natural, complete sentences for the learner. "
+        "Keep it appreciative, supportive, professional, measured, and high-level. "
+        "Thank the learner for completing and submitting the assignment, state that the "
+        "submission has been reviewed against the assignment requirements, include a "
+        "brief overall observation only when supported by the evidence, direct the "
+        "learner to the detailed criterion feedback for specific observations and "
+        "improvements, and encourage them to use the feedback to guide future work or "
+        "a subsequent submission. "
+        "Do not repeat detailed criterion findings. Do not mention criterion or task "
+        "codes, marks, percentages, scores, grading bands, pass/fail language, or other "
+        "achievement labels. Avoid exaggerated praise and do not imply weaknesses that "
+        "are not supported by the evaluation. "
+        "Return only natural prose in overall_summary: no headings, bullet lists, "
+        "markdown, separators, or fixed template wording. Ensure all sentences are "
+        "grammatically complete."
     )
 
     http_client = httpx.Client()
@@ -1073,6 +996,8 @@ def grade_submission(submission):
                 }
             ]
 
+        
+        
             for mapping in criteria_mappings:
                 task_code = mapping.task.task_code
                 criterion_id = str(mapping.rubric_criterion.id)
@@ -1292,12 +1217,11 @@ def grade_submission(submission):
                     f"{unexpected_evaluation_keys or 'none'}."
                 )
 
-            update_grading_audit(
-                submission,
-                raw_ai_response=
-                    grading_result.model_dump(),
-            )
-
+    update_grading_audit(
+        submission,
+        raw_ai_response=grading_result.model_dump(),
+    )
+    
     criterion_groups = {}
 
     for item in grading_result.criterion_evaluations:
@@ -1379,36 +1303,9 @@ def grade_submission(submission):
             total_earned_points += task_earned
             criterion_earned += task_earned
 
-            item_feedback = item.feedback or ""
+            item_feedback = (item.feedback or "").strip()
 
-            # Deterministic wording guard: the application, not the model,
-            # removes qualitative praise that could conflict with the score.
-            replacements = {
-                "very good": "",
-                "high-quality": "",
-                "well-executed": "",
-                "well executed": "",
-                "well-done": "",
-                "well done": "",
-                "solid": "",
-                "strong": "",
-                "excellent": "",
-                "outstanding": "",
-                "impressive": "",
-                "exceptional": "",
-                "robust": "",
-                "great": "",
-                "good": "",
-            }
-
-            for phrase, replacement in replacements.items():
-                item_feedback = item_feedback.replace(phrase, replacement)
-                item_feedback = item_feedback.replace(
-                    phrase.capitalize(),
-                    replacement,
-                )
-
-            item_feedback = " ".join(item_feedback.split()).strip()
+            
 
             criterion_feedback.append(
                 f"{item.task_code}: {item_feedback}"
@@ -1496,12 +1393,12 @@ def grade_submission(submission):
         total_max_possible_points,
         2,
     )
-    # Do not use the model's overall_summary as the saved overall feedback.
-    # The model may still use qualitative wording such as "solid", "strong",
-    # or other achievement language that can conflict with the calculated score.
-    # Keep overall feedback neutral and leave all specific strengths/gaps/actions
-    # to the criterion feedback, where they are tied to evidence.
-    overall_feedback = _neutral_overall_feedback()
+    overall_feedback = (
+        grading_result.overall_summary or ""
+    ).strip()
+
+    if not overall_feedback:
+        overall_feedback = _neutral_overall_feedback()
 
     submission.feedback = overall_feedback
     submission.status = (
