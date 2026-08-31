@@ -566,6 +566,14 @@ def grade_submission(submission):
             [],
         )
 
+        submission_task_mapping = next(
+            (
+                item
+                for item in task_mappings
+                if item.task_id == task_code
+            ),
+            None,
+        )
 
         user_content.append(
             {
@@ -588,6 +596,8 @@ def grade_submission(submission):
                     f"{rubric_band_text}\n"
                     f"Mapped Evidence Pages: "
                     f"{mapped_pages if mapped_pages else 'NO EVIDENCE FOUND'}\n"
+                    f"Evidence Mapping Justification: "
+                    f"{submission_task_mapping.justification if submission_task_mapping else '-'}\n"
                 ),
             }
         )
@@ -1061,7 +1071,7 @@ def grade_submission(submission):
                 ) or "No rubric bands configured."
 
                 mapped_pages = task_pages_map.get(task_code, [])
-
+                
                 recovery_user_content.append(
                     {
                         "type": "text",
