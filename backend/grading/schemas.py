@@ -1,10 +1,14 @@
 from pydantic import BaseModel, Field
 
+from typing import Literal
 
-# --- TASK MAPPING SCHEMAS ---
 class TaskPageMapping(BaseModel):
-    task_id: str = Field(description="Code of the assignment task (e.g., T-F-01)")
-    task_description: str = Field(description="Summary of task instructions")
+    task_id: str = Field(
+        description="Code of the assignment task (e.g., T-F-01)"
+    )
+    task_description: str = Field(
+        description="Summary of task instructions"
+    )
     is_relevant: bool = Field(
         description="FALSE if the submitted document has no relevance to this task."
     )
@@ -15,8 +19,35 @@ class TaskPageMapping(BaseModel):
     confidence_score: float = Field(
         description="0.0 if irrelevant, or 0.1-1.0 based on evidence strength."
     )
+
+    evidence_type: Literal[
+        "written",
+        "visual",
+        "mixed",
+        "none",
+    ] = Field(
+        description=(
+            "Primary type of evidence found for this task. "
+            "'written' means descriptive/text evidence only; "
+            "'visual' means direct visible artefact evidence; "
+            "'mixed' means both written and direct visual evidence; "
+            "'none' means no relevant evidence."
+        )
+    )
+
+    visual_verification: bool = Field(
+        description=(
+            "TRUE only when the submitted rendered PDF pages directly show "
+            "the observable artefact, feature, configuration, output, or state "
+            "required by the task. Written descriptions or claims alone must be FALSE."
+        )
+    )
+
     justification: str = Field(
-        description="Detailed explanation of why pages match or why evidence is missing."
+        description=(
+            "Explain what evidence was found and clearly distinguish between "
+            "what is described in text and what is visibly demonstrated."
+        )
     )
 
 

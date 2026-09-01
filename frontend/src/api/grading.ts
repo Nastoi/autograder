@@ -1,7 +1,6 @@
 import { getCsrfToken } from "./auth";
 import {
   API_BASE_URL,
-  extractResults,
   fetchAllPaginatedResults,
 } from "./utils";
 
@@ -54,25 +53,10 @@ export async function getRubricCriteria(
         )}`
         : "";
 
-    const response = await fetch(
+    return fetchAllPaginatedResults<RubricCriterion>(
         `${API_BASE_URL}/grading/rubric-criteria/${query}`,
-        {
-            method: "GET",
-            credentials: "include",
-        },
+        "Unable to load rubric criteria.",
     );
-
-    const data = await response.json();
-
-    if (!response.ok) {
-        throw new Error(
-            typeof data?.detail === "string"
-                ? data.detail
-                : "Unable to load rubric criteria.",
-        );
-    }
-
-    return extractResults<RubricCriterion>(data);
 }
 
 export async function createRubricCriterion(
@@ -390,28 +374,15 @@ export async function getTasks(
     assignmentLevelId?: string,
 ): Promise<Task[]> {
     const query = assignmentLevelId
-        ? `?assignment_level_id=${encodeURIComponent(assignmentLevelId)}`
+        ? `?assignment_level_id=${encodeURIComponent(
+            assignmentLevelId,
+        )}`
         : "";
 
-    const response = await fetch(
+    return fetchAllPaginatedResults<Task>(
         `${API_BASE_URL}/grading/tasks/${query}`,
-        {
-            method: "GET",
-            credentials: "include",
-        },
+        "Unable to load tasks.",
     );
-
-    const data = await response.json();
-
-    if (!response.ok) {
-        throw new Error(
-            typeof data?.detail === "string"
-                ? data.detail
-                : "Unable to load tasks.",
-        );
-    }
-
-    return extractResults<Task>(data);
 }
 
 export async function createTask(
