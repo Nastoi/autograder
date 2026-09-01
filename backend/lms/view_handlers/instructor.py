@@ -322,6 +322,98 @@ class InstructorMappingDashboardView(APIView):
             "resource_link_id"
         )
 
+        if not course_id or not resource_link_id:
+            return Response(
+                {
+                    "detail": (
+                        "course_id and resource_link_id are required "
+                        "for LMS due-date sync."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if course_id != mapping.external_context_id:
+            return Response(
+                {
+                    "detail": (
+                        "The LMS course does not match this assessment mapping."
+                    )
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        if resource_link_id != mapping.external_resource_link_id:
+            return Response(
+                {
+                    "detail": (
+                        "The LMS resource does not match this assessment mapping."
+                    )
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        due_date_value = request.data.get("due_date")
+
+        parsed_due_date = None
+
+        if due_date_value not in (None, ""):
+            if not isinstance(due_date_value, str):
+                return Response(
+                    {
+                        "detail": (
+                            "LMS due date must be an ISO-8601 string or null."
+                        )
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            parsed_due_date = parse_datetime(
+                due_date_value
+            )
+
+            if parsed_due_date is None:
+                return Response(
+                    {
+                        "detail": (
+                            "Unable to parse the LMS due date."
+                        )
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            if timezone.is_naive(parsed_due_date):
+                parsed_due_date = timezone.make_aware(
+                    parsed_due_date
+                )
+
+        if mapping.due_date != parsed_due_date:
+            mapping.due_date = parsed_due_date
+            mapping.updated_by = request.user
+            mapping.save(
+                update_fields=[
+                    "due_date",
+                    "updated_by",
+                    "updated_at",
+                ]
+            )
+
+        return Response(
+            {
+                "id": str(mapping.id),
+                "due_date": (
+                    mapping.due_date.isoformat()
+                    if mapping.due_date
+                    else None
+                ),
+                "deadline_passed": (
+                    mapping.due_date is not None
+                    and timezone.now() > mapping.due_date
+                ),
+            },
+            status=status.HTTP_200_OK,
+        )
+
 
 class InstructorSubmissionOverrideView(
     InstructorMappingDashboardView
