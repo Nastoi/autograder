@@ -291,11 +291,41 @@ export function MappingSubmissionPage() {
       }
     }
 
-    void syncLiveLmsDueDate();
+    function handleWindowFocus() {
+  void syncLiveLmsDueDate();
+}
 
-    return () => {
-      cancelled = true;
-    };
+function handleVisibilityChange() {
+  if (document.visibilityState === "visible") {
+    void syncLiveLmsDueDate();
+  }
+}
+
+  void syncLiveLmsDueDate();
+
+  window.addEventListener(
+    "focus",
+    handleWindowFocus,
+  );
+
+  document.addEventListener(
+    "visibilitychange",
+    handleVisibilityChange,
+  );
+
+  return () => {
+    cancelled = true;
+
+    window.removeEventListener(
+      "focus",
+      handleWindowFocus,
+    );
+
+    document.removeEventListener(
+      "visibilitychange",
+      handleVisibilityChange,
+    );
+  };
   }, [
     mappingId,
     context?.is_instructor,
