@@ -69,7 +69,32 @@ def _sum_usage_snapshots(items):
     }
 
 
+class AuthenticityFinding(BaseModel):
+    scope: str = Field(
+        description=(
+            "Section, page range, artefact type, or content category "
+            "affected by the authenticity statement."
+        )
+    )
+    validity: str = Field(
+        description=(
+            "One of: genuine, synthetic, placeholder, invalid, uncertain."
+        )
+    )
+    reason: str = Field(
+        description=(
+            "Short explanation based only on explicit statements "
+            "inside the learner submission."
+        )
+    )
 
+
+class DocumentAuthenticitySchema(BaseModel):
+    global_notice_present: bool
+    genuine_scope: list[str] = Field(default_factory=list)
+    invalid_scope: list[str] = Field(default_factory=list)
+    findings: list[AuthenticityFinding] = Field(default_factory=list)
+    summary: str
 
 
 
@@ -143,6 +168,103 @@ def _neutral_overall_feedback():
     )
 
 
+def analyze_document_authenticity(submission):
+    pages = (
+        SubmissionPage.objects
+        .filter(submission=submission)
+        .order_by("page_number")
+    )
+
+    evidence_text_map = {
+        ev.page_number: ev.content_text
+        for ev in ExtractedEvidence.objects.filter(
+            submission=submission
+        )
+        if ev.content_text
+    }
+
+    content = []
+
+    for page in pages:
+        page_text = (
+            evidence_text_map.get(page.page_number)
+            or getattr(page, "extracted_text", None)
+            or ""
+        )
+
+        if page_text.strip():
+            content.append(
+                {
+                    "type": "text",
+                    "text": (
+                        f"=== PAGE {page.page_number} ===\n"
+                        f"{page_text}"
+                    ),
+                }
+            )
+
+    system_prompt = (
+        "You analyze authenticity declarations inside a learner submission.\n\n"
+
+        "Your ONLY job is to identify explicit statements made by the "
+        "submission about whether parts of its own content are genuine, "
+        "synthetic, placeholder, mock, sample, test-only, fabricated, "
+        "not real, or not evidence of completed work.\n\n"
+
+        "RULES:\n"
+        "1. Do not grade the assignment.\n"
+        "2. Do not decide whether task requirements are met.\n"
+        "3. Do not infer dishonesty or fabrication unless the submission "
+        "explicitly says so.\n"
+        "4. Pay special attention to document-wide notices that define "
+        "the authenticity of later sections.\n"
+        "5. If a notice says only certain sections are genuine and the "
+        "remaining sections are synthetic, preserve that scope explicitly.\n"
+        "6. A declaration that testing results, tables, reflections, "
+        "screenshots, or configuration records are synthetic applies to "
+        "those artefacts themselves, not only to their images.\n"
+        "7. Return concise structured findings that can be used later "
+        "by an academic grader."
+        "8. Follow the supplied Document Authenticity Analysis exactly. "
+        "If relevant content is declared synthetic or invalid, it may still "
+        "be mapped because it is relevant, but the justification must state "
+        "that it cannot verify completion.\n"
+    )
+
+    http_client = httpx.Client()
+    client = OpenAI(
+        api_key=settings.OPENAI_API_KEY,
+        http_client=http_client,
+    )
+
+    try:
+        completion = client.beta.chat.completions.parse(
+            model=settings.OPENAI_API_MODEL,
+            messages=[
+                {
+                    "role": "system",
+                    "content": system_prompt,
+                },
+                {
+                    "role": "user",
+                    "content": content,
+                },
+            ],
+            response_format=DocumentAuthenticitySchema,
+            temperature=0.0,
+        )
+
+        result = completion.choices[0].message.parsed
+
+        return {
+            "analysis": result.model_dump(),
+            "token_usage":
+                _completion_usage_snapshot(completion),
+        }
+
+    finally:
+        http_client.close()
+
 def map_submission_tasks(submission):
     assignment_level = submission.context.assignment_level
 
@@ -189,7 +311,13 @@ def map_submission_tasks(submission):
         if ev.content_text
     }
 
-    document_warnings = _collect_document_warnings(submission)
+    authenticity_result = (
+        analyze_document_authenticity(submission)
+    )
+
+    document_authenticity = (
+        authenticity_result["analysis"]
+    )
 
     user_content = [
         {
@@ -204,8 +332,8 @@ def map_submission_tasks(submission):
                 f"MULTIPLE TASKS.\n\n"
                 f"Assignment Context:\n"
                 f"{json.dumps(assignment_context, indent=2)}\n\n"
-                f"Document Warnings / Authenticity Notices:\n"
-                f"{json.dumps(document_warnings, indent=2)}\n\n"
+                f"Document Authenticity Analysis:\n"
+                f"{json.dumps(document_authenticity, indent=2)}\n\n"
                 f"Target Assignment Tasks to Map:\n"
                 f"{json.dumps(task_definitions, indent=2)}\n\n"
                 "Examine the page text and images below and map "
@@ -457,7 +585,13 @@ def grade_submission(submission):
         mapping.task_id: mapping.mapped_page_numbers
         for mapping in task_mappings
     }
-    document_warnings = _collect_document_warnings(submission)
+    authenticity_result = (
+        analyze_document_authenticity(submission)
+    )
+
+    document_authenticity = (
+        authenticity_result["analysis"]
+    )
 
     criteria_weight_map = {}
     criterion_mapping_groups = {}
@@ -478,8 +612,20 @@ def grade_submission(submission):
         "SCORING RULES:\n"
         "1. Use only the supplied task requirements, rubric criterion, rubric bands, document warnings, mapping information, and submitted evidence.\n"
         "2. Evidence must demonstrate the requirement. A learner claim does not by itself verify an observable implementation or configuration.\n"
-        "3. Evidence explicitly identified as synthetic, placeholder, mock, sample, fabricated, test-only, not genuine, or not evidence of completed work MUST NOT establish completion of the requirement. Do not award completion credit merely because such content is realistic, detailed, or correct.\n"
-        "4. Apply document-wide authenticity warnings according to their stated scope, including warnings referring to later sections of the submission.\n"
+        "3. SYNTHETIC EVIDENCE RULE: If the Document Authenticity "
+        "Analysis identifies a section, screenshot, table, response, "
+        "reflection, test result, configuration record, caption, summary, "
+        "or other artefact as synthetic, placeholder, mock, sample, "
+        "fabricated, test-only, not genuine, or not evidence of completed "
+        "work, that affected content MUST NOT establish task completion. "
+        "This restriction applies to ALL claims derived from that affected "
+        "content, including written tables, captions, transcriptions, "
+        "summaries, explanations, and screenshots. Do not award partial "
+        "completion credit merely because synthetic content accurately "
+        "describes what a correct submission would contain.\n"
+        "4. Only separate genuine evidence may earn completion credit. "
+        "If an affected task has no separate genuine evidence, score it "
+        "according to the rubric as missing/unverified evidence.\n"
         "5. For tasks requiring screenshots, configuration states, outputs, interfaces, testing results, dashboards, or other observable artefacts, written descriptions may support intent but cannot substitute for required genuine observable evidence.\n"
         "6. For reflective, explanatory, or written requirements, genuine written evidence may be sufficient unless the submission explicitly identifies that content as synthetic or invalid.\n"
         "7. If genuine evidence is missing, incomplete, contradictory, or unverifiable, reduce score_percentage accordingly.\n"
@@ -511,12 +657,8 @@ def grade_submission(submission):
                 "text": (
                     f"Submission ID: {submission.id}\n\n"
                     f"ASSIGNMENT CONTEXT:\n{assignment_context}\n\n"
-                    "DOCUMENT-WIDE WARNINGS / AUTHENTICITY NOTICES:\n"
-                    + (
-                        "\n".join(f"- {warning}" for warning in document_warnings)
-                        if document_warnings else "- none detected"
-                    )
-                    + "\n\n"
+                    f"DOCUMENT AUTHENTICITY ANALYSIS:\n"
+                    f"{json.dumps(document_authenticity, indent=2)}\n\n"
                     "RUBRIC CRITERION:\n"
                     f"Criterion ID: {criterion_id}\n"
                     f"Criterion Code: {criterion.criterion_code}\n"
@@ -660,9 +802,12 @@ def grade_submission(submission):
 
     aggregated_ai_response = {
         "submission_id": str(submission.id),
-        "criterion_evaluations": [item.model_dump() for item in all_evaluations],
+        "criterion_evaluations": [
+            item.model_dump()
+            for item in all_evaluations
+        ],
         "overall_summary": overall_feedback,
-        "document_warnings": document_warnings,
+        "document_authenticity": document_authenticity,
     }
     update_grading_audit(submission, raw_ai_response=aggregated_ai_response)
     record_submission_event(
