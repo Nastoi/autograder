@@ -790,6 +790,27 @@ def grade_submission(submission):
         ].task_verifications
     }
 
+    expected_task_codes = {
+        mapping.task_id
+        for mapping in task_mappings
+    }
+
+    returned_task_codes = set(
+        task_verification_map.keys()
+    )
+
+    missing_verifications = (
+        expected_task_codes - returned_task_codes
+    )
+
+    if missing_verifications:
+        raise ValueError(
+            "Evidence verification missing tasks: "
+            + ", ".join(
+                sorted(missing_verifications)
+            )
+        )
+
     verification_usage = {
         "stage": "evidence_verification",
         **verification_result["usage"],
@@ -828,11 +849,18 @@ def grade_submission(submission):
         "4. Only separate genuine evidence may earn completion credit. "
         "If an affected task has no separate genuine evidence, score it "
         "according to the rubric as missing/unverified evidence.\n"
-        "5. For tasks requiring screenshots, configuration states, outputs, interfaces, testing results, dashboards, or other observable artefacts, written descriptions may support intent but cannot substitute for required genuine observable evidence.\n"
-        "6. For reflective, explanatory, or written requirements, genuine written evidence may be sufficient unless the submission explicitly identifies that content as synthetic or invalid.\n"
-        "7. If genuine evidence is missing, incomplete, contradictory, or unverifiable, reduce score_percentage accordingly.\n"
-        "8. Follow the supplied rubric descriptors. Do not automatically give high partial credit simply because some related text exists.\n"
-        "9. Return exactly one criterion_evaluation for every Task Code + Rubric Criterion ID pair supplied in this request, and no other pairs.\n\n"
+        "5. EVIDENCE VERIFICATION IS AUTHORITATIVE: The supplied Evidence "
+        "Verification is the authoritative determination of what the submitted "
+        "evidence actually demonstrates. Do not override it based on captions, "
+        "tables, surrounding text, mapper justification, or assumptions about "
+        "what an image should contain. If Evidence Verification says a required "
+        "visual, quantity, configuration, response, or artefact is not_verified "
+        "or partial, grade on that basis.\n"
+        "6. For tasks requiring screenshots, configuration states, outputs, interfaces, testing results, dashboards, or other observable artefacts, written descriptions may support intent but cannot substitute for required genuine observable evidence.\n"
+        "7. For reflective, explanatory, or written requirements, genuine written evidence may be sufficient unless the submission explicitly identifies that content as synthetic or invalid.\n"
+        "8. If genuine evidence is missing, incomplete, contradictory, or unverifiable, reduce score_percentage accordingly.\n"
+        "9. Follow the supplied rubric descriptors. Do not automatically give high partial credit simply because some related text exists.\n"
+        "10. Return exactly one criterion_evaluation for every Task Code + Rubric Criterion ID pair supplied in this request, and no other pairs.\n\n"
         "FEEDBACK:\n"
         "State what genuine evidence demonstrates. If the score is below 100, identify the exact missing, invalid, or incomplete evidence and finish with a concrete action the learner can take. Keep wording neutral, concise, evidence-based, and learner-facing."
     )
@@ -1022,6 +1050,7 @@ def grade_submission(submission):
         ],
         "overall_summary": overall_feedback,
         "document_authenticity": document_authenticity,
+        "evidence_verification": task_verification_map,
     }
     update_grading_audit(submission, raw_ai_response=aggregated_ai_response)
     record_submission_event(
