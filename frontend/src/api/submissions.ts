@@ -8,6 +8,13 @@ type ApiError = {
   detail?: string;
 };
 
+export type SubmissionBandDefinition = {
+  band_code: string;
+  display_name: string;
+  minimum_percentage: number;
+  maximum_percentage: number;
+};
+
 export type SubmissionContext = {
   context_id: string;
 
@@ -37,6 +44,13 @@ export type SubmissionContext = {
     maximum_score: string;
   };
 
+  assignment_levels: {
+    id: string;
+    level_code: string;
+    display_name: string;
+    title: string;
+    band_definitions: SubmissionBandDefinition[];
+  }[];
 };
 
 export type CriterionResult = {
