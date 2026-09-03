@@ -947,8 +947,19 @@ def grade_submission(submission):
         "8. If genuine evidence is missing, incomplete, contradictory, or unverifiable, reduce score_percentage accordingly.\n"
         "9. Follow the supplied rubric descriptors. Do not automatically give high partial credit simply because some related text exists.\n"
         "10. Return exactly one criterion_evaluation for every Task Code + Rubric Criterion ID pair supplied in this request, and no other pairs.\n\n"
+        "11. Do NOT mention grading band names, performance band labels, "
+        "pass/fail labels, or statements such as 'Foundation', 'Proficient', "
+        "'Expert', 'meets the band', or 'does not meet the band' in task-level "
+        "feedback. Describe only what evidence was demonstrated, missing, "
+        "incomplete, incorrect, or needs improvement. Band assignment is handled "
+        "separately by the application.\n"
         "FEEDBACK:\n"
-        "State what genuine evidence demonstrates. If the score is below 100, identify the exact missing, invalid, or incomplete evidence and finish with a concrete action the learner can take. Keep wording neutral, concise, evidence-based, and learner-facing."
+        "State what the verified evidence demonstrates. If the score is below "
+        "100, identify the exact missing, invalid, incomplete, or incorrect "
+        "evidence and finish with a concrete action the learner can take. "
+        "Do not mention grading bands, band names, pass/fail status, score ranges, "
+        "or scoring mechanics. Keep wording neutral, concise, evidence-based, "
+        "and learner-facing."
     )
 
     http_client = httpx.Client()

@@ -199,35 +199,22 @@ function getEstimatedApiCost(
       cachedInput: 0.075,
       output: 0.60,
     },
-    "gpt-4o-mini-2024-07-18": {
-      input: 0.15,
-      cachedInput: 0.075,
-      output: 0.60,
-    },
-    "gpt-4o": {
-      input: 2.50,
-      cachedInput: 1.25,
-      output: 10.00,
-    },
-    "gpt-4o-2024-08-06": {
-      input: 2.50,
-      cachedInput: 1.25,
-      output: 10.00,
-    },
-    "gpt-4o-2024-11-20": {
-      input: 2.50,
-      cachedInput: 1.25,
-      output: 10.00,
+    "gpt-4.1-mini": {
+      input: 0.40,
+      cachedInput: 0.10,
+      output: 1.60,
     },
   };
 
   const modelPricing =
     pricing[normalizedModel] ??
-    (normalizedModel.startsWith("gpt-4o-mini")
-      ? pricing["gpt-4o-mini"]
-      : normalizedModel.startsWith("gpt-4o")
-        ? pricing["gpt-4o"]
-        : null);
+    (normalizedModel.startsWith("gpt-4.1-mini")
+      ? pricing["gpt-4.1-mini"]
+      : normalizedModel.startsWith("gpt-4o-mini")
+        ? pricing["gpt-4o-mini"]
+        : normalizedModel.startsWith("gpt-4o")
+          ? pricing["gpt-4o"]
+          : null);
 
   if (!modelPricing) {
     return null;
