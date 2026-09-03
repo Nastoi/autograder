@@ -90,16 +90,15 @@ export function AssignmentLevelRequirements({
           </span>
 
           <strong>
-            {level.level_code === "basic"
-              ? "Basic Submission"
-              : "Advanced Submission"}
+            {level.display_name} Submission
           </strong>
         </div>
 
         <span className="level-editing-track">
-          {level.level_code === "basic"
-            ? "Foundation + Proficient"
-            : "Proficient + Expert"}
+          {level.band_definitions
+            .filter((band) => band.band_code !== "failed")
+            .map((band) => band.display_name)
+            .join(" + ")}
         </span>
       </div>
 
@@ -126,13 +125,11 @@ export function AssignmentLevelRequirements({
           className="btn-primary"
           style={{
             cursor:
-              importingLevelId === level.id ||
-              levelReadOnly
+              importingLevelId === level.id
                 ? "not-allowed"
                 : "pointer",
             opacity:
-              importingLevelId === level.id ||
-              levelReadOnly
+              importingLevelId === level.id
                 ? 0.65
                 : 1,
           }}
@@ -145,8 +142,7 @@ export function AssignmentLevelRequirements({
             type="file"
             accept=".csv,text/csv"
             disabled={
-              importingLevelId === level.id ||
-              levelReadOnly
+              importingLevelId === level.id 
             }
             style={{ display: "none" }}
             onChange={(event) => {
@@ -154,6 +150,8 @@ export function AssignmentLevelRequirements({
                 event.target.files?.[0];
 
               if (file) {
+                console.log("CSV selected:", file.name);
+
                 void importConfigurationCsv(
                   level,
                   file,

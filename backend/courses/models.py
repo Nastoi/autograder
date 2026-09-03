@@ -186,12 +186,7 @@ class ModuleAssignment(models.Model):
 
 
 class AssignmentLevel(models.Model):
-    class Level(models.TextChoices):
-        # FOUNDATION = "foundation", "Foundation"
-        # PROFICIENT = "proficient", "Proficient"
-        # EXPERT = "expert", "Expert"
-        BASIC = "basic", "BASIC"
-        ADVANCED = "advanced", "ADVANCED"
+    
 
     class ConfigurationStatus(models.TextChoices):
         DRAFT = "draft", "Draft"
@@ -219,11 +214,20 @@ class AssignmentLevel(models.Model):
     )
 
     level_code = models.CharField(
-        max_length=20,
-        choices=Level.choices,
+        max_length=50,
     )
 
     display_name = models.CharField(max_length=100)
+
+    sequence = models.PositiveIntegerField(
+        default=1,
+    )
+
+    band_definitions = models.JSONField(
+        default=list,
+        blank=True,
+    )
+        
     title = models.CharField(max_length=255)
 
     # Submission-level requirements. Basic and Advanced may differ.
@@ -274,13 +278,15 @@ class AssignmentLevel(models.Model):
     class Meta:
         db_table = "assignment_level"
         ordering = (
-            "level_code",
+            "assignment",
+            "sequence",
+            "created_at",
         )
 
     def __str__(self) -> str:
         return (
             f"{self.assignment.assignment_code} — "
-            f"{self.get_level_code_display()}"
+            f"{self.display_name}"
         )
 
 

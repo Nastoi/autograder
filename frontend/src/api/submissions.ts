@@ -53,7 +53,7 @@ export type CriterionResult = {
   created_at: string;
 };
 
-export type SubmissionTrack = "basic" | "advanced";
+export type SubmissionTrack = string;
 
 export type Submission = {
   id: string;
@@ -324,7 +324,7 @@ export type MappingResolvedContext = {
   };
   assignment_level: {
     id: string;
-    level_code: "basic" | "advanced";
+    level_code: string;
     display_name: string;
   };
 };
@@ -432,10 +432,16 @@ export type MappingSubmissionContext = {
     };
 
     assignment_levels: {
-        id: string;
-        level_code: "basic" | "advanced";
+      id: string;
+      level_code: string;
+      display_name: string;
+      title: string;
+      band_definitions: {
+        band_code: string;
         display_name: string;
-        title: string;
+        minimum_percentage: number;
+        maximum_percentage: number;
+      }[];
     }[];
 
     due_date: string | null;

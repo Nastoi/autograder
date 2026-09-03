@@ -233,28 +233,13 @@ export function AssignmentBandsSection({
                       );
                     }}
                   >
-                    {(level.level_code ===
-                    "advanced"
-                      ? [
-                          "failed",
-                          "proficient",
-                          "expert",
-                        ]
-                      : [
-                          "failed",
-                          "foundation",
-                          "proficient",
-                        ]
-                    ).map((code) => (
+                    {level.band_definitions.map((band) => (
                       <option
-                        key={code}
-                        value={code}
-                      >
-                        {code
-                          .charAt(0)
-                          .toUpperCase() +
-                          code.slice(1)}
-                      </option>
+  key={band.band_code}
+  value={band.band_code}
+>
+  {band.display_name}
+</option>
                     ))}
                   </select>
                 </div>

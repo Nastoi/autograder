@@ -67,9 +67,9 @@ class LearnerSubmission(models.Model):
         ERROR = "error", "Error"
         MANUAL_REVIEW = "manual_review", "Manual review"
 
-    class SubmissionTrack(models.TextChoices):
-        BASIC = "basic", "Basic"
-        ADVANCED = "advanced", "Advanced"
+    submission_track = models.CharField(
+        max_length=50,
+    )
 
     id = models.UUIDField(
         primary_key=True,
@@ -96,10 +96,8 @@ class LearnerSubmission(models.Model):
     )
 
     submission_track = models.CharField(
-        max_length=20,
-        choices=SubmissionTrack.choices,
-        default=SubmissionTrack.BASIC,
-    )
+        max_length=50,
+    )   
 
     submitted_file = models.FileField(
         upload_to="submissions/%Y/%m/%d/",

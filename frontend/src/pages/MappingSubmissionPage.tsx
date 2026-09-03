@@ -41,7 +41,7 @@ import { jsPDF } from "jspdf";
 
 
 
-type SubmissionTrack = "basic" | "advanced";
+type SubmissionTrack = string;
 
 
 export function MappingSubmissionPage() {
@@ -292,40 +292,40 @@ export function MappingSubmissionPage() {
     }
 
     function handleWindowFocus() {
-  void syncLiveLmsDueDate();
-}
+      void syncLiveLmsDueDate();
+    }
 
-function handleVisibilityChange() {
-  if (document.visibilityState === "visible") {
+    function handleVisibilityChange() {
+      if (document.visibilityState === "visible") {
+        void syncLiveLmsDueDate();
+      }
+    }
+
     void syncLiveLmsDueDate();
-  }
-}
 
-  void syncLiveLmsDueDate();
-
-  window.addEventListener(
-    "focus",
-    handleWindowFocus,
-  );
-
-  document.addEventListener(
-    "visibilitychange",
-    handleVisibilityChange,
-  );
-
-  return () => {
-    cancelled = true;
-
-    window.removeEventListener(
+    window.addEventListener(
       "focus",
       handleWindowFocus,
     );
 
-    document.removeEventListener(
+    document.addEventListener(
       "visibilitychange",
       handleVisibilityChange,
     );
-  };
+
+    return () => {
+      cancelled = true;
+
+      window.removeEventListener(
+        "focus",
+        handleWindowFocus,
+      );
+
+      document.removeEventListener(
+        "visibilitychange",
+        handleVisibilityChange,
+      );
+    };
   }, [
     mappingId,
     context?.is_instructor,
@@ -832,7 +832,7 @@ function handleVisibilityChange() {
     }
 
     if (!submissionTrack) {
-      setError("Please select Basic or Advanced.");
+      setError("Please select a submission track.");
       return;
     }
 
@@ -1261,59 +1261,58 @@ function handleVisibilityChange() {
                   Select submission type
                 </legend>
 
-                <label>
-                  <input
-                    type="radio"
-                    name="submission_track"
-                    value="basic"
-                    checked={
-                      submissionTrack === "basic"
-                    }
-                    onChange={() =>
-                      setSubmissionTrack("basic")
-                    }
-                    disabled={
-                      isSubmitting ||
-                      isWaitingForGrading ||
-                      deadlinePassed
-                      // hasNoAttemptsRemaining
-                    }
-                    required
-                  />
-                  Basic
-                </label>
+                {context.assignment_levels.map((level) => (
+                  <label
+                    key={level.id}
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "24px 1fr",
+                      columnGap: "12px",
+                      alignItems: "start",
+                    }}
+                  >
+                    <input
+                      type="radio"
+                      name="submission_track"
+                      value={level.level_code}
+                      checked={submissionTrack === level.level_code}
+                      onChange={() =>
+                        setSubmissionTrack(level.level_code)
+                      }
+                      disabled={
+                        isSubmitting ||
+                        isWaitingForGrading ||
+                        deadlinePassed
+                      }
+                      required
+                      style={{ marginTop: "4px" }}
+                    />
 
-                <p>
-                  Outcome can be Failed,
-                  Foundation, or Proficient.
-                </p>
+                    <div>
+                      <strong
+                        style={{
+                          display: "block",
+                        }}
+                      >
+                        {level.display_name}
+                      </strong>
 
-                <label>
-                  <input
-                    type="radio"
-                    name="submission_track"
-                    value="advanced"
-                    checked={
-                      submissionTrack === "advanced"
-                    }
-                    onChange={() =>
-                      setSubmissionTrack("advanced")
-                    }
-                    disabled={
-                      isSubmitting ||
-                      isWaitingForGrading ||
-                      deadlinePassed
-                      // hasNoAttemptsRemaining
-                    }
-                    required
-                  />
-                  Advanced
-                </label>
-
-                <p>
-                  Outcome can be Failed,
-                  Proficient, or Expert.
-                </p>
+                      <span
+                        style={{
+                          display: "block",
+                          marginTop: "4px",
+                          fontSize: "14px",
+                          fontWeight: 400,
+                        }}
+                      >
+                        Outcome can be{" "}
+                        {level.band_definitions
+                          .map((band) => band.display_name)
+                          .join(", ")}.
+                      </span>
+                    </div>
+                  </label>
+                ))}
               </fieldset>
 
               <label
@@ -1515,9 +1514,10 @@ function handleVisibilityChange() {
                     </span>
 
                     <strong className="attempt-detail-value">
-                      {attempts[0].submission_track === "basic"
-                        ? "Basic"
-                        : "Advanced"}
+                      {context.assignment_levels.find(
+                        (level) =>
+                          level.level_code === attempts[0].submission_track,
+                      )?.display_name ?? attempts[0].submission_track}
                     </strong>
                   </div>
 
@@ -1712,9 +1712,10 @@ function handleVisibilityChange() {
                             </span>
 
                             <strong className="attempt-detail-value">
-                              {attempt.submission_track === "basic"
-                                ? "Basic"
-                                : "Advanced"}
+                              {context.assignment_levels.find(
+                                (level) =>
+                                  level.level_code === attempt.submission_track,
+                              )?.display_name ?? attempt.submission_track}
                             </strong>
                           </div>
 

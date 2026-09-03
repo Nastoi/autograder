@@ -9,6 +9,9 @@ from courses.configuration_locks import require_lock_owner
 
 from lms.permissions import IsMappingAdmin
 
+from courses.configuration_status import (
+    refresh_assignment_level_configuration_status,
+)
 
 from ..models import (
  
@@ -32,9 +35,20 @@ class RubricCriterionListCreateView(
     permission_classes = [IsAuthenticated, IsMappingAdmin]
 
     def perform_create(self, serializer):
-        level_id = self.request.data.get("assignment_level")
-        require_lock_owner(level_id, self.request.user)
-        serializer.save()
+        level_id = self.request.data.get(
+            "assignment_level"
+        )
+
+        require_lock_owner(
+            level_id,
+            self.request.user,
+        )
+
+        criterion = serializer.save()
+
+        refresh_assignment_level_configuration_status(
+            criterion.assignment_level
+        )
 
     def get_queryset(self):
         queryset = RubricCriterion.objects.select_related(
@@ -65,11 +79,17 @@ class RubricCriterionDetailView(
 
     def perform_update(self, serializer):
         criterion = self.get_object()
+
         require_lock_owner(
             criterion.assignment_level_id,
             self.request.user,
         )
-        serializer.save()
+
+        updated_criterion = serializer.save()
+
+        refresh_assignment_level_configuration_status(
+            updated_criterion.assignment_level
+        )
 
     def get_queryset(self):
         return RubricCriterion.objects.select_related(
@@ -98,7 +118,19 @@ class RubricCriterionDetailView(
                 status=status.HTTP_409_CONFLICT,
             )
 
-        return super().destroy(request, *args, **kwargs)
+        level = criterion.assignment_level
+
+        response = super().destroy(
+            request,
+            *args,
+            **kwargs,
+        )
+
+        refresh_assignment_level_configuration_status(
+            level
+        )
+
+        return response
 
 
 class RubricBandListCreateView(
@@ -110,13 +142,21 @@ class RubricBandListCreateView(
     def perform_create(self, serializer):
         criterion = get_object_or_404(
             RubricCriterion,
-            id=self.request.data.get("rubric_criterion"),
+            id=self.request.data.get(
+                "rubric_criterion"
+            ),
         )
+
         require_lock_owner(
             criterion.assignment_level_id,
             self.request.user,
         )
+
         serializer.save()
+
+        refresh_assignment_level_configuration_status(
+            criterion.assignment_level
+        )
 
     def get_queryset(self):
         queryset = RubricBand.objects.select_related(
@@ -159,18 +199,35 @@ class RubricBandDetailView(
 
     def perform_update(self, serializer):
         band = self.get_object()
+
         require_lock_owner(
             band.rubric_criterion.assignment_level_id,
             self.request.user,
         )
-        serializer.save()
+
+        updated_band = serializer.save()
+
+        refresh_assignment_level_configuration_status(
+            updated_band.rubric_criterion.assignment_level
+        )
 
     def perform_destroy(self, instance):
         require_lock_owner(
             instance.rubric_criterion.assignment_level_id,
             self.request.user,
         )
+
+        level = (
+            instance
+            .rubric_criterion
+            .assignment_level
+        )
+
         instance.delete()
+
+        refresh_assignment_level_configuration_status(
+            level
+        )
 
     def get_queryset(self):
         return RubricBand.objects.select_related(

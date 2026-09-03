@@ -282,64 +282,24 @@ class RubricCriterionSerializer(
         if not assignment_level:
             return criterion
 
-        if assignment_level.level_code == "advanced":
-            default_bands = [
-                {
-                    "band_code": "failed",
-                    "display_name": "Failed",
-                    "minimum_percentage": 0,
-                    "maximum_percentage": 69.99,
-                    "sequence": 1,
-                },
-                {
-                    "band_code": "proficient",
-                    "display_name": "Proficient",
-                    "minimum_percentage": 70,
-                    "maximum_percentage": 79.99,
-                    "sequence": 2,
-                },
-                {
-                    "band_code": "expert",
-                    "display_name": "Expert",
-                    "minimum_percentage": 80,
-                    "maximum_percentage": 100,
-                    "sequence": 3,
-                },
-            ]
-        else:
-            default_bands = [
-                {
-                    "band_code": "failed",
-                    "display_name": "Failed",
-                    "minimum_percentage": 0,
-                    "maximum_percentage": 69.99,
-                    "sequence": 1,
-                },
-                {
-                    "band_code": "foundation",
-                    "display_name": "Foundation",
-                    "minimum_percentage": 70,
-                    "maximum_percentage": 79.99,
-                    "sequence": 2,
-                },
-                {
-                    "band_code": "proficient",
-                    "display_name": "Proficient",
-                    "minimum_percentage": 80,
-                    "maximum_percentage": 100,
-                    "sequence": 3,
-                },
-            ]
+        default_bands = assignment_level.band_definitions or []
 
-        for band in default_bands:
+        for index, band in enumerate(
+            default_bands,
+            start=1,
+        ):
             RubricBand.objects.create(
                 rubric_criterion=criterion,
                 band_code=band["band_code"],
                 display_name=band["display_name"],
-                minimum_percentage=band["minimum_percentage"],
-                maximum_percentage=band["maximum_percentage"],
+                minimum_percentage=band[
+                    "minimum_percentage"
+                ],
+                maximum_percentage=band[
+                    "maximum_percentage"
+                ],
                 descriptor="",
-                sequence=band["sequence"],
+                sequence=index,
             )
 
         return criterion

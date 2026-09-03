@@ -79,9 +79,7 @@ export function AssignmentOverviewPanel({
             <div className="level-card-header">
               <div>
                 <span className="path-label">
-                  {level.level_code === "basic"
-                    ? "Basic submission"
-                    : "Advanced submission"}
+                  {level.display_name}
                 </span>
 
                 <h3>{level.display_name}</h3>

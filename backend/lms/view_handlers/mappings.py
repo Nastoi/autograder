@@ -211,13 +211,11 @@ class AssessmentMappingSubmissionView(generics.RetrieveAPIView):
                     ]
                 )
 
-        # Return both Basic and Advanced options.
-        # Do NOT create a context here because the learner
-        # has not chosen the new submission level yet.
         assignment_levels = AssignmentLevel.objects.filter(
             assignment=mapping.assignment,
             is_active=True,
-        ).order_by("level_code")
+            configuration_status=AssignmentLevel.ConfigurationStatus.READY,
+        ).order_by("sequence")
 
         lms_due_date = mapping.due_date
         is_instructor = (
@@ -253,6 +251,7 @@ class AssessmentMappingSubmissionView(generics.RetrieveAPIView):
                         "level_code": level.level_code,
                         "display_name": level.display_name,
                         "title": level.title,
+                        "band_definitions": level.band_definitions,
                     }
                     for level in assignment_levels
                 ],

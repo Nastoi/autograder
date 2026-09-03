@@ -488,7 +488,7 @@ export async function deleteTask(taskId: string): Promise<void> {
 
 export type AssignmentConfigurationImportResult = {
     assignment_level: string;
-    level_code: "basic" | "advanced";
+    level_code: string;
     requirements_updated: boolean;
     tasks_created: number;
     criteria_created: number;

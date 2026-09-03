@@ -13,7 +13,7 @@ from django.db import transaction
 from courses.configuration_locks import require_lock_owner
 
 from lms.permissions import IsMappingAdmin
-
+from courses.models import AssignmentLevel
 
 
 

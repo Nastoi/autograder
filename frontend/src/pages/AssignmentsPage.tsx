@@ -11,6 +11,8 @@ import {
 import {
   createModuleAssignment,
   deleteModuleAssignment,
+  createAssignmentLevel,
+  deleteAssignmentLevel,
   getAssignmentLevels,
   getModuleAssignments,
   getModules,
@@ -70,10 +72,6 @@ import { AssignmentBandsSection } from "../components/assignments/AssignmentBand
 
 type WorkspaceTab = "overview" | "configuration";
 
-const levelOrder: Record<AssignmentLevel["level_code"], number> = {
-  basic: 1,
-  advanced: 2,
-};
 
 export function AssignmentsPage() {
   const [assignments, setAssignments] = useState<ModuleAssignment[]>([]);
@@ -190,6 +188,10 @@ export function AssignmentsPage() {
     >
   >({});
 
+  async function refreshLevels() {
+    setLevels(await getAssignmentLevels());
+  }
+
   async function loadData() {
     const [
       assignmentData,
@@ -288,8 +290,13 @@ export function AssignmentsPage() {
   );
 
   const selectedAssignmentLevels = levels
-    .filter((level) => level.assignment === selectedAssignmentId)
-    .sort((a, b) => levelOrder[a.level_code] - levelOrder[b.level_code]);
+    .filter(
+      (level) =>
+        level.assignment === selectedAssignmentId &&
+        level.is_active &&
+        level.configuration_status !== "retired",
+    )
+    .sort((a, b) => a.sequence - b.sequence);
 
   const selectedLevelIds = selectedAssignmentLevels.map((level) => level.id);
 
@@ -308,6 +315,13 @@ export function AssignmentsPage() {
   const selectedAssignmentTasks = tasks
     .filter((task) => selectedLevelIds.includes(task.assignment_level))
     .sort((a, b) => a.sequence - b.sequence);
+
+  const [showCreateTrack, setShowCreateTrack] = useState(false);
+  const [newTrackName, setNewTrackName] = useState("");
+  const [newTrackCode, setNewTrackCode] = useState("");
+  const [newTrackBand1, setNewTrackBand1] = useState("");
+  const [newTrackBand2, setNewTrackBand2] = useState("");
+  const [isCreatingTrack, setIsCreatingTrack] = useState(false);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -429,6 +443,35 @@ export function AssignmentsPage() {
     }
   }
 
+  async function removeTrack(level: AssignmentLevel) {
+    if (
+      !window.confirm(
+        `Delete track "${level.display_name}"?`,
+      )
+    ) {
+      return;
+    }
+
+    setError("");
+
+    try {
+      if (expandedLevelIds.includes(level.id)) {
+        await releaseLevelLock(level.id);
+        setExpandedLevelIds([]);
+      }
+
+      await deleteAssignmentLevel(level.id);
+
+      await loadData();
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Unable to delete submission track.",
+      );
+    }
+  }
+
   async function openAssignmentDelete(assignmentId: string) {
     setError("");
     setDeleteAssignmentId(assignmentId);
@@ -526,7 +569,6 @@ export function AssignmentsPage() {
           .map((item) => item.trim())
           .filter(Boolean),
         expected_outcome: levelExpectedOutcome,
-        configuration_status: "ready",
       });
 
       setLevels(await getAssignmentLevels());
@@ -663,6 +705,7 @@ export function AssignmentsPage() {
       });
 
       await refreshLevelTasks(level.id);
+      await refreshLevels();
       setTaskDrafts((current) => ({
         ...current,
         [level.id]: { task_code: "", title: "", instructions: "" },
@@ -716,6 +759,7 @@ export function AssignmentsPage() {
       setEditTaskCode("");
       setEditTaskTitle("");
       setEditTaskInstructions("");
+      await refreshLevels();
     } catch (caughtError) {
       setError(
         caughtError instanceof Error
@@ -734,6 +778,7 @@ export function AssignmentsPage() {
     try {
       await deleteTask(task.id);
       await refreshLevelTasks(task.assignment_level);
+      await refreshLevels();
     } catch (caughtError) {
       setError(
         caughtError instanceof Error
@@ -784,6 +829,7 @@ export function AssignmentsPage() {
       setCriteria(await getRubricCriteria());
       setBands(await getRubricBands());
       setCriterionFormLevelId("");
+      await refreshLevels();
     } catch (caughtError) {
       setError(
         caughtError instanceof Error
@@ -812,6 +858,7 @@ export function AssignmentsPage() {
       });
       setCriteria(await getRubricCriteria());
       setEditingCriterionId("");
+      await refreshLevels();
     } catch (caughtError) {
       setError(
         caughtError instanceof Error
@@ -829,6 +876,7 @@ export function AssignmentsPage() {
       await deleteRubricCriterion(criterionId);
       setCriteria(await getRubricCriteria());
       setBands(await getRubricBands());
+      await refreshLevels();
     } catch (caughtError) {
       setError(
         caughtError instanceof Error
@@ -856,6 +904,7 @@ export function AssignmentsPage() {
 
       const updatedBands = await getRubricBands();
       setBands(updatedBands);
+      await refreshLevels();
 
       const criterionBands = updatedBands.filter(
         (band) => band.rubric_criterion === bandCriterionId,
@@ -896,6 +945,7 @@ export function AssignmentsPage() {
       });
       setBands(await getRubricBands());
       setEditingBandId("");
+      await refreshLevels();
     } catch (caughtError) {
       setError(
         caughtError instanceof Error
@@ -912,6 +962,7 @@ export function AssignmentsPage() {
     try {
       await deleteRubricBand(bandId);
       setBands(await getRubricBands());
+      await refreshLevels();
     } catch (caughtError) {
       setError(
         caughtError instanceof Error
@@ -1185,6 +1236,7 @@ export function AssignmentsPage() {
         await getTaskCriteriaMappings(),
       );
 
+      await refreshLevels();
       setMappingCriterionId("");
       setSelectedMappingTaskIds([]);
     } catch (caughtError) {
@@ -1197,6 +1249,122 @@ export function AssignmentsPage() {
       setIsSavingTaskMapping(false);
     }
   }
+
+
+  async function handleCreateTrack() {
+    if (!selectedAssignment) {
+      return;
+    }
+
+    const displayName = newTrackName.trim();
+
+    if (!displayName) {
+      setError("Track name is required.");
+      return;
+    }
+
+    const generatedCode = displayName
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "");
+
+    const levelCode =
+      newTrackCode.trim() || generatedCode;
+
+    if (!levelCode) {
+      setError("Track code is required.");
+      return;
+    }
+
+    const nextSequence =
+      selectedAssignmentLevels.reduce(
+        (max, level) =>
+          Math.max(max, level.sequence ?? 0),
+        0,
+      ) + 1;
+
+    setError("");
+
+    const band1Name = newTrackBand1.trim();
+    const band2Name = newTrackBand2.trim();
+
+    if (!band1Name || !band2Name) {
+      setError("Both achievement band names are required.");
+      return;
+    }
+
+    const makeBandCode = (name: string) =>
+      name
+        .toLowerCase()
+        .trim()
+        .replace(/[^a-z0-9]+/g, "_")
+        .replace(/^_+|_+$/g, "");
+
+    setIsCreatingTrack(true);
+
+    try {
+      await createAssignmentLevel({
+        assignment: selectedAssignment.id,
+        level_code: levelCode,
+        display_name: displayName,
+        sequence: nextSequence,
+        title: displayName,
+
+        skill_statement_code: "",
+        skill_statement: "",
+        objective: "",
+        scenario: "",
+        instructions: "",
+        tasks: [],
+        deliverables: [],
+        expected_outcome: "",
+
+        source_filename: null,
+        version: 1,
+        configuration_status: "draft",
+        is_active: true,
+
+        band_definitions: [
+          {
+            band_code: "failed",
+            display_name: "Failed",
+            minimum_percentage: 0,
+            maximum_percentage: 69.99,
+          },
+          {
+            band_code: makeBandCode(band1Name),
+            display_name: band1Name,
+            minimum_percentage: 70,
+            maximum_percentage: 79.99,
+          },
+          {
+            band_code: makeBandCode(band2Name),
+            display_name: band2Name,
+            minimum_percentage: 80,
+            maximum_percentage: 100,
+          },
+        ],
+      });
+
+      await loadData();
+
+      setNewTrackName("");
+      setNewTrackCode("");
+      setNewTrackBand1("");
+      setNewTrackBand2("");
+      setShowCreateTrack(false);
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Unable to create submission track.",
+      );
+    } finally {
+      setIsCreatingTrack(false);
+    }
+  }
+
 
   return (
     <main className="admin-container">
@@ -1309,39 +1477,110 @@ export function AssignmentsPage() {
                   <div>
                     <h3>Submission configuration</h3>
                     <p className="section-description">
-                      Configure Basic and Advanced requirements, tasks and rubrics.
+                      Configure submission tracks, requirements, tasks and rubrics.
                     </p>
                   </div>
 
+                  <button
+                    type="button"
+                    className="btn-primary"
+                    onClick={() =>
+                      setShowCreateTrack((current) => !current)
+                    }
+                  >
+                    + Add Track
+                  </button>
                 </div>
 
-                <div className="level-grid">
-                  {(["basic", "advanced"] as const).map((levelCode) => {
-                    const level = selectedAssignmentLevels.find(
-                      (item) => item.level_code === levelCode,
-                    );
+                {showCreateTrack && (
+                  <div
+                    className="content-card"
+                    style={{
+                      padding: "18px",
+                      marginBottom: "18px",
+                    }}
+                  >
+                    <div className="form-grid form-grid-2">
+                      <div className="form-group">
+                        <label>Track name</label>
 
-                    if (!level) {
-                      return (
-                        <div key={levelCode}>
-                          <div className="submission-path-card">
-                            <span className="path-label">
-                              {levelCode === "basic"
-                                ? "Basic submission"
-                                : "Advanced submission"}
-                            </span>
-                            <strong>
-                              {levelCode === "basic"
-                                ? "Foundation + Proficient"
-                                : "Proficient + Expert"}
-                            </strong>
-                            <small className="table-subtext">
-                              Grading level data is not available yet.
-                            </small>
-                          </div>
-                        </div>
-                      );
-                    }
+                        <input
+                          value={newTrackName}
+                          onChange={(event) =>
+                            setNewTrackName(event.target.value)
+                          }
+                          placeholder="e.g. Professional"
+                        />
+                      </div>
+
+                      <div className="form-group">
+                        <label>Track code</label>
+
+                        <input
+                          value={newTrackCode}
+                          onChange={(event) =>
+                            setNewTrackCode(event.target.value)
+                          }
+                          placeholder="Auto-generated if empty"
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label>Band 1</label>
+                        <input
+                          value={newTrackBand1}
+                          onChange={(event) =>
+                            setNewTrackBand1(event.target.value)
+                          }
+                          placeholder="e.g. Competent"
+                        />
+                      </div>
+
+                      <div className="form-group">
+                        <label>Band 2</label>
+                        <input
+                          value={newTrackBand2}
+                          onChange={(event) =>
+                            setNewTrackBand2(event.target.value)
+                          }
+                          placeholder="e.g. Mastery"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="form-actions form-actions-compact">
+                      <button
+                        type="button"
+                        className="btn-primary"
+                        disabled={isCreatingTrack}
+                        onClick={() =>
+                          void handleCreateTrack()
+                        }
+                      >
+                        {isCreatingTrack
+                          ? "Creating..."
+                          : "Create Track"}
+                      </button>
+
+                      <button
+                        type="button"
+                        className="btn-secondary"
+                        disabled={isCreatingTrack}
+                        onClick={() => {
+                          setShowCreateTrack(false);
+                          setNewTrackName("");
+                          setNewTrackCode("");
+                        }}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                <div className="level-grid">
+                  {selectedAssignmentLevels.map((level) => {
+
+
 
                     const isExpanded = expandedLevelIds.includes(level.id);
                     const levelLock = levelLocks[level.id];
@@ -1411,15 +1650,27 @@ export function AssignmentsPage() {
                           style={{ cursor: "pointer" }}
                         >
                           <span className="path-label">
-                            {level.level_code === "basic"
-                              ? "Basic submission"
-                              : "Advanced submission"}
+                            Submission Track
                           </span>
+
                           <strong>
-                            {level.level_code === "basic"
-                              ? "Foundation + Proficient"
-                              : "Proficient + Expert"}
+                            {level.display_name}
                           </strong>
+                          <button
+                            type="button"
+                            className="btn-danger"
+                            style={{
+                              padding: "4px 8px",
+                              fontSize: "12px",
+                              width: "auto",
+                            }}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              void removeTrack(level);
+                            }}
+                          >
+                            Delete
+                          </button>
                           <small className="table-subtext">
                             {isExpanded ? "Click to collapse" : "Click to configure"}
                           </small>

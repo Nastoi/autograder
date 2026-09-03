@@ -95,11 +95,10 @@ function getLatestResultCounts(assignment: {
   }>;
 }) {
   const counts = {
-    failed: 0,
-    foundation: 0,
-    proficient_basic: 0,
-    proficient_advanced: 0,
-    expert: 0,
+      failed: 0,
+      foundation: 0,
+      proficient: 0,
+      expert: 0,
   };
 
   assignment.learners.forEach((learner) => {
@@ -137,12 +136,8 @@ function getLatestResultCounts(assignment: {
     } else if (band === "foundation") {
       counts.foundation += 1;
     } else if (band === "proficient") {
-      if (level === "basic") {
-        counts.proficient_basic += 1;
-      } else if (level === "advanced") {
-        counts.proficient_advanced += 1;
-      }
-    } else if (band === "expert") {
+      counts.proficient += 1;
+    }else if (band === "expert") {
       counts.expert += 1;
     }
   });
@@ -836,37 +831,9 @@ export function SubmissionRecordsPage() {
 
                                     <span className="submission-latest-band-counts">
                                       <span className="latest-band-pill">
-                                        Failed{" "}
+                                        Proficient{" "}
                                         <strong>
-                                          {latestResultCounts.failed}
-                                        </strong>
-                                      </span>
-
-                                      <span className="latest-band-pill">
-                                        Foundation{" "}
-                                        <strong>
-                                          {latestResultCounts.foundation}
-                                        </strong>
-                                      </span>
-
-                                      <span className="latest-band-pill">
-                                        Proficient · Basic{" "}
-                                        <strong>
-                                          {latestResultCounts.proficient_basic}
-                                        </strong>
-                                      </span>
-
-                                      <span className="latest-band-pill">
-                                        Proficient · Advanced{" "}
-                                        <strong>
-                                          {latestResultCounts.proficient_advanced}
-                                        </strong>
-                                      </span>
-
-                                      <span className="latest-band-pill">
-                                        Expert{" "}
-                                        <strong>
-                                          {latestResultCounts.expert}
+                                          {latestResultCounts.proficient}
                                         </strong>
                                       </span>
                                     </span>

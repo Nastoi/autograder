@@ -17,7 +17,7 @@ import {
   type SubmissionContext,
 } from "../api/submissions";
 
-type SubmissionTrack = "basic" | "advanced";
+type SubmissionTrack = string;
 
 
 
@@ -118,7 +118,7 @@ export function SubmissionPage() {
     event.preventDefault();
 
     if (!submissionTrack) {
-      setError("Please select Basic or Advanced.");
+      setError("Please select a submission track.");
       return;
     }
 
@@ -227,59 +227,49 @@ export function SubmissionPage() {
           <fieldset className="submission-track-options submission-track-grid">
             <legend>Select submission type</legend>
 
-            <label
-              className={
-                submissionTrack === "basic"
-                  ? "submission-track-card selected"
-                  : "submission-track-card"
-              }
-            >
-              <input
-                type="radio"
-                name="submission_track"
-                value="basic"
-                checked={submissionTrack === "basic"}
-                onChange={() =>
-                  setSubmissionTrack("basic")
+            {context.assignment_levels.map((level) => (
+              <label
+                key={level.id}
+                className={
+                  submissionTrack === level.level_code
+                    ? "submission-track-card selected"
+                    : "submission-track-card"
                 }
-                disabled={isSubmitting}
-                required
-              />
+              >
+                <input
+                  type="radio"
+                  name="submission_track"
+                  value={level.level_code}
+                  checked={
+                    submissionTrack === level.level_code
+                  }
+                  onChange={() =>
+                    setSubmissionTrack(level.level_code)
+                  }
+                  required
+                />
 
-              <span>
-                <strong>Basic</strong>
-                <small>
-                  Failed, Foundation or Proficient
-                </small>
-              </span>
-            </label>
+                <div>
+                  <strong>
+                    {level.display_name}
+                  </strong>
 
-            <label
-              className={
-                submissionTrack === "advanced"
-                  ? "submission-track-card selected"
-                  : "submission-track-card"
-              }
-            >
-              <input
-                type="radio"
-                name="submission_track"
-                value="advanced"
-                checked={submissionTrack === "advanced"}
-                onChange={() =>
-                  setSubmissionTrack("advanced")
-                }
-                disabled={isSubmitting}
-                required
-              />
-
-              <span>
-                <strong>Advanced</strong>
-                <small>
-                  Failed, Proficient or Expert
-                </small>
-              </span>
-            </label>
+                  <span
+                    style={{
+                      display: "block",
+                      marginTop: "4px",
+                      fontSize: "14px",
+                      fontWeight: 400,
+                    }}
+                  >
+                    Outcome can be{" "}
+                    {level.band_definitions
+                      .map((band) => band.display_name)
+                      .join(", ")}.
+                  </span>
+                </div>
+              </label>
+            ))}
           </fieldset>
 
           <div className="submission-upload-row">
@@ -390,7 +380,7 @@ export function SubmissionPage() {
         </section>
       </div>
 
-      
+
       {isSubmitting && (
         <div className="grading-modal-backdrop">
           <div className="grading-modal">

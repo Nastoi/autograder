@@ -855,6 +855,12 @@ export async function deleteModuleAssignment(
     throw new Error(message);
 }
 
+export type TrackBandDefinition = {
+    band_code: string;
+    display_name: string;
+    minimum_percentage: number;
+    maximum_percentage: number;
+};
 
 export type AssignmentLevel = {
     id: string;
@@ -873,9 +879,9 @@ export type AssignmentLevel = {
     grading_configuration_code: string;
     grading_configuration_name: string;
 
-    level_code:
-    "basic" | "advanced"
-
+    level_code: string;
+    sequence: number;
+    
     display_name: string;
     title: string;
 
@@ -888,6 +894,7 @@ export type AssignmentLevel = {
     tasks: unknown[];
     deliverables: unknown[];
     expected_outcome: string;
+    band_definitions: TrackBandDefinition[];
 
     source_filename: string | null;
     version: number;
@@ -907,30 +914,80 @@ export type AssignmentLevel = {
 
 export type CreateAssignmentLevelInput = {
     assignment: string;
-    grading_configuration: string;
 
-    level_code: AssignmentLevel["level_code"];
+    level_code: string;
     display_name: string;
+    sequence: number;
     title: string;
 
-    skill_statement_code: string;
-    skill_statement: string;
-    objective: string;
-    scenario: string;
-    instructions: string;
+    skill_statement_code?: string;
+    skill_statement?: string;
+    objective?: string;
+    scenario?: string;
+    instructions?: string;
 
-    tasks: unknown[];
-    deliverables: unknown[];
-    expected_outcome: string;
+    tasks?: unknown[];
+    deliverables?: unknown[];
+    expected_outcome?: string;
+    band_definitions?: TrackBandDefinition[];
 
-    source_filename: string | null;
-    version: number;
+    source_filename?: string | null;
+    version?: number;
 
-    configuration_status:
-    AssignmentLevel["configuration_status"];
+    configuration_status?:
+        AssignmentLevel["configuration_status"];
 
-    is_active: boolean;
+    is_active?: boolean;
 };
+
+export async function createAssignmentLevel(
+    input: CreateAssignmentLevelInput,
+): Promise<AssignmentLevel> {
+    const csrfToken = await getCsrfToken();
+
+    const response = await fetch(
+        `${API_BASE_URL}/courses/assignment-levels/`,
+        {
+            method: "POST",
+            credentials: "include",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRFToken": csrfToken,
+            },
+            body: JSON.stringify(input),
+        },
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+        if (typeof data?.detail === "string") {
+            throw new Error(data.detail);
+        }
+
+        if (data && typeof data === "object") {
+            const message = Object.entries(data)
+                .map(([field, errors]) => {
+                    const text = Array.isArray(errors)
+                        ? errors.join(", ")
+                        : String(errors);
+
+                    return `${field}: ${text}`;
+                })
+                .join(" | ");
+
+            if (message) {
+                throw new Error(message);
+            }
+        }
+
+        throw new Error(
+            "Unable to create submission track.",
+        );
+    }
+
+    return data as AssignmentLevel;
+}
 
 export type UpdateAssignmentLevelInput =
     Partial<CreateAssignmentLevelInput>;
@@ -1067,19 +1124,23 @@ export async function deleteAssignmentLevel(
         return;
     }
 
-    let message = "Unable to delete assignment level.";
+    let data: {
+        detail?: string;
+        retired?: boolean;
+    } = {};
 
     try {
-        const data = (await response.json()) as {
-            detail?: string;
-        };
-
-        if (data.detail) {
-            message = data.detail;
-        }
+        data = await response.json();
     } catch {
-        // Keep the default message.
+        // Keep default handling.
     }
 
-    throw new Error(message);
+    if (response.ok) {
+        return;
+    }
+
+    throw new Error(
+        data.detail ||
+        "Unable to delete submission track.",
+    );
 }

@@ -6,8 +6,9 @@ from courses.configuration_locks import require_lock_owner
 
 from lms.permissions import IsMappingAdmin
 
-
-
+from courses.configuration_status import (
+    refresh_assignment_level_configuration_status,
+)
 
 from ..models import (
  
@@ -28,9 +29,20 @@ class TaskListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated, IsMappingAdmin]
 
     def perform_create(self, serializer):
-        level_id = self.request.data.get("assignment_level")
-        require_lock_owner(level_id, self.request.user)
-        serializer.save()
+        level_id = self.request.data.get(
+            "assignment_level"
+        )
+
+        require_lock_owner(
+            level_id,
+            self.request.user,
+        )
+
+        task = serializer.save()
+
+        refresh_assignment_level_configuration_status(
+            task.assignment_level
+        )
 
     def get_queryset(self):
         queryset = Task.objects.select_related(
@@ -59,18 +71,31 @@ class TaskDetailView(generics.RetrieveUpdateDestroyAPIView):
 
     def perform_update(self, serializer):
         task = self.get_object()
+
         require_lock_owner(
             task.assignment_level_id,
             self.request.user,
         )
-        serializer.save()
+
+        updated_task = serializer.save()
+
+        refresh_assignment_level_configuration_status(
+            updated_task.assignment_level
+        )
 
     def perform_destroy(self, instance):
         require_lock_owner(
             instance.assignment_level_id,
             self.request.user,
         )
+
+        level = instance.assignment_level
+
         instance.delete()
+
+        refresh_assignment_level_configuration_status(
+            level
+        )
 
     def get_queryset(self):
         return Task.objects.select_related(
@@ -88,9 +113,20 @@ class TaskCriteriaMappingListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated, IsMappingAdmin]
 
     def perform_create(self, serializer):
-        level_id = self.request.data.get("assignment_level")
-        require_lock_owner(level_id, self.request.user)
-        serializer.save()
+        level_id = self.request.data.get(
+            "assignment_level"
+        )
+
+        require_lock_owner(
+            level_id,
+            self.request.user,
+        )
+
+        mapping = serializer.save()
+
+        refresh_assignment_level_configuration_status(
+            mapping.assignment_level
+        )
 
     def get_queryset(self):
         queryset = TaskCriteriaMapping.objects.select_related(
@@ -136,18 +172,31 @@ class TaskCriteriaMappingDetailView(
 
     def perform_update(self, serializer):
         mapping = self.get_object()
+
         require_lock_owner(
             mapping.assignment_level_id,
             self.request.user,
         )
-        serializer.save()
+
+        updated_mapping = serializer.save()
+
+        refresh_assignment_level_configuration_status(
+            updated_mapping.assignment_level
+        )
 
     def perform_destroy(self, instance):
         require_lock_owner(
             instance.assignment_level_id,
             self.request.user,
         )
+
+        level = instance.assignment_level
+
         instance.delete()
+
+        refresh_assignment_level_configuration_status(
+            level
+        )
 
     def get_queryset(self):
         return TaskCriteriaMapping.objects.select_related(

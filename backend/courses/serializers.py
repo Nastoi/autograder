@@ -391,16 +391,18 @@ class ModuleAssignmentSerializer(serializers.ModelSerializer):
 
         level_definitions = (
             (
-                AssignmentLevel.Level.BASIC,
+                "basic",
                 "Basic",
+                1,
             ),
             (
-                AssignmentLevel.Level.ADVANCED,
+                "advanced",
                 "Advanced",
+                2,
             ),
         )
 
-        for level_code, display_name in level_definitions:
+        for (level_code,display_name,sequence,) in level_definitions:
             configuration_code = (
                 f"{assignment.assignment_code}-{level_code.upper()}"
             )
@@ -449,13 +451,59 @@ class ModuleAssignmentSerializer(serializers.ModelSerializer):
                 )
             )
 
+            if level_code == "basic":
+                band_definitions = [
+                    {
+                        "band_code": "failed",
+                        "display_name": "Failed",
+                        "minimum_percentage": 0,
+                        "maximum_percentage": 69.99,
+                    },
+                    {
+                        "band_code": "foundation",
+                        "display_name": "Foundation",
+                        "minimum_percentage": 70,
+                        "maximum_percentage": 79.99,
+                    },
+                    {
+                        "band_code": "proficient",
+                        "display_name": "Proficient",
+                        "minimum_percentage": 80,
+                        "maximum_percentage": 100,
+                    },
+                ]
+            else:
+                band_definitions = [
+                    {
+                        "band_code": "failed",
+                        "display_name": "Failed",
+                        "minimum_percentage": 0,
+                        "maximum_percentage": 69.99,
+                    },
+                    {
+                        "band_code": "proficient",
+                        "display_name": "Proficient",
+                        "minimum_percentage": 70,
+                        "maximum_percentage": 79.99,
+                    },
+                    {
+                        "band_code": "expert",
+                        "display_name": "Expert",
+                        "minimum_percentage": 80,
+                        "maximum_percentage": 100,
+                    },
+                ]
+
+
             assignment_level = AssignmentLevel.objects.create(
+                band_definitions=band_definitions,
                 assignment=assignment,
                 grading_configuration=(
                     grading_configuration
                 ),
                 level_code=level_code,
                 display_name=display_name,
+                sequence=sequence,
                 title=(
                     f"{assignment.assignment_title} - "
                     f"{display_name}"
@@ -479,11 +527,10 @@ class ModuleAssignmentSerializer(serializers.ModelSerializer):
                 is_active=True,
             )
 
-            allowed_bands = (
-                ["failed", "foundation", "proficient"]
-                if level_code == AssignmentLevel.Level.BASIC
-                else ["failed", "proficient", "expert"]
-            )
+            allowed_bands = [
+                band["band_code"]
+                for band in (assignment_level.band_definitions or [])
+            ]
 
             AIGradingProfile.objects.create(
                 assignment_level=assignment_level,
@@ -639,6 +686,8 @@ class AssignmentLevelSerializer(serializers.ModelSerializer):
             "grading_configuration_name",
             "level_code",
             "display_name",
+            "sequence",
+            "band_definitions",
             "title",
             "skill_statement_code",
             "skill_statement",
@@ -674,13 +723,7 @@ class AssignmentLevelSerializer(serializers.ModelSerializer):
         )
 
     def get_can_delete(self, obj):
-        return (
-            not obj.rubric_criteria.exists()
-            and not obj.rag_sources.exists()
-            and not obj.grading_tasks.exists()
-            and not obj.task_criteria_mappings.exists()
-            and not hasattr(obj, "ai_grading_profile")
-        )
+        return True
 
     def validate(self, attrs):
         assignment = attrs.get(
@@ -701,7 +744,7 @@ class AssignmentLevelSerializer(serializers.ModelSerializer):
         if assignment and level_code and version is not None:
             queryset = AssignmentLevel.objects.filter(
                 assignment=assignment,
-                level_code=level_code,
+                level_code__iexact=level_code,
                 version=version,
             )
 
@@ -722,3 +765,24 @@ class AssignmentLevelSerializer(serializers.ModelSerializer):
 
         return attrs
 
+
+    def validate_level_code(self, value):
+        normalized = value.strip().lower().replace(" ", "_")
+
+        if not normalized:
+            raise serializers.ValidationError(
+                "Track code is required."
+            )
+
+        return normalized
+
+
+    def validate_display_name(self, value):
+        normalized = value.strip()
+
+        if not normalized:
+            raise serializers.ValidationError(
+                "Track name is required."
+            )
+
+        return normalized

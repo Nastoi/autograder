@@ -164,9 +164,7 @@ export function ResultPage() {
           <div className="result-row">
             <span>Submission Type</span>
             <strong>
-              {submission.submission_track === "basic"
-                ? "Basic"
-                : "Advanced"}
+              {submission.submission_track}
             </strong>
           </div>
 

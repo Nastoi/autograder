@@ -9,6 +9,10 @@ from ..models import AssignmentLevel
 
 from ..serializers import AssignmentLevelSerializer
 
+from ..configuration_status import (
+    refresh_assignment_level_configuration_status,
+)
+
 from ..configuration_locks import (
     acquire_lock,
     get_lock,
@@ -149,28 +153,53 @@ class AssignmentLevelDetailView(
 
     def perform_update(self, serializer):
         level = self.get_object()
-        require_lock_owner(level.id, self.request.user)
-        serializer.save()
+
+        require_lock_owner(
+            level.id,
+            self.request.user,
+        )
+
+        updated_level = serializer.save()
+
+        refresh_assignment_level_configuration_status(
+            updated_level
+        )
 
     def destroy(self, request, *args, **kwargs):
         level = self.get_object()
 
-        if (
-            level.rubric_criteria.exists()
-            or level.rag_sources.exists()
-            or level.grading_tasks.exists()
-            or level.task_criteria_mappings.exists()
-            or hasattr(level, "ai_grading_profile")
-        ):
+        has_submission_history = (
+            level.learner_submissions.exists()
+            or level.submission_contexts_by_assignment.exists()
+        )
+
+        if has_submission_history:
+            level.is_active = False
+            level.configuration_status = (
+                AssignmentLevel.ConfigurationStatus.RETIRED
+            )
+
+            level.save(
+                update_fields=[
+                    "is_active",
+                    "configuration_status",
+                    "updated_at",
+                ]
+            )
+
             return Response(
                 {
                     "detail": (
-                        "This grading level cannot be deleted because "
-                        "it already has grading configuration or related data. "
-                        "Deactivate it instead."
-                    )
+                        "This track has learner history, so it was "
+                        "retired instead of permanently deleted."
+                    ),
+                    "retired": True,
                 },
-                status=status.HTTP_409_CONFLICT,
+                status=status.HTTP_200_OK,
             )
 
-        return super().destroy(request, *args, **kwargs)
+        return super().destroy(
+            request,
+            *args,
+            **kwargs,
+        )
