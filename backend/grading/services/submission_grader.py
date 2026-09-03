@@ -556,10 +556,7 @@ def verify_task_evidence(
     task_mappings,
     assignment_context,
     document_authenticity,
-    
 ):
-
-
     submission_pages = {
         page.page_number: page
         for page in SubmissionPage.objects.filter(
@@ -576,115 +573,59 @@ def verify_task_evidence(
         )
     }
 
-    user_content = [
-        {
-            "type": "text",
-            "text": (
-                f"ASSIGNMENT CONTEXT:\n"
-                f"{assignment_context}\n\n"
-                f"DOCUMENT AUTHENTICITY:\n"
-                f"{json.dumps(document_authenticity, indent=2)}\n\n"
-                "Verify the evidence for each supplied task."
-            ),
-        }
-    ]
-
-    for mapping in task_mappings:
-        task_code = mapping.task_id
-        task = task_lookup.get(task_code)
-
-        if not task:
-            continue
-
-        user_content.append(
-            {
-                "type": "text",
-                "text": (
-                    f"\n=== TASK {task_code} ===\n"
-                    f"Title: {task.title}\n"
-                    f"Required Evidence: {task.instructions or '-'}\n"
-                    f"Mapped Pages: {mapping.mapped_page_numbers}\n"
-                    f"Mapper Justification: {mapping.justification}\n"
-                ),
-            }
-        )
-
-        for page_num in mapping.mapped_page_numbers:
-            page = submission_pages.get(page_num)
-
-            if not page:
-                continue
-
-            if getattr(page, "extracted_text", None):
-                user_content.append(
-                    {
-                        "type": "text",
-                        "text": (
-                            f"--- PAGE {page_num} TEXT ---\n"
-                            f"{page.extracted_text}"
-                        ),
-                    }
-                )
-
-            if getattr(page, "image_data", None):
-                b64_image = base64.b64encode(
-                    page.image_data
-                ).decode("utf-8")
-
-                mime_type = getattr(
-                    page,
-                    "image_mime_type",
-                    "image/webp",
-                )
-
-                user_content.append(
-                    {
-                        "type": "text",
-                        "text": f"--- PAGE {page_num} IMAGE ---",
-                    }
-                )
-
-                user_content.append(
-                    {
-                        "type": "image_url",
-                        "image_url": {
-                            "url": (
-                                f"data:{mime_type};base64,"
-                                f"{b64_image}"
-                            )
-                        },
-                    }
-                )
-
     system_prompt = (
         "You are an evidence verifier, not a grader.\n\n"
-        "For each task, determine what the submitted evidence "
-        "actually demonstrates.\n\n"
+        "You will receive ONE assignment task and only the pages mapped "
+        "as potentially relevant to that task.\n"
+        "Determine what the supplied evidence actually demonstrates.\n\n"
+
         "RULES:\n"
-        "1. Use the task requirement dynamically. Do not assume "
-        "a particular assignment type or software product.\n"
-        "2. Do not award marks or rubric bands.\n"
-        "3. Do not assume an image is valid evidence merely because "
-        "it appears near a screenshot instruction.\n"
-        "4. Inspect the actual visual content and determine whether "
-        "it shows what the task requires.\n"
-        "5. Written claims do not verify an observable setting, "
-        "configuration, screenshot, output, dashboard, test result, "
-        "or other visual requirement unless the task permits written "
+        "1. Evaluate only the supplied task. Do not reason about other tasks.\n"
+        "2. Use the task requirement dynamically. Do not assume a particular "
+        "assignment type or software product.\n"
+        "3. Do not award marks, percentages, or rubric bands.\n"
+        "4. Do not assume an image is valid evidence merely because it appears "
+        "near a screenshot instruction or inside the expected template section.\n"
+        "5. Inspect the actual rendered visual content and determine whether it "
+        "visibly demonstrates what the task requires.\n"
+        "6. Written claims do not verify an observable setting, configuration, "
+        "interface, screenshot, output, dashboard, test result, citation panel, "
+        "or other visual requirement unless the task explicitly permits written "
         "evidence alone.\n"
-        "6. Check quantities explicitly when the task requires a "
-        "specific number of items, screenshots, tests, responses, "
-        "sources, or examples.\n"
-        "7. Follow Document Authenticity restrictions. Content "
-        "declared synthetic, placeholder, mock, sample, or invalid "
-        "cannot be verified as completed work.\n"
-        "8. If the evidence is unrelated to the task, mark it "
-        "not_verified.\n"
-        "9. If some but not all requirements are demonstrated, "
-        "mark it partial.\n"
-        "10. Describe only facts actually visible or supported by "
-        "the supplied evidence."
+        "7. Check required quantities explicitly. Count only independently "
+        "demonstrated qualifying items.\n"
+        "8. Follow the supplied Document Authenticity restrictions. Evidence "
+        "declared synthetic, placeholder, mock, sample, test-only, fabricated, "
+        "not genuine, or invalid cannot be verified as completed work.\n"
+        "9. If the evidence is unrelated to the requirement, return "
+        "verification_status='not_verified'.\n"
+        "10. If some but not all requirements are demonstrated, return "
+        "verification_status='partial'.\n"
+        "11. If the supplied evidence is unclear or cannot be confidently "
+        "verified, return verification_status='uncertain'.\n"
+        "12. Ignore section headings, template prompts, captions, and expected "
+        "placement as proof. For example, 'Paste screenshot here' does not prove "
+        "that the following image is the requested screenshot.\n"
+        "13. For every claimed visual fact, verify it directly from the rendered "
+        "image. Do not infer visual content from nearby extracted text, table "
+        "values, captions, or template labels.\n"
+        "14. Never state that an image shows a setting, source, response, "
+        "citation, configuration, interface, or status unless that specific "
+        "information is visibly identifiable in the image.\n"
+        "15. When a task requires a specific number of screenshots, tests, "
+        "responses, sources, examples, or other items, count only the items "
+        "actually demonstrated in the evidence.\n"
+        "16. For written requirements such as reflections or explanations, "
+        "compare the actual submitted writing against every requested point. "
+        "Do not treat unrelated or repeated text as satisfying the requirement.\n"
+        "17. verified_facts must contain only facts independently supported by "
+        "the supplied evidence. Put anything required but not demonstrated into "
+        "missing_or_unverified.\n"
+        "18. Return exactly one task verification for the supplied task code."
     )
+
+    all_verifications = []
+    usage_snapshots = []
 
     http_client = httpx.Client()
 
@@ -694,30 +635,175 @@ def verify_task_evidence(
             http_client=http_client,
         )
 
-        completion = client.beta.chat.completions.parse(
-            model=settings.OPENAI_API_MODEL,
-            messages=[
+        for mapping in task_mappings:
+            task_code = mapping.task_id
+            task = task_lookup.get(task_code)
+
+            if not task:
+                continue
+
+            # IMPORTANT:
+            # New content for EACH task.
+            # Nothing from another task is carried into this verification call.
+            user_content = [
                 {
-                    "role": "system",
-                    "content": system_prompt,
-                },
-                {
-                    "role": "user",
-                    "content": user_content,
-                },
-            ],
-            response_format=EvidenceVerificationResponse,
-            temperature=0.0,
-        )
+                    "type": "text",
+                    "text": (
+                        f"ASSIGNMENT CONTEXT:\n"
+                        f"{assignment_context}\n\n"
+
+                        f"DOCUMENT AUTHENTICITY:\n"
+                        f"{json.dumps(document_authenticity, indent=2)}\n\n"
+
+                        f"=== TASK TO VERIFY ===\n"
+                        f"Task Code: {task_code}\n"
+                        f"Task Title: {task.title}\n"
+                        f"Required Evidence / Instructions:\n"
+                        f"{task.instructions or '-'}\n\n"
+
+                        f"Potentially Relevant Pages: "
+                        f"{mapping.mapped_page_numbers}\n\n"
+
+                        "Independently inspect the evidence below. "
+                        "Do not assume the mapped pages satisfy the task."
+                    ),
+                }
+            ]
+
+            for page_num in mapping.mapped_page_numbers:
+                page = submission_pages.get(page_num)
+
+                if not page:
+                    continue
+
+                user_content.append(
+                    {
+                        "type": "text",
+                        "text": (
+                            f"=== PAGE {page_num} ==="
+                        ),
+                    }
+                )
+
+                if getattr(page, "extracted_text", None):
+                    user_content.append(
+                        {
+                            "type": "text",
+                            "text": (
+                                f"--- PAGE {page_num} EXTRACTED TEXT ---\n"
+                                f"{page.extracted_text}"
+                            ),
+                        }
+                    )
+
+                if getattr(page, "image_data", None):
+                    b64_image = base64.b64encode(
+                        page.image_data
+                    ).decode("utf-8")
+
+                    mime_type = getattr(
+                        page,
+                        "image_mime_type",
+                        "image/webp",
+                    )
+
+                    user_content.append(
+                        {
+                            "type": "text",
+                            "text": (
+                                f"--- PAGE {page_num} RENDERED IMAGE ---\n"
+                                "Inspect this image independently. "
+                                "Do not infer its contents from the "
+                                "surrounding extracted text."
+                            ),
+                        }
+                    )
+
+                    user_content.append(
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": (
+                                    f"data:{mime_type};base64,"
+                                    f"{b64_image}"
+                                )
+                            },
+                        }
+                    )
+
+                elif getattr(page, "image_url", None):
+                    user_content.append(
+                        {
+                            "type": "text",
+                            "text": (
+                                f"--- PAGE {page_num} RENDERED IMAGE ---\n"
+                                "Inspect this image independently."
+                            ),
+                        }
+                    )
+
+                    user_content.append(
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": page.image_url
+                            },
+                        }
+                    )
+
+            completion = client.beta.chat.completions.parse(
+                model=settings.OPENAI_API_MODEL,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": system_prompt,
+                    },
+                    {
+                        "role": "user",
+                        "content": user_content,
+                    },
+                ],
+                response_format=EvidenceVerificationResponse,
+                temperature=0.0,
+            )
+
+            parsed = completion.choices[0].message.parsed
+
+            returned = [
+                item
+                for item in parsed.task_verifications
+                if item.task_code == task_code
+            ]
+
+            if len(returned) != 1:
+                raise ValueError(
+                    "Evidence verifier returned an invalid result for "
+                    f"{task_code}. Expected exactly 1 verification, "
+                    f"received {len(returned)}."
+                )
+
+            all_verifications.append(
+                returned[0]
+            )
+
+            usage_snapshots.append(
+                _completion_usage_snapshot(
+                    completion
+                )
+            )
 
         return {
-            "result": completion.choices[0].message.parsed,
-            "usage": _completion_usage_snapshot(completion),
+            "result": EvidenceVerificationResponse(
+                task_verifications=all_verifications
+            ),
+            "usage": _sum_usage_snapshots(
+                usage_snapshots
+            ),
         }
 
     finally:
         http_client.close()
-
+        
 
 def grade_submission(submission):
     task_mappings = SubmissionTaskMapping.objects.filter(submission=submission)
