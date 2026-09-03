@@ -26,6 +26,23 @@ from submissions.models import SubmissionPage
 from submissions.audit import record_submission_event, update_grading_audit
 
 
+class TaskEvidenceVerification(BaseModel):
+    task_code: str
+    verification_status: str = Field(
+        description="One of: verified, partial, not_verified, uncertain"
+    )
+    evidence_type_required: str
+    evidence_type_found: str
+    visual_requirement_satisfied: bool | None = None
+    quantity_requirement_satisfied: bool | None = None
+    verified_facts: list[str] = Field(default_factory=list)
+    missing_or_unverified: list[str] = Field(default_factory=list)
+    reasoning: str
+
+
+class EvidenceVerificationResponse(BaseModel):
+    task_verifications: list[TaskEvidenceVerification]
+
 def _completion_usage_snapshot(completion):
     usage = getattr(completion, "usage", None)
 
@@ -224,7 +241,7 @@ def analyze_document_authenticity(submission):
         "screenshots, or configuration records are synthetic applies to "
         "those artefacts themselves, not only to their images.\n"
         "7. Return concise structured findings that can be used later "
-        "by an academic grader."
+        "by an academic grader.\n"
         "8. Follow the supplied Document Authenticity Analysis exactly. "
         "If relevant content is declared synthetic or invalid, it may still "
         "be mapped because it is relevant, but the justification must state "
@@ -534,6 +551,172 @@ def determine_overall_band(
     return matching_bands[0].band_code
 
 
+def verify_task_evidence(
+    submission,
+    task_mappings,
+    assignment_context,
+    document_authenticity,
+    
+):
+
+
+    submission_pages = {
+        page.page_number: page
+        for page in SubmissionPage.objects.filter(
+            submission=submission
+        )
+    }
+
+    assignment_level = submission.context.assignment_level
+
+    task_lookup = {
+        task.task_code: task
+        for task in Task.objects.filter(
+            assignment_level=assignment_level
+        )
+    }
+
+    user_content = [
+        {
+            "type": "text",
+            "text": (
+                f"ASSIGNMENT CONTEXT:\n"
+                f"{assignment_context}\n\n"
+                f"DOCUMENT AUTHENTICITY:\n"
+                f"{json.dumps(document_authenticity, indent=2)}\n\n"
+                "Verify the evidence for each supplied task."
+            ),
+        }
+    ]
+
+    for mapping in task_mappings:
+        task_code = mapping.task_id
+        task = task_lookup.get(task_code)
+
+        if not task:
+            continue
+
+        user_content.append(
+            {
+                "type": "text",
+                "text": (
+                    f"\n=== TASK {task_code} ===\n"
+                    f"Title: {task.title}\n"
+                    f"Required Evidence: {task.instructions or '-'}\n"
+                    f"Mapped Pages: {mapping.mapped_page_numbers}\n"
+                    f"Mapper Justification: {mapping.justification}\n"
+                ),
+            }
+        )
+
+        for page_num in mapping.mapped_page_numbers:
+            page = submission_pages.get(page_num)
+
+            if not page:
+                continue
+
+            if getattr(page, "extracted_text", None):
+                user_content.append(
+                    {
+                        "type": "text",
+                        "text": (
+                            f"--- PAGE {page_num} TEXT ---\n"
+                            f"{page.extracted_text}"
+                        ),
+                    }
+                )
+
+            if getattr(page, "image_data", None):
+                b64_image = base64.b64encode(
+                    page.image_data
+                ).decode("utf-8")
+
+                mime_type = getattr(
+                    page,
+                    "image_mime_type",
+                    "image/webp",
+                )
+
+                user_content.append(
+                    {
+                        "type": "text",
+                        "text": f"--- PAGE {page_num} IMAGE ---",
+                    }
+                )
+
+                user_content.append(
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": (
+                                f"data:{mime_type};base64,"
+                                f"{b64_image}"
+                            )
+                        },
+                    }
+                )
+
+    system_prompt = (
+        "You are an evidence verifier, not a grader.\n\n"
+        "For each task, determine what the submitted evidence "
+        "actually demonstrates.\n\n"
+        "RULES:\n"
+        "1. Use the task requirement dynamically. Do not assume "
+        "a particular assignment type or software product.\n"
+        "2. Do not award marks or rubric bands.\n"
+        "3. Do not assume an image is valid evidence merely because "
+        "it appears near a screenshot instruction.\n"
+        "4. Inspect the actual visual content and determine whether "
+        "it shows what the task requires.\n"
+        "5. Written claims do not verify an observable setting, "
+        "configuration, screenshot, output, dashboard, test result, "
+        "or other visual requirement unless the task permits written "
+        "evidence alone.\n"
+        "6. Check quantities explicitly when the task requires a "
+        "specific number of items, screenshots, tests, responses, "
+        "sources, or examples.\n"
+        "7. Follow Document Authenticity restrictions. Content "
+        "declared synthetic, placeholder, mock, sample, or invalid "
+        "cannot be verified as completed work.\n"
+        "8. If the evidence is unrelated to the task, mark it "
+        "not_verified.\n"
+        "9. If some but not all requirements are demonstrated, "
+        "mark it partial.\n"
+        "10. Describe only facts actually visible or supported by "
+        "the supplied evidence."
+    )
+
+    http_client = httpx.Client()
+
+    try:
+        client = OpenAI(
+            api_key=settings.OPENAI_API_KEY,
+            http_client=http_client,
+        )
+
+        completion = client.beta.chat.completions.parse(
+            model=settings.OPENAI_API_MODEL,
+            messages=[
+                {
+                    "role": "system",
+                    "content": system_prompt,
+                },
+                {
+                    "role": "user",
+                    "content": user_content,
+                },
+            ],
+            response_format=EvidenceVerificationResponse,
+            temperature=0.0,
+        )
+
+        return {
+            "result": completion.choices[0].message.parsed,
+            "usage": _completion_usage_snapshot(completion),
+        }
+
+    finally:
+        http_client.close()
 
 
 def grade_submission(submission):
@@ -593,6 +776,25 @@ def grade_submission(submission):
         authenticity_result["analysis"]
     )
 
+    verification_result = verify_task_evidence(
+        submission=submission,
+        task_mappings=task_mappings,
+        assignment_context=assignment_context,
+        document_authenticity=document_authenticity,
+    )
+
+    task_verification_map = {
+        item.task_code: item.model_dump()
+        for item in verification_result[
+            "result"
+        ].task_verifications
+    }
+
+    verification_usage = {
+        "stage": "evidence_verification",
+        **verification_result["usage"],
+    }
+
     criteria_weight_map = {}
     criterion_mapping_groups = {}
     for mapping in criteria_mappings:
@@ -637,7 +839,9 @@ def grade_submission(submission):
 
     http_client = httpx.Client()
     client = OpenAI(api_key=settings.OPENAI_API_KEY, http_client=http_client)
-    grading_call_usage = []
+    grading_call_usage = [
+        verification_usage,
+    ]
     all_evaluations = []
 
     try:
@@ -673,24 +877,34 @@ def grade_submission(submission):
             pages_already_added = set()
             for mapping in group_mappings:
                 task_code = mapping.task.task_code
+
+                verification = task_verification_map.get(
+                    task_code,
+                    {},
+                )
                 required_pairs.append(f"{task_code}_{criterion_id}")
                 mapped_pages = task_pages_map.get(task_code, [])
                 submission_task_mapping = next(
                     (item for item in task_mappings if item.task_id == task_code),
                     None,
                 )
-                criterion_user_content.append({
-                    "type": "text",
-                    "text": (
-                        "\n=== TASK TO EVALUATE ===\n"
-                        f"Task Code: {task_code}\n"
-                        f"Task Title: {mapping.task.title}\n"
-                        f"Required Evidence: {mapping.task.instructions or '-'}\n"
-                        f"Task Weight Within Criterion: {mapping.inferred_weight}%\n"
-                        f"Mapped Pages: {mapped_pages if mapped_pages else 'NO EVIDENCE FOUND'}\n"
-                        f"Mapping Justification: {submission_task_mapping.justification if submission_task_mapping else '-'}\n"
-                    ),
-                })
+                criterion_user_content.append(
+                    {
+                        "type": "text",
+                        "text": (
+                            "\n=== TASK TO EVALUATE ===\n"
+                            f"Task Code: {task_code}\n"
+                            f"Task Title: {mapping.task.title}\n"
+                            f"Required Evidence: {mapping.task.instructions or '-'}\n"
+                            f"Task Weight Within Criterion: {mapping.inferred_weight}%\n"
+                            f"Mapped Pages: {mapped_pages if mapped_pages else 'NO EVIDENCE FOUND'}\n"
+                            f"Mapping Justification: "
+                            f"{submission_task_mapping.justification if submission_task_mapping else '-'}\n\n"
+                            f"EVIDENCE VERIFICATION:\n"
+                            f"{json.dumps(verification, indent=2)}\n"
+                        ),
+                    }
+                )
 
                 for page_num in mapped_pages:
                     if page_num in pages_already_added:
