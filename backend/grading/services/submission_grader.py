@@ -308,6 +308,23 @@ def map_submission_tasks(submission):
         "visual evidence for a task whose instructions do not call for an "
         "observable implementation, screenshot, output, configuration state, "
         "or similar direct artefact."
+
+        "18. INVALID, SYNTHETIC, OR PLACEHOLDER EVIDENCE: Treat any content "
+        "explicitly identified by the submission as synthetic, mock, placeholder, "
+        "sample, demonstration-only, test data, fabricated, generated for testing, "
+        "not a real screenshot, or not evidence of completed work as INVALID "
+        "completion evidence. Such a page may still be mapped because it is relevant "
+        "to the task, but the justification MUST explicitly state that the evidence "
+        "is declared synthetic/placeholder and therefore does not verify task "
+        "completion.\n"
+
+        "19. DOCUMENT-WIDE DISCLAIMERS OVERRIDE LOCAL CLAIMS: Read declarations, "
+        "notices, warnings, and authenticity statements anywhere in the submitted "
+        "document as potentially applying to later pages. If the document states "
+        "that particular sections, screenshots, responses, reflections, tables, "
+        "or artefacts are synthetic or not genuine evidence, carry that restriction "
+        "forward when mapping those sections. Do not treat later detailed content "
+        "as genuine merely because it appears realistic or task-aligned.\n"
     )
 
     http_client = httpx.Client()
@@ -741,7 +758,29 @@ def grade_submission(submission):
         "If they conflict, rely only on what can be verified against the task and rubric "
         "and explain the discrepancy neutrally. If evidence is missing, incomplete, or "
         "inconsistent, award only the credit supported by the available evidence. "
-        
+
+        "AUTHENTICITY AND EVIDENCE VALIDITY:\n"
+        "Before assessing whether evidence satisfies a task, determine whether the "
+        "submission itself identifies that evidence as genuine or invalid. Content "
+        "explicitly described as synthetic, mock, placeholder, sample, test data, "
+        "fabricated, generated for testing, not a real screenshot, or not evidence "
+        "of completed work MUST NOT be treated as proof that the learner performed "
+        "the required activity. This applies to screenshots, written responses, "
+        "tables, reflections, test results, configuration claims, citations, and "
+        "other artefacts. Realistic appearance does not override an explicit "
+        "authenticity disclaimer. "
+
+        "A document-wide disclaimer or authenticity notice takes precedence over "
+        "later task-aligned claims. If an earlier page states that specified later "
+        "sections or artefacts are synthetic, apply that restriction when grading "
+        "those later sections even if the later content appears detailed and "
+        "plausible. "
+
+        "Invalid or synthetic evidence may be discussed in feedback to explain what "
+        "was provided, but it cannot establish completion of the requirement. "
+        "Score only the remaining genuine evidence. If genuine evidence is absent "
+        "for a required activity, score accordingly and state exactly what genuine "
+        "evidence must be supplied."
 
         "CRITERION FEEDBACK:\n"
         "For each task/criterion evaluation, provide learner-facing feedback that is "
