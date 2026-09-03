@@ -833,7 +833,7 @@ def grade_submission(submission):
         "Evaluate ONLY the rubric criterion and tasks supplied in this request. "
         "Do not evaluate other assignment criteria.\n\n"
         "SCORING RULES:\n"
-        "1. Use only the supplied task requirements, rubric criterion, rubric bands, document warnings, mapping information, and submitted evidence.\n"
+        "1. Use only the supplied task requirements, rubric criterion, rubric bands, document authenticity analysis, mapping information, and submitted evidence.\n"
         "2. Evidence must demonstrate the requirement. A learner claim does not by itself verify an observable implementation or configuration.\n"
         "3. SYNTHETIC EVIDENCE RULE: If the Document Authenticity "
         "Analysis identifies a section, screenshot, table, response, "
