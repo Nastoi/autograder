@@ -323,6 +323,12 @@ export function AssignmentsPage() {
   const [newTrackBand2, setNewTrackBand2] = useState("");
   const [isCreatingTrack, setIsCreatingTrack] = useState(false);
 
+  const [editingTrackId, setEditingTrackId] = useState("");
+  const [editTrackName, setEditTrackName] = useState("");
+  const [editTrackCode, setEditTrackCode] = useState("");
+  const [isSavingTrackEdit, setIsSavingTrackEdit] = useState(false);
+  const [togglingTrackId, setTogglingTrackId] = useState("");
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
@@ -442,6 +448,96 @@ export function AssignmentsPage() {
       setIsSavingAssignmentEdit(false);
     }
   }
+
+  function startEditingTrack(level: AssignmentLevel) {
+    setEditingTrackId(level.id);
+    setEditTrackName(level.display_name);
+    setEditTrackCode(level.level_code);
+  }
+
+  function cancelEditingTrack() {
+    if (isSavingTrackEdit) return;
+
+    setEditingTrackId("");
+    setEditTrackName("");
+    setEditTrackCode("");
+  }
+
+  async function saveTrackEdit(level: AssignmentLevel) {
+    const name = editTrackName.trim();
+    const code = editTrackCode.trim();
+
+    if (!name) {
+      setError("Track name is required.");
+      return;
+    }
+
+    if (!code) {
+      setError("Track code is required.");
+      return;
+    }
+
+    setError("");
+    setIsSavingTrackEdit(true);
+
+    try {
+      await updateAssignmentLevel(level.id, {
+        display_name: name,
+        level_code: code,
+      });
+
+      await loadData();
+
+      setEditingTrackId("");
+      setEditTrackName("");
+      setEditTrackCode("");
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Unable to update submission track.",
+      );
+    } finally {
+      setIsSavingTrackEdit(false);
+    }
+  }
+
+  async function toggleTrackActive(level: AssignmentLevel) {
+    const nextActive = !level.is_active;
+
+    const confirmed = window.confirm(
+      nextActive
+        ? `Enable track "${level.display_name}"?`
+        : `Disable track "${level.display_name}"? Learners will no longer be able to select this track until it is enabled again.`,
+    );
+
+    if (!confirmed) return;
+
+    setError("");
+    setTogglingTrackId(level.id);
+
+    try {
+      if (!nextActive && expandedLevelIds.includes(level.id)) {
+        await releaseLevelLock(level.id);
+        setExpandedLevelIds([]);
+      }
+
+      await updateAssignmentLevel(level.id, {
+        is_active: nextActive,
+      });
+
+      await loadData();
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : `Unable to ${nextActive ? "enable" : "disable"} submission track.`,
+      );
+    } finally {
+      setTogglingTrackId("");
+    }
+  }
+
 
   async function removeTrack(level: AssignmentLevel) {
     if (
@@ -1656,25 +1752,131 @@ export function AssignmentsPage() {
                           <strong>
                             {level.display_name}
                           </strong>
-                          <button
-                            type="button"
-                            className="btn-danger"
+                          {!level.is_active && (
+                            <small
+                              className="table-subtext"
+                              style={{ fontWeight: 600 }}
+                            >
+                              Disabled — hidden from learners
+                            </small>
+                          )}
+                          <div
                             style={{
-                              padding: "4px 8px",
-                              fontSize: "12px",
-                              width: "auto",
+                              display: "flex",
+                              gap: "8px",
+                              alignItems: "center",
+                              flexWrap: "wrap",
                             }}
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              void removeTrack(level);
-                            }}
+                            onClick={(event) => event.stopPropagation()}
                           >
-                            Delete
-                          </button>
+                            <button
+                              type="button"
+                              className="btn-secondary"
+                              style={{
+                                padding: "4px 8px",
+                                fontSize: "12px",
+                                width: "auto",
+                              }}
+                              onClick={() => startEditingTrack(level)}
+                            >
+                              Edit
+                            </button>
+
+                            <button
+                              type="button"
+                              className={
+                                level.is_active
+                                  ? "btn-secondary"
+                                  : "btn-primary"
+                              }
+                              style={{
+                                padding: "4px 8px",
+                                fontSize: "12px",
+                                width: "auto",
+                              }}
+                              disabled={togglingTrackId === level.id}
+                              onClick={() => void toggleTrackActive(level)}
+                            >
+                              {togglingTrackId === level.id
+                                ? "Saving..."
+                                : level.is_active
+                                  ? "Disable"
+                                  : "Enable"}
+                            </button>
+
+                            <button
+                              type="button"
+                              className="btn-danger"
+                              style={{
+                                padding: "4px 8px",
+                                fontSize: "12px",
+                                width: "auto",
+                              }}
+                              onClick={() => void removeTrack(level)}
+                            >
+                              Delete
+                            </button>
+                          </div>
                           <small className="table-subtext">
                             {isExpanded ? "Click to collapse" : "Click to configure"}
                           </small>
                         </div>
+
+
+                        {editingTrackId === level.id && (
+                          <div
+                            className="content-card"
+                            style={{
+                              padding: "16px",
+                              marginTop: "10px",
+                            }}
+                            onClick={(event) => event.stopPropagation()}
+                          >
+                            <div className="form-grid form-grid-2">
+                              <div className="form-group">
+                                <label>Track name</label>
+                                <input
+                                  value={editTrackName}
+                                  onChange={(event) =>
+                                    setEditTrackName(event.target.value)
+                                  }
+                                />
+                              </div>
+
+                              <div className="form-group">
+                                <label>Track code</label>
+                                <input
+                                  value={editTrackCode}
+                                  onChange={(event) =>
+                                    setEditTrackCode(event.target.value)
+                                  }
+                                />
+                              </div>
+                            </div>
+
+                            <div className="form-actions form-actions-compact">
+                              <button
+                                type="button"
+                                className="btn-primary"
+                                disabled={isSavingTrackEdit}
+                                onClick={() => void saveTrackEdit(level)}
+                              >
+                                {isSavingTrackEdit ? "Saving..." : "Save"}
+                              </button>
+
+                              <button
+                                type="button"
+                                className="btn-secondary"
+                                disabled={isSavingTrackEdit}
+                                onClick={cancelEditingTrack}
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        )}
+
+
 
                         {isExpanded && (
                           <article className="level-card" style={{ marginTop: "16px" }}>
