@@ -11,7 +11,6 @@ def get_assignment_level_configuration_errors(level):
         "skill_statement": level.skill_statement,
         "objective": level.objective,
         "scenario": level.scenario,
-        "instructions": level.instructions,
         "expected_outcome": level.expected_outcome,
     }
 

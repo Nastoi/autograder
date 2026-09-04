@@ -28,6 +28,9 @@ from ..audit import record_submission_event
 from config.celery import app as celery_app
 import logging
 
+from rest_framework.authentication import SessionAuthentication
+from lms.authentication import LtiSessionAuthentication
+
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +42,10 @@ ALLOWED_EXTENSIONS = {
 MAX_FILE_SIZE = 50 * 1024 * 1024
 
 class SubmissionCreateView(APIView):
+    authentication_classes = [
+        LtiSessionAuthentication,
+        SessionAuthentication,
+    ]
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser]
 

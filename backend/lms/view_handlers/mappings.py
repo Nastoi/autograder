@@ -21,6 +21,8 @@ from lms.models import AssessmentMapping
 from accounts.audit import record_portal_activity
 from accounts.models import PortalActivity
 
+from rest_framework.authentication import SessionAuthentication
+from lms.authentication import LtiSessionAuthentication
 
 class AssessmentMappingListCreateView(
     generics.ListCreateAPIView
@@ -158,6 +160,10 @@ class AssessmentMappingDetailView(
 
 
 class AssessmentMappingSubmissionView(generics.RetrieveAPIView):
+    authentication_classes = [
+        LtiSessionAuthentication,
+        SessionAuthentication,
+    ]
     permission_classes = [IsAuthenticated]
     lookup_url_kwarg = "mapping_id"
 

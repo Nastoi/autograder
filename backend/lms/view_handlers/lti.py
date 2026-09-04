@@ -7,7 +7,6 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from django.contrib.auth import login
 from django.shortcuts import redirect
 
 from django.conf import settings
@@ -331,7 +330,6 @@ class LtiLaunchView(APIView):
             full_name=claims.get("name", ""),
         )
 
-        login(request, user)
 
         mapping, mapping_error = (
             get_lti_assessment_mapping(
@@ -427,6 +425,7 @@ class LtiLaunchView(APIView):
             for role in roles
         )
 
+        request.session["lti_user_id"] = user.id
         request.session["lti_mapping_id"] = str(mapping.id)
         request.session["lti_is_instructor"] = is_instructor
 

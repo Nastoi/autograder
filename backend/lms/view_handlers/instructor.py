@@ -26,11 +26,18 @@ from submissions.audit import record_submission_event
 
 from rest_framework import status
 
+from rest_framework.authentication import SessionAuthentication
+from lms.authentication import LtiSessionAuthentication
+
 logger = logging.getLogger(__name__)
 
 
 
 class InstructorMappingDashboardView(APIView):
+    authentication_classes = [
+        LtiSessionAuthentication,
+        SessionAuthentication,
+    ]
     permission_classes = [IsAuthenticated]
 
     def _get_mapping(self, request, mapping_id):

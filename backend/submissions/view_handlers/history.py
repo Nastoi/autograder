@@ -12,8 +12,14 @@ from ..serializers import (
 from ..attempt_policy import (
     get_attempt_policy,
 )
+from rest_framework.authentication import SessionAuthentication
+from lms.authentication import LtiSessionAuthentication
 
 class MappingSubmissionHistoryView(APIView):
+    authentication_classes = [
+        LtiSessionAuthentication,
+        SessionAuthentication,
+    ]
     permission_classes = [IsAuthenticated]
 
     def get(self, request, mapping_id):

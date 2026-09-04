@@ -12,6 +12,9 @@ from ..models import SubmissionContext
 from lms.models import AssessmentMapping
 from courses.models import AssignmentLevel
 
+from rest_framework.authentication import SessionAuthentication
+from lms.authentication import LtiSessionAuthentication
+
 class SubmissionContextView(APIView):
     permission_classes = [IsAuthenticated]
     parser_classes = [JSONParser, MultiPartParser, FormParser]
@@ -117,6 +120,10 @@ class SubmissionContextView(APIView):
 
 
 class MappingSubmissionContextView(APIView):
+    authentication_classes = [
+        LtiSessionAuthentication,
+        SessionAuthentication,
+    ]
     permission_classes = [IsAuthenticated]
 
     def post(self, request, mapping_id):
