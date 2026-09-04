@@ -293,7 +293,6 @@ export function AssignmentsPage() {
     .filter(
       (level) =>
         level.assignment === selectedAssignmentId &&
-        level.is_active &&
         level.configuration_status !== "retired",
     )
     .sort((a, b) => a.sequence - b.sequence);
@@ -516,11 +515,24 @@ export function AssignmentsPage() {
     setError("");
     setTogglingTrackId(level.id);
 
+    let lockAcquired = false;
+
     try {
-      if (!nextActive && expandedLevelIds.includes(level.id)) {
-        await releaseLevelLock(level.id);
-        setExpandedLevelIds([]);
+      const lock = await updateAssignmentConfigurationLock(
+        level.id,
+        "acquire",
+      );
+
+      if (!lock.owned_by_me) {
+        setError(
+          lock.locked_by
+            ? `${lock.locked_by} is currently editing this configuration.`
+            : "This configuration is currently being edited by another administrator.",
+        );
+        return;
       }
+
+      lockAcquired = true;
 
       await updateAssignmentLevel(level.id, {
         is_active: nextActive,
@@ -534,6 +546,17 @@ export function AssignmentsPage() {
           : `Unable to ${nextActive ? "enable" : "disable"} submission track.`,
       );
     } finally {
+      if (lockAcquired) {
+        try {
+          await updateAssignmentConfigurationLock(
+            level.id,
+            "release",
+          );
+        } catch {
+          // Lock will expire automatically if release fails.
+        }
+      }
+
       setTogglingTrackId("");
     }
   }
