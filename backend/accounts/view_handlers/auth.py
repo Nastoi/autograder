@@ -58,12 +58,6 @@ class LoginView(APIView):
             status=status.HTTP_200_OK,
         )
 
-        response.set_cookie(
-            "csrftoken",
-            csrf_token,
-            httponly=False,
-            samesite="Lax",
-        )
         return response
 
 
