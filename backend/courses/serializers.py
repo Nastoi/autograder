@@ -12,6 +12,8 @@ from .models import (
     Qualification,
 )
 
+from .configuration_status import get_assignment_level_configuration_errors
+
 class QualificationSerializer(serializers.ModelSerializer):
     can_delete = serializers.SerializerMethodField()
 
@@ -667,6 +669,7 @@ class AssignmentLevelSerializer(serializers.ModelSerializer):
 
     can_delete = serializers.SerializerMethodField()
 
+    configuration_errors = serializers.SerializerMethodField()
     
 
     class Meta:
@@ -700,6 +703,7 @@ class AssignmentLevelSerializer(serializers.ModelSerializer):
             "source_filename",
             "version",
             "configuration_status",
+            "configuration_errors",
             "is_active",
             "can_delete",
             "created_at",
@@ -724,6 +728,15 @@ class AssignmentLevelSerializer(serializers.ModelSerializer):
 
     def get_can_delete(self, obj):
         return True
+
+    def get_configuration_errors(self, obj):
+        if (
+            obj.configuration_status
+            == AssignmentLevel.ConfigurationStatus.READY
+        ):
+            return []
+
+        return get_assignment_level_configuration_errors(obj)
 
     def validate(self, attrs):
         assignment = attrs.get(

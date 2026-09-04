@@ -355,7 +355,7 @@ export type Task = {
     level_code: string;
     task_code: string;
     title: string;
-    instructions: string;
+    evidence_required: string;
     sequence: number;
     created_at: string;
 };
@@ -364,7 +364,7 @@ export type CreateTaskInput = {
     assignment_level: string;
     task_code: string;
     title: string;
-    instructions: string;
+    evidence_required: string;
     sequence: number;
 };
 

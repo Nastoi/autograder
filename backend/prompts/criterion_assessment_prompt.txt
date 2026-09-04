@@ -55,7 +55,7 @@ Task title:
 {{ task.title }}
 
 Task instructions:
-{{ task.instructions }}
+{{ task.evidence_required }}
 
 Mandatory requirements:
 {{ mandatory_requirements_json }}

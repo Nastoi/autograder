@@ -287,8 +287,10 @@ def map_submission_tasks(submission):
 
     assignment_context = {
         "title": assignment_level.title or "",
-        "scenario": assignment_level.scenario or "",
+        "skill_statement": assignment_level.skill_statement or "",
         "objective": assignment_level.objective or "",
+        "scenario": assignment_level.scenario or "",
+        "expected_outcome": assignment_level.expected_outcome or "",
     }
         
     tasks = Task.objects.filter(
@@ -304,7 +306,7 @@ def map_submission_tasks(submission):
         {
             "task_code": task.task_code,
             "title": task.title,
-            "required_evidence": task.instructions,
+            "required_evidence": task.evidence_required,
         }
         for task in tasks
     ]
@@ -659,7 +661,7 @@ def verify_task_evidence(
                         f"Task Code: {task_code}\n"
                         f"Task Title: {task.title}\n"
                         f"Required Evidence / Instructions:\n"
-                        f"{task.instructions or '-'}\n\n"
+                        f"{task.evidence_required or '-'}\n\n"
 
                         f"Potentially Relevant Pages: "
                         f"{mapping.mapped_page_numbers}\n\n"
@@ -813,8 +815,10 @@ def grade_submission(submission):
     assignment_level = submission.context.assignment_level
     assignment_context = (
         f"Assignment Level Title: {assignment_level.title or '-'}\n"
+        f"Skill Statement: {assignment_level.skill_statement or '-'}\n"
+        f"Objective: {assignment_level.objective or '-'}\n"
         f"Scenario: {assignment_level.scenario or '-'}\n"
-        f"Objective: {assignment_level.objective or '-'}"
+        f"Expected Outcome: {assignment_level.expected_outcome or '-'}\n"
     )
 
     criteria_mappings = (
@@ -1020,7 +1024,7 @@ def grade_submission(submission):
                             "\n=== TASK TO EVALUATE ===\n"
                             f"Task Code: {task_code}\n"
                             f"Task Title: {mapping.task.title}\n"
-                            f"Required Evidence: {mapping.task.instructions or '-'}\n"
+                            f"Required Evidence: {mapping.task.evidence_required or '-'}\n"
                             f"Task Weight Within Criterion: {mapping.inferred_weight}%\n"
                             f"Mapped Pages: {mapped_pages if mapped_pages else 'NO EVIDENCE FOUND'}\n"
                             f"Mapping Justification: "

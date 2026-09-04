@@ -36,7 +36,11 @@ def get_assignment_level_configuration_errors(level):
                 f"Task {task.task_code or ''} must have a title."
             )
 
-        
+        if not str(task.evidence_required or "").strip():
+            errors.append(
+                f"Task {task.task_code or task.title or ''} must have Evidence Required."
+            )
+            
 
     criteria = list(
         level.rubric_criteria.prefetch_related(
@@ -65,6 +69,12 @@ def get_assignment_level_configuration_errors(level):
         if not str(criterion.title or "").strip():
             errors.append(
                 f"{label} must have a title."
+            )
+
+
+        if not str(criterion.description or "").strip():
+            errors.append(
+                f"{label} must have a description."
             )
 
         

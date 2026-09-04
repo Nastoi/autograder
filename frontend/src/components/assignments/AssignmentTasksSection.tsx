@@ -21,13 +21,19 @@ type AssignmentTasksSectionProps = {
 
   editTaskCode: string;
   editTaskTitle: string;
-  editTaskInstructions: string;
+  editTaskEvidenceRequired: string;
 
   taskDraft: {
     task_code: string;
     title: string;
-    instructions: string;
+    evidence_required: string;
   };
+
+  updateTaskDraft: (
+    levelId: string,
+    field: "task_code" | "title" | "evidence_required",
+    value: string,
+  ) => void;
 
   suggestedTaskCode: string;
 
@@ -35,11 +41,7 @@ type AssignmentTasksSectionProps = {
 
   setEditTaskCode: (value: string) => void;
   setEditTaskTitle: (value: string) => void;
-  setEditTaskInstructions: (value: string) => void;
-
-  updateTaskDraft: (
-    levelId: string,
-    field: "task_code" | "title" | "instructions",
+  setEditTaskEvidenceRequired: (
     value: string,
   ) => void;
 
@@ -73,7 +75,7 @@ export function AssignmentTasksSection({
 
   editTaskCode,
   editTaskTitle,
-  editTaskInstructions,
+  editTaskEvidenceRequired,
 
   taskDraft,
   suggestedTaskCode,
@@ -82,7 +84,7 @@ export function AssignmentTasksSection({
 
   setEditTaskCode,
   setEditTaskTitle,
-  setEditTaskInstructions,
+  setEditTaskEvidenceRequired,
 
   updateTaskDraft,
   saveNewTask,
@@ -164,10 +166,10 @@ export function AssignmentTasksSection({
 
                           <textarea
                             value={
-                              editTaskInstructions
+                              editTaskEvidenceRequired
                             }
                             onChange={(event) =>
-                              setEditTaskInstructions(
+                              setEditTaskEvidenceRequired(
                                 event.target.value,
                               )
                             }
@@ -180,10 +182,10 @@ export function AssignmentTasksSection({
                             {task.title}
                           </strong>
 
-                          {task.instructions && (
+                          {task.evidence_required && (
                             <small className="table-subtext">
                               {
-                                task.instructions
+                                task.evidence_required
                               }
                             </small>
                           )}
@@ -341,17 +343,14 @@ export function AssignmentTasksSection({
                 </label>
 
                 <textarea
-                  value={
-                    taskDraft.instructions
-                  }
+                  value={taskDraft.evidence_required}
                   onChange={(event) =>
                     updateTaskDraft(
                       level.id,
-                      "instructions",
+                      "evidence_required",
                       event.target.value,
                     )
                   }
-                  placeholder="Describe the evidence the learner must provide to demonstrate completion of this task."
                 />
               </div>
 
@@ -375,7 +374,7 @@ export function AssignmentTasksSection({
                   }
                 >
                   {savingTaskLevelId ===
-                  level.id
+                    level.id
                     ? "Adding..."
                     : "Add Task"}
                 </button>

@@ -8,17 +8,17 @@ Your task is to analyse an assignment's task list and rubric criteria, then dete
 
 2. COVERAGE: Every criterion MUST appear in at least one task mapping. Every criterion must be evidenced by at least one task.
 
-3. MULTI-MAPPING: A single task MAY map to multiple criteria if the task instructions genuinely address more than one criterion. A single criterion MAY appear in mappings for multiple tasks.
+3. MULTI-MAPPING: A single task MAY map to multiple criteria if the required evidence genuinely address more than one criterion. A single criterion MAY appear in mappings for multiple tasks.
 
 4. WEIGHT MEANING: The `inferred_weight` (0.01 to 1.00) represents the proportion of a criterion's total marks that are expected to be evidenced specifically by this task. A weight of 0.60 means this task is expected to produce 60% of the evidence for that criterion.
 
 5. WEIGHT CONSTRAINT — CRITICAL: For each criterion, the sum of `inferred_weight` values across ALL task mappings that reference that criterion MUST equal exactly 1.00. For example, if criterion C01 appears in task T01 (weight 0.60) and task T02 (weight 0.40), that sums to 1.00. This rule is non-negotiable.
 
-6. EVIDENCE-BASED ONLY: Base your mappings ONLY on the task instructions and criterion descriptions provided in the request. Do not infer from general knowledge.
+6. EVIDENCE-BASED ONLY: Base your mappings ONLY on the required evidence and criterion descriptions provided in the request. Do not infer from general knowledge.
 
 7. PRECISION: Use the exact `task_code` and `criterion_code` values provided — do not invent new codes.
 
-8. EXPLANATIONS: For each task-criterion mapping, provide a concise `explanation` (1-2 sentences) stating WHY this task evidences this criterion. Be specific — reference wording from the task instructions and criterion description.
+8. EXPLANATIONS: For each task-criterion mapping, provide a concise `explanation` (1-2 sentences) stating WHY this task evidences this criterion. Be specific — reference wording from the required evidence and criterion description.
 
 9. OUTPUT FORMAT: Return ONLY valid JSON conforming to the exact schema provided. Do not include markdown fences, comments, or any text outside the JSON object.
 

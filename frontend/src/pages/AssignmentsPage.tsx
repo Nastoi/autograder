@@ -85,13 +85,20 @@ export function AssignmentsPage() {
 
   const [expandedLevelIds, setExpandedLevelIds] = useState<string[]>([]);
   const [taskDrafts, setTaskDrafts] = useState<
-    Record<string, { task_code: string; title: string; instructions: string }>
+    Record<
+      string,
+      {
+        task_code: string;
+        title: string;
+        evidence_required: string;
+      }
+    >
   >({});
   const [savingTaskLevelId, setSavingTaskLevelId] = useState("");
   const [editingTaskId, setEditingTaskId] = useState("");
   const [editTaskCode, setEditTaskCode] = useState("");
   const [editTaskTitle, setEditTaskTitle] = useState("");
-  const [editTaskInstructions, setEditTaskInstructions] = useState("");
+  const [editTaskEvidenceRequired, setEditTaskEvidenceRequired] = useState("");
   const [isSavingTaskEdit, setIsSavingTaskEdit] = useState(false);
 
   const [isLoading, setIsLoading] = useState(true);
@@ -806,7 +813,7 @@ export function AssignmentsPage() {
 
   function updateTaskDraft(
     levelId: string,
-    field: "task_code" | "title" | "instructions",
+    field: "task_code" | "title" | "evidence_required",
     value: string,
   ) {
     setTaskDrafts((current) => ({
@@ -814,7 +821,8 @@ export function AssignmentsPage() {
       [levelId]: {
         task_code: current[levelId]?.task_code ?? "",
         title: current[levelId]?.title ?? "",
-        instructions: current[levelId]?.instructions ?? "",
+        evidence_required:
+          current[levelId]?.evidence_required ?? "",
         [field]: value,
       },
     }));
@@ -828,7 +836,7 @@ export function AssignmentsPage() {
     const draft = taskDrafts[level.id] ?? {
       task_code: "",
       title: "",
-      instructions: "",
+      evidence_required: "",
     };
 
     if (!draft.title.trim()) return;
@@ -848,7 +856,7 @@ export function AssignmentsPage() {
         assignment_level: level.id,
         task_code: draft.task_code.trim() || generatedCode,
         title: draft.title.trim(),
-        instructions: draft.instructions.trim(),
+        evidence_required: draft.evidence_required.trim(),
         sequence: nextSequence,
       });
 
@@ -856,7 +864,11 @@ export function AssignmentsPage() {
       await refreshLevels();
       setTaskDrafts((current) => ({
         ...current,
-        [level.id]: { task_code: "", title: "", instructions: "" },
+        [level.id]: {
+          task_code: "",
+          title: "",
+          evidence_required: "",
+        },
       }));
       setTaskFormLevelId("");
     } catch (caughtError) {
@@ -874,7 +886,7 @@ export function AssignmentsPage() {
     setEditingTaskId(task.id);
     setEditTaskCode(task.task_code);
     setEditTaskTitle(task.title);
-    setEditTaskInstructions(task.instructions);
+    setEditTaskEvidenceRequired(task.evidence_required);
   }
 
   function cancelTaskEdit() {
@@ -883,7 +895,7 @@ export function AssignmentsPage() {
     setEditingTaskId("");
     setEditTaskCode("");
     setEditTaskTitle("");
-    setEditTaskInstructions("");
+    setEditTaskEvidenceRequired("");
   }
 
   async function saveTaskEdit(task: Task) {
@@ -899,14 +911,14 @@ export function AssignmentsPage() {
       await updateTask(task.id, {
         task_code: editTaskCode.trim() || task.task_code,
         title: editTaskTitle.trim(),
-        instructions: editTaskInstructions.trim(),
+        evidence_required: editTaskEvidenceRequired.trim(),
       });
 
       await refreshLevelTasks(task.assignment_level);
       setEditingTaskId("");
       setEditTaskCode("");
       setEditTaskTitle("");
-      setEditTaskInstructions("");
+      setEditTaskEvidenceRequired("");
       await refreshLevels();
     } catch (caughtError) {
       setError(
@@ -1136,7 +1148,7 @@ export function AssignmentsPage() {
       "expected_outcome",
       "task_code",
       "task_title",
-      "task_description",
+      "task_evidence_required",
       "criterion_code",
       "criterion_title",
       "criterion_description",
@@ -1762,7 +1774,7 @@ export function AssignmentsPage() {
                     const taskDraft = taskDrafts[level.id] ?? {
                       task_code: "",
                       title: "",
-                      instructions: "",
+                      evidence_required: "",
                     };
                     const nextTaskNumber =
                       levelTaskItems.reduce(
@@ -1785,50 +1797,99 @@ export function AssignmentsPage() {
                         className={`level-config-item ${isExpanded ? "expanded" : ""}`}
                       >
                         <div
-                          className="submission-path-card"
-                          role="button"
-                          tabIndex={0}
-                          onClick={() => void toggleLevel(level.id)}
-                          onKeyDown={(event) => {
-                            if (event.key === "Enter" || event.key === " ") {
-                              event.preventDefault();
-                              void toggleLevel(level.id);
-                            }
-                          }}
-                          style={{ cursor: "pointer" }}
+                          className={`track-summary-card ${isExpanded ? "is-expanded" : ""
+                            } ${!level.is_active ? "is-disabled" : ""}`}
                         >
-                          <span className="path-label">
-                            Submission Track
-                          </span>
-
-                          <strong>
-                            {level.display_name}
-                          </strong>
-                          {!level.is_active && (
-                            <small
-                              className="table-subtext"
-                              style={{ fontWeight: 600 }}
-                            >
-                              Disabled — hidden from learners
-                            </small>
-                          )}
                           <div
-                            style={{
-                              display: "flex",
-                              gap: "8px",
-                              alignItems: "center",
-                              flexWrap: "wrap",
+                            className="track-summary-main"
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => void toggleLevel(level.id)}
+                            onKeyDown={(event) => {
+                              if (event.key === "Enter" || event.key === " ") {
+                                event.preventDefault();
+                                void toggleLevel(level.id);
+                              }
                             }}
+                          >
+                            <div className="track-summary-heading">
+                              <div>
+                                <span className="track-eyebrow">
+                                  Submission Track
+                                </span>
+
+                                <div className="track-title-row">
+                                  <h4>{level.display_name}</h4>
+
+                                  <span
+                                    className={`track-status-badge ${level.configuration_status === "ready"
+                                        ? "track-status-ready"
+                                        : "track-status-draft"
+                                      }`}
+                                  >
+                                    {level.configuration_status === "ready"
+                                      ? "Ready"
+                                      : "Draft"}
+                                  </span>
+
+                                  {!level.is_active && (
+                                    <span className="track-status-badge track-status-disabled">
+                                      Disabled
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+
+                              <span className="track-configure-text">
+                                {isExpanded ? "Hide configuration" : "Configure"}
+                                <span aria-hidden="true">
+                                  {isExpanded ? " ↑" : " ↓"}
+                                </span>
+                              </span>
+                            </div>
+
+                            {level.configuration_status === "draft" && (
+                              <div className="track-draft-summary">
+                                <strong>
+                                  {level.configuration_errors?.length || 0}
+                                  {" "}
+                                  {level.configuration_errors?.length === 1
+                                    ? "item needs attention"
+                                    : "items need attention"}
+                                </strong>
+
+                                {level.configuration_errors?.length > 0 && (
+                                  <ul>
+                                    {level.configuration_errors
+                                      .slice(0, 3)
+                                      .map((message) => (
+                                        <li key={message}>{message}</li>
+                                      ))}
+                                  </ul>
+                                )}
+
+                                {(level.configuration_errors?.length || 0) > 3 && (
+                                  <small>
+                                    +{level.configuration_errors.length - 3} more
+                                  </small>
+                                )}
+                              </div>
+                            )}
+
+                            {!level.is_active && (
+                              <p className="track-disabled-note">
+                                Hidden from learners until this track is enabled.
+                              </p>
+                            )}
+                          </div>
+
+                          <div
+                            className="track-summary-actions"
                             onClick={(event) => event.stopPropagation()}
                           >
                             <button
                               type="button"
-                              className="btn-secondary"
-                              style={{
-                                padding: "4px 8px",
-                                fontSize: "12px",
-                                width: "auto",
-                              }}
+                              className="btn-secondary track-action-button"
                               onClick={() => startEditingTrack(level)}
                             >
                               Edit
@@ -1838,14 +1899,9 @@ export function AssignmentsPage() {
                               type="button"
                               className={
                                 level.is_active
-                                  ? "btn-secondary"
-                                  : "btn-primary"
+                                  ? "btn-secondary track-action-button"
+                                  : "btn-primary track-action-button"
                               }
-                              style={{
-                                padding: "4px 8px",
-                                fontSize: "12px",
-                                width: "auto",
-                              }}
                               disabled={togglingTrackId === level.id}
                               onClick={() => void toggleTrackActive(level)}
                             >
@@ -1858,20 +1914,12 @@ export function AssignmentsPage() {
 
                             <button
                               type="button"
-                              className="btn-danger"
-                              style={{
-                                padding: "4px 8px",
-                                fontSize: "12px",
-                                width: "auto",
-                              }}
+                              className="btn-danger track-action-button"
                               onClick={() => void removeTrack(level)}
                             >
                               Delete
                             </button>
                           </div>
-                          <small className="table-subtext">
-                            {isExpanded ? "Click to collapse" : "Click to configure"}
-                          </small>
                         </div>
 
 
@@ -1931,7 +1979,7 @@ export function AssignmentsPage() {
 
 
                         {isExpanded && (
-                          <article className="level-card" style={{ marginTop: "16px" }}>
+                          <article className="level-card track-expanded-content">
                             <AssignmentLevelRequirements
                               level={level}
                               levelReadOnly={levelReadOnly}
@@ -1993,7 +2041,7 @@ export function AssignmentsPage() {
 
                               editTaskCode={editTaskCode}
                               editTaskTitle={editTaskTitle}
-                              editTaskInstructions={editTaskInstructions}
+                              editTaskEvidenceRequired={editTaskEvidenceRequired}
 
                               taskDraft={taskDraft}
                               suggestedTaskCode={suggestedTaskCode}
@@ -2002,8 +2050,8 @@ export function AssignmentsPage() {
 
                               setEditTaskCode={setEditTaskCode}
                               setEditTaskTitle={setEditTaskTitle}
-                              setEditTaskInstructions={
-                                setEditTaskInstructions
+                              setEditTaskEvidenceRequired={
+                                setEditTaskEvidenceRequired
                               }
 
                               updateTaskDraft={updateTaskDraft}

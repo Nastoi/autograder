@@ -904,6 +904,8 @@ export type AssignmentLevel = {
     | "ready"
     | "retired";
 
+    configuration_errors: string[];
+
     is_active: boolean;
     can_delete: boolean;
 

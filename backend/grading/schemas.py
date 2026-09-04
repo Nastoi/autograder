@@ -7,7 +7,7 @@ class TaskPageMapping(BaseModel):
         description="Code of the assignment task (e.g., T-F-01)"
     )
     task_description: str = Field(
-        description="Summary of task instructions"
+        description="Summary of required task evidence"
     )
     is_relevant: bool = Field(
         description="FALSE if the submitted document has no relevance to this task."

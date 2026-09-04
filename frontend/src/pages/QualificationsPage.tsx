@@ -842,196 +842,7 @@ export function QualificationsPage() {
           </div>
         )}
 
-        {/* Selected Qualification Modules (Legacy rendering adapted) */}
-        {(activeTab === 'setup' || activeTab === 'qualifications') && selectedQualification && (
-          <section className="content-card" style={{ marginTop: '32px' }}>
-            <div className="content-card-header">
-              <div className="content-title-section">
-                <div className="content-title">
-                  <h2>
-                    {selectedQualification.qualification_code} Modules
-                  </h2>
-                  <p>
-                    {selectedModules.length} module{selectedModules.length === 1 ? "" : "s"} found.
-                  </p>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                className="btn-action"
-                onClick={() => setShowCreateModule((current) => !current)}
-              >
-                {showCreateModule ? "Close" : "+ Add Module"}
-              </button>
-            </div>
-
-            <div style={{ padding: '24px' }}>
-              {showCreateModule && (
-                <form onSubmit={handleCreateModule} className="modern-form" style={{ marginBottom: '24px', maxWidth: '100%' }}>
-                  <div className="form-grid form-grid-2">
-                    <div className="form-group">
-                      <label htmlFor="module-code">Module code</label>
-                      <input id="module-code" value={moduleCode} onChange={(e) => setModuleCode(e.target.value)} required />
-                    </div>
-                    <div className="form-group">
-                      <label htmlFor="module-name">Module name</label>
-                      <input id="module-name" value={moduleName} onChange={(e) => setModuleName(e.target.value)} required />
-                    </div>
-                  </div>
-                  <div className="form-group">
-                    <label htmlFor="module-description">Description</label>
-                    <textarea id="module-description" value={moduleDescription} onChange={(e) => setModuleDescription(e.target.value)} />
-                  </div>
-                  <div className="form-actions form-actions-compact">
-                    <button type="submit" className="btn-accent" disabled={isCreatingModule}>
-                      {isCreatingModule ? "Creating..." : "Add Module"}
-                    </button>
-                    <button type="button" className="btn-secondary" disabled={isCreatingModule} onClick={() => setShowCreateModule(false)}>
-                      Cancel
-                    </button>
-                  </div>
-                </form>
-              )}
-
-              {selectedModules.length === 0 ? (
-                <p style={{ margin: 0, color: 'var(--text-muted)' }}>No modules under this qualification yet.</p>
-              ) : (
-                <table className="data-table" style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
-                  <thead>
-                    <tr>
-                      <th>Code</th>
-                      <th>Module</th>
-                      <th>Description</th>
-                      <th>Status</th>
-                      <th>Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {selectedModules.map((module) => (
-                      <tr key={module.id}>
-                        <td>
-                          {editingModuleId === module.id ? (
-                            <input
-                              value={editModuleCode}
-                              onChange={(e) => setEditModuleCode(e.target.value)}
-                              style={{ width: '90px', padding: '4px' }}
-                            />
-                          ) : (
-                            <span className="tag-pill">
-                              {module.module_code}
-                            </span>
-                          )}
-                        </td>
-                        <td style={{ fontWeight: 500, color: 'var(--text-h)' }}>
-                          {editingModuleId === module.id ? (
-                            <input
-                              value={editModuleName}
-                              onChange={(e) => setEditModuleName(e.target.value)}
-                              style={{ width: '100%', padding: '4px' }}
-                            />
-                          ) : (
-                            module.module_name
-                          )}
-                        </td>
-                        <td>
-                          {editingModuleId === module.id ? (
-                            <textarea
-                              value={editModuleDescription}
-                              onChange={(e) => setEditModuleDescription(e.target.value)}
-                              style={{
-                                width: '100%',
-                                padding: '4px',
-                                minHeight: '40px',
-                              }}
-                            />
-                          ) : (
-                            module.description || "—"
-                          )}
-                        </td>
-                        <td>
-                          <span className={`status-badge ${!module.is_active ? 'inactive' : ''}`}>
-                            <span className="status-dot"></span>
-                            {module.is_active ? "Active" : "Inactive"}
-                          </span>
-                        </td>
-                        <td>
-                          {editingModuleId === module.id ? (
-                            <div className="actions-cell">
-                              <button
-                                type="button"
-                                className="btn-action"
-                                style={{ color: 'var(--success)' }}
-                                disabled={isSavingModule}
-                                onClick={() => void saveModule(module.id)}
-                              >
-                                {isSavingModule ? "Saving..." : "Save"}
-                              </button>
-
-                              <button
-                                type="button"
-                                className="btn-action"
-                                disabled={isSavingModule}
-                                onClick={cancelEditingModule}
-                              >
-                                Cancel
-                              </button>
-                            </div>
-                          ) : (
-                            <div className="actions-cell">
-                              <AuditTrailButton
-                                objectType="module"
-                                objectId={module.id}
-                                label={`${module.module_code} — ${module.module_name}`}
-                              />
-                              <button
-                                type="button"
-                                className="btn-action"
-                                onClick={() => beginEditingModule(module)}
-                              >
-                                <Pencil className="btn-action-icon" />
-                                Edit
-                              </button>
-
-                              <button
-                                type="button"
-                                className="btn-action"
-                                onClick={() => void toggleModuleStatus(module)}
-                              >
-                                {module.is_active ? (
-                                  <>
-                                    <PauseCircle size={14} />
-                                    Deactivate
-                                  </>
-                                ) : (
-                                  <>
-                                    <PlayCircle size={14} />
-                                    Activate
-                                  </>
-                                )}
-                              </button>
-
-                              <button
-                                type="button"
-                                className="btn-action"
-                                style={{ color: 'var(--danger)' }}
-                                disabled={isCheckingModuleDelete}
-                                onClick={() => void removeModule(module)}
-                              >
-                                <Trash2 size={14} />
-                                {isCheckingModuleDelete ? "Checking..." : "Delete"}
-                              </button>
-                            </div>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
-          </section>
-        )}
+        
 
         {/* Global Modules Table */}
         {activeTab === 'modules' && (
@@ -1116,6 +927,352 @@ export function QualificationsPage() {
 
       </main>
 
+        {selectedQualification &&
+  (activeTab === "setup" || activeTab === "qualifications") && (
+    <div
+      className="qualification-workspace-backdrop"
+      onClick={() => {
+        setSelectedQualificationId("");
+        setShowCreateModule(false);
+        cancelEditingModule();
+      }}
+    >
+      <section
+        className="qualification-workspace-modal"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="qualification-workspace-header">
+          <div>
+            <span className="qualification-workspace-eyebrow">
+              Qualification
+            </span>
+
+            <div className="qualification-workspace-title-row">
+              <h2>
+                {selectedQualification.qualification_code} —{" "}
+                {selectedQualification.qualification_name}
+              </h2>
+
+              <span
+                className={`status-badge ${
+                  !selectedQualification.is_active ? "inactive" : ""
+                }`}
+              >
+                <span className="status-dot" />
+                {selectedQualification.is_active
+                  ? "Active"
+                  : "Inactive"}
+              </span>
+            </div>
+
+            {selectedQualification.description && (
+              <p>{selectedQualification.description}</p>
+            )}
+          </div>
+
+          <button
+            type="button"
+            className="qualification-workspace-close"
+            onClick={() => {
+              setSelectedQualificationId("");
+              setShowCreateModule(false);
+              cancelEditingModule();
+            }}
+            aria-label="Close qualification"
+          >
+            ×
+          </button>
+        </div>
+
+        <div className="qualification-workspace-summary">
+          <div>
+            <span>Qualification code</span>
+            <strong>
+              {selectedQualification.qualification_code}
+            </strong>
+          </div>
+
+          <div>
+            <span>Total modules</span>
+            <strong>{selectedModules.length}</strong>
+          </div>
+
+          <div>
+            <span>Status</span>
+            <strong>
+              {selectedQualification.is_active
+                ? "Active"
+                : "Inactive"}
+            </strong>
+          </div>
+        </div>
+
+        <div className="qualification-modules-header">
+          <div>
+            <h3>Modules</h3>
+            <p>
+              Manage modules under this qualification.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            className="btn-accent"
+            onClick={() =>
+              setShowCreateModule((current) => !current)
+            }
+          >
+            <Plus size={16} />
+            {showCreateModule ? "Close Form" : "Add Module"}
+          </button>
+        </div>
+
+        {showCreateModule && (
+          <form
+            onSubmit={handleCreateModule}
+            className="modern-form qualification-module-form"
+          >
+            <div className="form-grid form-grid-2">
+              <div className="form-group">
+                <label htmlFor="module-code">
+                  Module code
+                </label>
+
+                <input
+                  id="module-code"
+                  value={moduleCode}
+                  onChange={(event) =>
+                    setModuleCode(event.target.value)
+                  }
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="module-name">
+                  Module name
+                </label>
+
+                <input
+                  id="module-name"
+                  value={moduleName}
+                  onChange={(event) =>
+                    setModuleName(event.target.value)
+                  }
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="module-description">
+                Description
+              </label>
+
+              <textarea
+                id="module-description"
+                value={moduleDescription}
+                onChange={(event) =>
+                  setModuleDescription(event.target.value)
+                }
+              />
+            </div>
+
+            <div className="form-actions form-actions-compact">
+              <button
+                type="submit"
+                className="btn-accent"
+                disabled={isCreatingModule}
+              >
+                {isCreatingModule
+                  ? "Creating..."
+                  : "Add Module"}
+              </button>
+
+              <button
+                type="button"
+                className="btn-secondary"
+                disabled={isCreatingModule}
+                onClick={() => setShowCreateModule(false)}
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        )}
+
+        <div className="qualification-modules-content">
+          {selectedModules.length === 0 ? (
+            <div className="qualification-modules-empty">
+              <Package size={26} />
+
+              <strong>No modules yet</strong>
+
+              <p>
+                Add the first module for this qualification.
+              </p>
+            </div>
+          ) : (
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Code</th>
+                  <th>Module</th>
+                  <th>Description</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {selectedModules.map((module) => (
+                  <tr key={module.id}>
+                    <td>
+                      {editingModuleId === module.id ? (
+                        <input
+                          value={editModuleCode}
+                          onChange={(event) =>
+                            setEditModuleCode(
+                              event.target.value,
+                            )
+                          }
+                        />
+                      ) : (
+                        <span className="tag-pill">
+                          {module.module_code}
+                        </span>
+                      )}
+                    </td>
+
+                    <td>
+                      {editingModuleId === module.id ? (
+                        <input
+                          value={editModuleName}
+                          onChange={(event) =>
+                            setEditModuleName(
+                              event.target.value,
+                            )
+                          }
+                        />
+                      ) : (
+                        <strong>{module.module_name}</strong>
+                      )}
+                    </td>
+
+                    <td>
+                      {editingModuleId === module.id ? (
+                        <textarea
+                          value={editModuleDescription}
+                          onChange={(event) =>
+                            setEditModuleDescription(
+                              event.target.value,
+                            )
+                          }
+                        />
+                      ) : (
+                        module.description || "—"
+                      )}
+                    </td>
+
+                    <td>
+                      <span
+                        className={`status-badge ${
+                          !module.is_active
+                            ? "inactive"
+                            : ""
+                        }`}
+                      >
+                        <span className="status-dot" />
+                        {module.is_active
+                          ? "Active"
+                          : "Inactive"}
+                      </span>
+                    </td>
+
+                    <td>
+                      {editingModuleId === module.id ? (
+                        <div className="actions-cell">
+                          <button
+                            type="button"
+                            className="btn-action"
+                            disabled={isSavingModule}
+                            onClick={() =>
+                              void saveModule(module.id)
+                            }
+                          >
+                            {isSavingModule
+                              ? "Saving..."
+                              : "Save"}
+                          </button>
+
+                          <button
+                            type="button"
+                            className="btn-action"
+                            disabled={isSavingModule}
+                            onClick={cancelEditingModule}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="actions-cell">
+                          <button
+                            type="button"
+                            className="btn-action"
+                            onClick={() =>
+                              beginEditingModule(module)
+                            }
+                          >
+                            <Pencil size={14} />
+                            Edit
+                          </button>
+
+                          <button
+                            type="button"
+                            className="btn-action"
+                            onClick={() =>
+                              void toggleModuleStatus(module)
+                            }
+                          >
+                            {module.is_active ? (
+                              <>
+                                <PauseCircle size={14} />
+                                Deactivate
+                              </>
+                            ) : (
+                              <>
+                                <PlayCircle size={14} />
+                                Activate
+                              </>
+                            )}
+                          </button>
+
+                          <button
+                            type="button"
+                            className="btn-action"
+                            style={{
+                              color: "var(--danger)",
+                            }}
+                            onClick={() =>
+                              void removeModule(module)
+                            }
+                          >
+                            <Trash2 size={14} />
+                            Delete
+                          </button>
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </section>
+    </div>
+  )}
+  
       {qualificationToDelete && qualificationDeleteImpact && (
         <div className="delete-modal-backdrop">
           <div className="delete-modal">

@@ -500,7 +500,7 @@ class TaskSerializer(serializers.ModelSerializer):
             "level_code",
             "task_code",
             "title",
-            "instructions",
+            "evidence_required",
             "sequence",
             "created_at",
         )

@@ -86,7 +86,7 @@ class AssignmentLevelConfigurationCsvImportView(APIView):
             "expected_outcome",
             "task_code",
             "task_title",
-            "task_description",
+            "task_evidence_required",
             "criterion_code",
             "criterion_title",
             "criterion_description",
@@ -168,8 +168,8 @@ class AssignmentLevelConfigurationCsvImportView(APIView):
             elif record_type == "task":
                 code = row.get("task_code", "").strip()
                 title = row.get("task_title", "").strip()
-                description = row.get(
-                    "task_description",
+                evidence_required = row.get(
+                    "task_evidence_required",
                     "",
                 ).strip()
 
@@ -189,7 +189,7 @@ class AssignmentLevelConfigurationCsvImportView(APIView):
                     {
                         "task_code": code,
                         "title": title,
-                        "instructions": description,
+                        "evidence_required": evidence_required,
                     }
                 )
 
@@ -310,7 +310,7 @@ class AssignmentLevelConfigurationCsvImportView(APIView):
                 assignment_level=assignment_level,
                 task_code=row["task_code"],
                 title=row["title"],
-                instructions=row["instructions"],
+                evidence_required=row["evidence_required"],
                 sequence=sequence,
             )
 

@@ -36,8 +36,8 @@ type AssignmentCriteriaSectionProps = {
   suggestedCriterionCode: string;
 
   activeMappingCriterion:
-    | RubricCriterion
-    | undefined;
+  | RubricCriterion
+  | undefined;
 
   selectedMappingTaskIds: string[];
   isSavingTaskMapping: boolean;
@@ -455,7 +455,7 @@ export function AssignmentCriteriaSection({
 
                       <td>
                         {assignedTasks.length ===
-                        0 ? (
+                          0 ? (
                           <span className="table-subtext">
                             None
                           </span>
@@ -656,11 +656,9 @@ export function AssignmentCriteriaSection({
                             {task.title}
                           </strong>
 
-                          {task.instructions && (
+                          {task.evidence_required && (
                             <small className="table-subtext">
-                              {
-                                task.instructions
-                              }
+                              {task.evidence_required}
                             </small>
                           )}
                         </div>

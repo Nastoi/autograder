@@ -339,7 +339,7 @@ class Task(models.Model):
 
     task_code = models.CharField(max_length=80)
     title = models.CharField(max_length=255)
-    instructions = models.TextField(blank=True)
+    evidence_required = models.TextField(blank=True)
     sequence = models.PositiveIntegerField(default=0)
 
     created_at = models.DateTimeField(auto_now_add=True)
