@@ -479,7 +479,25 @@ export function AssignmentsPage() {
     setError("");
     setIsSavingTrackEdit(true);
 
+    let lockAcquired = false;
+
     try {
+      const lock = await updateAssignmentConfigurationLock(
+        level.id,
+        "acquire",
+      );
+
+      if (!lock.owned_by_me) {
+        setError(
+          lock.locked_by
+            ? `${lock.locked_by} is currently editing this configuration.`
+            : "This configuration is currently being edited by another administrator.",
+        );
+        return;
+      }
+
+      lockAcquired = true;
+
       await updateAssignmentLevel(level.id, {
         display_name: name,
         level_code: code,
@@ -497,6 +515,17 @@ export function AssignmentsPage() {
           : "Unable to update submission track.",
       );
     } finally {
+      if (lockAcquired) {
+        try {
+          await updateAssignmentConfigurationLock(
+            level.id,
+            "release",
+          );
+        } catch {
+          // Lock will expire automatically if release fails.
+        }
+      }
+
       setIsSavingTrackEdit(false);
     }
   }
