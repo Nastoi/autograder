@@ -37,6 +37,7 @@ export function SubmissionPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [technicalError, setTechnicalError] = useState("");
 
   useEffect(() => {
     async function loadContext() {
@@ -50,10 +51,14 @@ export function SubmissionPage() {
         const data = await getSubmissionContext(contextId);
         setContext(data);
       } catch (caughtError) {
-        setError(
+        const message =
           caughtError instanceof Error
             ? caughtError.message
-            : "Unable to load the submission page.",
+            : "Unable to load the submission page.";
+
+        setTechnicalError(message);
+        setError(
+          "We could not establish your assessment session automatically.",
         );
       } finally {
         setIsLoading(false);
@@ -170,13 +175,71 @@ export function SubmissionPage() {
     return (
       <main className="submission-page">
         <div className="submission-content">
-          <header className="submission-header">
-            <h1>Unable to load submission</h1>
-          </header>
+          <section
+            className="content-card"
+            style={{ padding: "32px" }}
+          >
+            <h1 style={{ marginTop: 0 }}>
+              Unable to open your assessment
+            </h1>
 
-          <p role="alert" className="error-message">
-            {error}
-          </p>
+            <p>
+              We could not establish your assessment session automatically.
+              Your work has not been affected.
+            </p>
+
+            <p>Please try the following:</p>
+
+            <ol style={{ paddingLeft: "22px", lineHeight: 1.7 }}>
+              <li>Refresh this page once.</li>
+
+              <li>
+                Make sure you are still signed in to your LMS, then return
+                to your LMS course and open the assignment again.
+              </li>
+
+              <li>
+                If you are using Chrome or Edge, check that third-party
+                cookies are allowed for the LMS and AutoGrad3r.
+              </li>
+
+              <li>
+                If the issue continues, try another browser.
+              </li>
+            </ol>
+
+            <p>
+              If the assessment still cannot be opened after these steps,
+              please contact your instructor or support.
+            </p>
+
+            {technicalError && (
+              <details style={{ marginTop: "24px" }}>
+                <summary
+                  style={{
+                    cursor: "pointer",
+                    fontWeight: 600,
+                  }}
+                >
+                  Technical details
+                </summary>
+
+                <p
+                  style={{
+                    marginTop: "10px",
+                    padding: "12px",
+                    background: "var(--bg)",
+                    border: "1px solid var(--border)",
+                    borderRadius: "var(--radius-md)",
+                    fontSize: "13px",
+                    overflowWrap: "anywhere",
+                  }}
+                >
+                  {technicalError}
+                </p>
+              </details>
+            )}
+          </section>
         </div>
       </main>
     );
