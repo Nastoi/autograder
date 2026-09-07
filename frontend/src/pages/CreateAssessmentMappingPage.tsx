@@ -14,7 +14,6 @@ import "../css/AssessmentMappings.css";
 import {
   createAssessmentMapping,
   getAssessmentMappings,
-  updateAssessmentMapping,
   type AssessmentMapping,
 } from "../api/assessmentMappings";
 
@@ -123,11 +122,13 @@ export function CreateAssessmentMappingPage() {
     }
 
     try {
-      const data = await getModuleAssignments(
-        selectedCohort.module,
-      );
+      const [assignmentData, mappingData] = await Promise.all([
+        getModuleAssignments(selectedCohort.module),
+        getAssessmentMappings(),
+      ]);
 
-      setAssignments(data);
+      setAssignments(assignmentData);
+      setExistingMappings(mappingData);
     }
     catch (caughtError) {
       setError(
@@ -292,12 +293,6 @@ export function CreateAssessmentMappingPage() {
             (item) => item.id === assignmentId,
           );
 
-         const existingMapping = existingMappings.find(
-            (mapping) =>
-              String(mapping.cohort) === String(cohortId) &&
-              String(mapping.assignment) === String(assignmentId),
-          );
-
           const payload = {
             cohort: cohortId,
             assignment: assignmentId,
@@ -312,12 +307,6 @@ export function CreateAssessmentMappingPage() {
             is_active: true,
           };
 
-          if (existingMapping) {
-            return updateAssessmentMapping(
-              existingMapping.id,
-              payload,
-            );
-          }
 
           return createAssessmentMapping(payload);
         }),
