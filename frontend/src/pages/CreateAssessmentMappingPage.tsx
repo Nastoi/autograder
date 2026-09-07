@@ -292,10 +292,10 @@ export function CreateAssessmentMappingPage() {
             (item) => item.id === assignmentId,
           );
 
-          const existingMapping = existingMappings.find(
+         const existingMapping = existingMappings.find(
             (mapping) =>
-              mapping.cohort === cohortId &&
-              mapping.assignment === assignmentId,
+              String(mapping.cohort) === String(cohortId) &&
+              String(mapping.assignment) === String(assignmentId),
           );
 
           const payload = {

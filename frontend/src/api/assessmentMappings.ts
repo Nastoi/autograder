@@ -103,15 +103,32 @@ export async function createAssessmentMapping(
         | Record<string, unknown>;
 
     if (!response.ok) {
-        const detail =
+        if (
             typeof data === "object" &&
-                data !== null &&
-                "detail" in data &&
-                typeof data.detail === "string"
-                ? data.detail
-                : "Unable to create assessment mapping.";
+            data !== null &&
+            "detail" in data &&
+            typeof data.detail === "string"
+        ) {
+            throw new Error(data.detail);
+        }
 
-        throw new Error(detail);
+        if (typeof data === "object" && data !== null) {
+            const messages = Object.entries(data)
+                .map(([field, value]) => {
+                    const message = Array.isArray(value)
+                        ? value.join(", ")
+                        : String(value);
+
+                    return `${field}: ${message}`;
+                })
+                .join(" | ");
+
+            if (messages) {
+                throw new Error(messages);
+            }
+        }
+
+        throw new Error("Unable to create assessment mapping.");
     }
 
     if (
