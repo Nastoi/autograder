@@ -143,14 +143,14 @@ export function CreateAssessmentMappingPage() {
     existingMappings
       .filter(
         (mapping) =>
-          mapping.cohort.toString() === cohortId,
+          String(mapping.cohort) === String(cohortId),
       )
-      .map((mapping) => mapping.assignment),
+      .map((mapping) => String(mapping.assignment)),
   );
 
   const availableAssignments = assignments.filter(
     (assignment) =>
-      !mappedAssignmentIds.has(assignment.id),
+      !mappedAssignmentIds.has(String(assignment.id)),
   );
 
   const existingContributionTotal = useMemo(() => {
