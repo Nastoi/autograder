@@ -1,5 +1,5 @@
 import { getCsrfToken } from "./auth";
-import { extractResults, API_BASE_URL } from "./utils";
+import { extractResults, API_BASE_URL, fetchAllPaginatedResults, } from "./utils";
 
 
 
@@ -39,25 +39,10 @@ export type AssessmentMapping = {
 export async function getAssessmentMappings(): Promise<
     AssessmentMapping[]
 > {
-    const response = await fetch(
+    return fetchAllPaginatedResults<AssessmentMapping>(
         `${API_BASE_URL}/lms/assessment-mappings/`,
-        {
-            method: "GET",
-            credentials: "include",
-        },
+        "Unable to load assessment mappings.",
     );
-
-    const data = await response.json();
-
-    if (!response.ok) {
-        throw new Error(
-            typeof data?.detail === "string"
-                ? data.detail
-                : "Unable to load assessment mappings.",
-        );
-    }
-
-    return extractResults<AssessmentMapping>(data);
 }
 
 
