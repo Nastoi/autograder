@@ -305,10 +305,10 @@ export function CreateAssessmentMappingPage() {
               assignment?.contributes_to_final_mark
                 ? (finalMarkWeights[assignmentId] || "0")
                 : "0",
-            lti_client_id: lti?.clientId ?? "",
-            lti_deployment_id: lti?.deploymentId ?? "",
-            lti_jwks_url: lti?.jwksUrl ?? "",
-            lti_access_token_url: lti?.accessTokenUrl ?? "",
+            lti_client_id: lti?.clientId?.trim() ?? "",
+            lti_deployment_id: lti?.deploymentId?.trim() ?? "",
+            lti_jwks_url: lti?.jwksUrl?.trim() ?? "",
+            lti_access_token_url: lti?.accessTokenUrl?.trim() ?? "",
             is_active: true,
           };
 
