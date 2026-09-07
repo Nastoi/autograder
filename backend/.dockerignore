@@ -1,0 +1,9 @@
+cat > backend/.dockerignore <<'EOF'
+media/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.git/
+.pytest_cache/
+EOF

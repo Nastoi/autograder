@@ -10,6 +10,7 @@ export default defineConfig({
 
     allowedHosts: [
       "ag.claas2saas.com",
+      "refill-blot-unnamed.ngrok-free.dev"
     ],
 
     proxy: {
