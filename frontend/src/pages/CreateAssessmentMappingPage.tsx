@@ -14,6 +14,7 @@ import "../css/AssessmentMappings.css";
 import {
   createAssessmentMapping,
   getAssessmentMappings,
+  updateAssessmentMapping,
   type AssessmentMapping,
 } from "../api/assessmentMappings";
 
@@ -291,7 +292,13 @@ export function CreateAssessmentMappingPage() {
             (item) => item.id === assignmentId,
           );
 
-          return createAssessmentMapping({
+          const existingMapping = existingMappings.find(
+            (mapping) =>
+              mapping.cohort === cohortId &&
+              mapping.assignment === assignmentId,
+          );
+
+          const payload = {
             cohort: cohortId,
             assignment: assignmentId,
             final_mark_weight:
@@ -303,7 +310,16 @@ export function CreateAssessmentMappingPage() {
             lti_jwks_url: lti?.jwksUrl ?? "",
             lti_access_token_url: lti?.accessTokenUrl ?? "",
             is_active: true,
-          });
+          };
+
+          if (existingMapping) {
+            return updateAssessmentMapping(
+              existingMapping.id,
+              payload,
+            );
+          }
+
+          return createAssessmentMapping(payload);
         }),
       );
 
