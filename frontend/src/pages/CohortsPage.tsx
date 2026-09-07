@@ -148,7 +148,8 @@ export function CohortsPage() {
   );
 
   const selectedCohort = cohorts.find(
-    (cohort) => cohort.id === selectedCohortId,
+    (cohort) =>
+      String(cohort.id) === String(selectedCohortId),
   );
 
   const filteredCohorts = cohorts.filter((cohort) => {
@@ -162,7 +163,8 @@ export function CohortsPage() {
   });
 
   const selectedCohortMappings = mappings.filter(
-    (mapping) => mapping.cohort === selectedCohortId,
+    (mapping) =>
+      String(mapping.cohort) === String(selectedCohortId),
   );
 
   function handleQualificationChange(
