@@ -797,7 +797,9 @@ class InstructorSubmissionOverrideView(
         try:
             celery_app.send_task(
                 "submissions.tasks.push_submission_grade_task",
-                args=[str(new_submission.id)],
+                args=[str(new_submission.id),
+                source_submission.requires_faculty_approval,
+                ],
             )
         except Exception as exc:
             ags_queued = False
