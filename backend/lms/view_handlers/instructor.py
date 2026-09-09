@@ -747,9 +747,7 @@ class InstructorSubmissionOverrideView(
                 achieved_band=achieved_band,
                 feedback=overall_feedback.strip(),
                 completed_at=timezone.now(),
-                requires_faculty_approval=(
-                    source_submission.requires_faculty_approval
-                ),
+                requires_faculty_approval=False,
             )
 
             CriterionResult.objects.bulk_create([
