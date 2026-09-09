@@ -241,6 +241,8 @@ class InstructorMappingDashboardView(APIView):
                             assignment_level=submission.assignment_level,
                         ).order_by("sequence")
                     ],
+                    "requires_faculty_approval":
+                        submission.requires_faculty_approval,
                 }
             )
 

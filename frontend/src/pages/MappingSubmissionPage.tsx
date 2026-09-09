@@ -95,12 +95,12 @@ export function MappingSubmissionPage() {
   const latestAttempt = attempts[0];
 
   const latestAttemptFailed =
-    latestAttempt?.status === "completed" &&
-    latestAttempt?.achieved_band?.toLowerCase() === "failed" &&
-    !(
-      context?.require_faculty_approval === true &&
-      !latestAttempt?.is_manual_override
-    );
+  latestAttempt?.status === "completed" &&
+  latestAttempt?.achieved_band?.toLowerCase() === "failed" &&
+  !(
+    latestAttempt?.requires_faculty_approval === true &&
+    !latestAttempt?.is_manual_override
+  );
 
   // const hasNoAttemptsRemaining =
   //   attemptPolicy?.can_submit === false;
@@ -1489,7 +1489,7 @@ export function MappingSubmissionPage() {
 
               {!latestAttemptFailed && (
                 <p className="page-subtitle">
-                  Upload a revised submission below.
+                  Upload a submission below.
                 </p>
               )}
             </div>
@@ -1747,9 +1747,7 @@ export function MappingSubmissionPage() {
                         to check its status.
                       </p>
                     </div>
-                  ) : context.require_faculty_approval &&
-                    latestAttempt?.status === "completed" &&
-                    !latestAttempt?.is_manual_override ? (
+                  ) : isPendingFacultyReview(latestAttempt) ? (
                     <div className="grading-review-message" style={{
                       marginTop: "18px",
                       padding: "16px 18px",
@@ -2366,11 +2364,11 @@ export function MappingSubmissionPage() {
                                                       )
                                                     }
                                                   >
-                                                    {context.require_faculty_approval
-                                                      ? "Review"
-                                                      : attempt.status === "completed"
-                                                        ? "Override"
-                                                        : "Manual Review"}
+                                                    {attempt.requires_faculty_approval
+  ? "Review"
+  : attempt.status === "completed"
+    ? "Override"
+    : "Manual Review"}
                                                   </button>
                                                 )}
                                             </div>
@@ -2566,9 +2564,9 @@ export function MappingSubmissionPage() {
               <div>
                 <p className="submission-eyebrow">Faculty Review</p>
                 <h2 id="faculty-override-title">
-                  {context.require_faculty_approval
-                    ? "Faculty Grade Review"
-                    : "Manual Grade Override"}
+                  {overrideTarget.attempt.requires_faculty_approval
+  ? "Faculty Grade Review"
+  : "Manual Grade Override"}
                 </h2>
                 <p>
                   {overrideTarget.learner.name ||
@@ -2699,12 +2697,12 @@ export function MappingSubmissionPage() {
                 disabled={isSavingOverride}
               >
                 {isSavingOverride
-                  ? context.require_faculty_approval
-                    ? "Saving Review..."
-                    : "Saving Override..."
-                  : context.require_faculty_approval
-                    ? "Submit Review"
-                    : "Submit Override"}
+  ? overrideTarget.attempt.requires_faculty_approval
+    ? "Saving Review..."
+    : "Saving Override..."
+  : overrideTarget.attempt.requires_faculty_approval
+    ? "Submit Review"
+    : "Submit Override"}
               </button>
             </div>
           </form>

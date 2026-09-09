@@ -86,6 +86,7 @@ export type InstructorMappingAttempt = {
   is_manual_override: boolean;
   manual_override_by: string | null;
   configured_criteria: InstructorConfiguredCriterion[];
+  requires_faculty_approval: boolean;
 };
 
 export type InstructorMappingLearner = {
