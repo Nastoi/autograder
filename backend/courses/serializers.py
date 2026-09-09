@@ -754,29 +754,82 @@ class AssignmentLevelSerializer(serializers.ModelSerializer):
             getattr(self.instance, "version", None),
         )
 
-        if assignment and level_code and version is not None:
-            queryset = AssignmentLevel.objects.filter(
+        if assignment and level_code:
+            active_queryset = AssignmentLevel.objects.filter(
                 assignment=assignment,
                 level_code__iexact=level_code,
-                version=version,
+                is_active=True,
             )
 
             if self.instance:
-                queryset = queryset.exclude(
+                active_queryset = active_queryset.exclude(
                     id=self.instance.id,
                 )
 
-            if queryset.exists():
+            if active_queryset.exists():
                 raise serializers.ValidationError(
                     {
                         "level_code": (
-                            "This assignment already has this "
-                            "level and version."
+                            "This assignment already has an active "
+                            "track with this code."
                         )
                     }
                 )
 
+            if self.instance and version is not None:
+                duplicate_version = AssignmentLevel.objects.filter(
+                    assignment=assignment,
+                    level_code__iexact=level_code,
+                    version=version,
+                ).exclude(
+                    id=self.instance.id,
+                )
+
+                if duplicate_version.exists():
+                    raise serializers.ValidationError(
+                        {
+                            "level_code": (
+                                "This assignment already has this "
+                                "level and version."
+                            )
+                        }
+                    )
+
         return attrs
+
+
+    def create(self, validated_data):
+        assignment = validated_data.get("assignment")
+        level_code = validated_data.get("level_code")
+
+        if assignment and level_code:
+            latest_existing = (
+                AssignmentLevel.objects
+                .filter(
+                    assignment=assignment,
+                    level_code__iexact=level_code,
+                )
+                .order_by("-version")
+                .first()
+            )
+
+            validated_data["version"] = (
+                1
+                if latest_existing is None
+                else latest_existing.version + 1
+            )
+
+        validated_data["is_active"] = True
+
+        if (
+            validated_data.get("configuration_status")
+            == AssignmentLevel.ConfigurationStatus.RETIRED
+        ):
+            validated_data["configuration_status"] = (
+                AssignmentLevel.ConfigurationStatus.DRAFT
+            )
+
+        return super().create(validated_data)
 
 
     def validate_level_code(self, value):

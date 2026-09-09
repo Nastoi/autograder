@@ -11,6 +11,7 @@ from .views import (
     InstructorMappingDashboardView,
     InstructorSubmissionDownloadView,
     InstructorSubmissionOverrideView,
+    InstructorSubmissionApproveView,
 )
 
 
@@ -65,5 +66,9 @@ urlpatterns = [
         InstructorSubmissionOverrideView.as_view(),
         name="assessment-mapping-instructor-submission-override",
     ),
-
+    path(
+        "assessment-mappings/<uuid:mapping_id>/instructor/submissions/<uuid:submission_id>/approve/",
+        InstructorSubmissionApproveView.as_view(),
+        name="assessment-mapping-instructor-submission-approve",
+    ),
 ]

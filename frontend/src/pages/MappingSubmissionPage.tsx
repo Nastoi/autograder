@@ -21,6 +21,7 @@ import {
   getInstructorMappingDashboard,
   syncInstructorMappingDueDate,
   updateInstructorResultVisibility,
+  updateInstructorFacultyApprovalRequirement,
   type InstructorMappingAttempt,
   type InstructorMappingDashboard,
   type InstructorMappingLearner,
@@ -85,6 +86,9 @@ export function MappingSubmissionPage() {
   const [isSavingOverride, setIsSavingOverride] = useState(false);
   const [overrideError, setOverrideError] = useState("");
 
+  const [isUpdatingFacultyApproval, setIsUpdatingFacultyApproval] =
+    useState(false);
+
   const [isDragging, setIsDragging] =
     useState(false);
 
@@ -92,7 +96,11 @@ export function MappingSubmissionPage() {
 
   const latestAttemptFailed =
     latestAttempt?.status === "completed" &&
-    latestAttempt?.achieved_band?.toLowerCase() === "failed";
+    latestAttempt?.achieved_band?.toLowerCase() === "failed" &&
+    !(
+      context?.require_faculty_approval === true &&
+      !latestAttempt?.is_manual_override
+    );
 
   // const hasNoAttemptsRemaining =
   //   attemptPolicy?.can_submit === false;
@@ -466,7 +474,7 @@ export function MappingSubmissionPage() {
       }
     }
 
-    addText("AutoGrad3r Detailed Feedback", 16, true, 8);
+    addText("AutoGrader Detailed Feedback", 16, true, 8);
     addText(`Assignment: ${attempt.assignment_code}`, 11, true);
     addText(`Attempt: ${attempt.attempt_number}`);
     addText(
@@ -633,6 +641,54 @@ export function MappingSubmissionPage() {
     const percentage = (numericScore / numericMaximum) * 100;
 
     return `${percentage.toFixed(2)} / 100`;
+  }
+
+  async function handleFacultyApprovalRequirementChange(
+    requireFacultyApproval: boolean,
+  ) {
+    if (!mappingId) {
+      setInstructorError("Assessment mapping is missing.");
+      return;
+    }
+
+    setInstructorError("");
+    setIsUpdatingFacultyApproval(true);
+
+    try {
+      await updateInstructorFacultyApprovalRequirement(
+        mappingId,
+        requireFacultyApproval,
+      );
+
+      setContext((current) =>
+        current
+          ? {
+            ...current,
+            require_faculty_approval: requireFacultyApproval,
+          }
+          : current,
+      );
+
+      setInstructorData((current) =>
+        current
+          ? {
+            ...current,
+            mapping: {
+              ...current.mapping,
+              require_faculty_approval: requireFacultyApproval,
+            },
+          }
+          : current,
+      );
+    } catch (caughtError) {
+      setInstructorError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Unable to update faculty approval requirement.",
+      );
+    } finally {
+      setIsUpdatingFacultyApproval(false);
+    }
   }
 
   async function handleResultVisibilityChange(
@@ -909,7 +965,7 @@ export function MappingSubmissionPage() {
             }
 
             setNotice(
-              "Your submission has been received and is being reviewed. Your result and feedback will be available soon.",
+              "Your submission has been received successfully. You may leave this page and return later.",
             );
             setShowSubmissionReceivedModal(true);
 
@@ -975,18 +1031,216 @@ export function MappingSubmissionPage() {
 
   if (error && !context) {
     return (
-      <main className="submission-page">
-        <div className="submission-content">
-          <h1>Unable to load assignment</h1>
+      <section
+        className="content-card"
+        style={{ padding: "32px" }}
+      >
+        <h1 style={{ marginTop: 0 }}>
+          Unable to load assignment
+        </h1>
+
+        <p>
+          We could not establish your assessment session automatically.
+          This is usually caused by an expired LMS session, browser privacy
+          settings, or blocked cross-site cookies.
+        </p>
+
+        <p>
+          Your submission has not been affected. Please complete the
+          troubleshooting steps below before contacting support.
+        </p>
+
+        <h3 style={{ marginTop: "24px" }}>
+          Troubleshooting steps
+        </h3>
+
+        <ol
+          style={{
+            paddingLeft: "22px",
+            lineHeight: 1.8,
+          }}
+        >
+          <li>
+            <strong>Refresh this page once.</strong>
+            <br />
+            If the page loads normally after refreshing, no further action
+            is required.
+          </li>
+
+          <li style={{ marginTop: "12px" }}>
+            <strong>Confirm that you are still signed in to your LMS.</strong>
+            <br />
+            Open your LMS in another tab and make sure your login session
+            is still active. If you have been signed out, sign in again.
+          </li>
+
+          <li style={{ marginTop: "12px" }}>
+            <strong>Open the assignment again from the LMS.</strong>
+            <br />
+            Do not open AutoGrader from an old bookmark, browser history,
+            or a previously saved AutoGrader link. Return to your LMS
+            course, locate the assignment, and launch it again from there.
+          </li>
+
+          <li style={{ marginTop: "12px" }}>
+            <strong>Allow third-party or cross-site cookies.</strong>
+            <br />
+            AutoGrader may need your browser to allow cookies between the
+            LMS and AutoGrader in order to establish your assessment
+            session.
+            <br />
+            If your browser blocks third-party cookies, allow them for the
+            LMS and AutoGrader, then reopen the assignment from the LMS.
+          </li>
+
+          <li style={{ marginTop: "12px" }}>
+            <strong>Check whether your browser is blocking the page.</strong>
+            <br />
+            Look for a blocked-cookie, privacy, tracking-prevention, or
+            pop-up warning in the browser address bar. If one appears,
+            allow access for the LMS and AutoGrader and try again.
+          </li>
+
+          <li style={{ marginTop: "12px" }}>
+            <strong>Close old AutoGrader tabs.</strong>
+            <br />
+            Close any older AutoGrader assignment tabs, return to the LMS,
+            and open the assignment again in a new tab.
+          </li>
+
+          <li style={{ marginTop: "12px" }}>
+            <strong>Try a private or incognito window.</strong>
+            <br />
+            Sign in to your LMS again inside the private/incognito window,
+            then open the assignment from the LMS.
+          </li>
+
+          <li style={{ marginTop: "12px" }}>
+            <strong>Try another supported browser.</strong>
+            <br />
+            If the issue continues, try the assignment using the latest
+            version of Chrome, Edge, Firefox, or Safari.
+          </li>
+
+          <li style={{ marginTop: "12px" }}>
+            <strong>Check your internet connection.</strong>
+            <br />
+            Make sure your connection is stable. If you are using a VPN,
+            proxy, corporate network, or restrictive Wi-Fi network, try
+            disconnecting from it or using another network if permitted.
+          </li>
+
+          <li style={{ marginTop: "12px" }}>
+            <strong>Restart the browser if necessary.</strong>
+            <br />
+            Close the browser completely, reopen it, sign in to the LMS,
+            and launch the assignment again.
+          </li>
+        </ol>
+
+        <div
+          style={{
+            marginTop: "24px",
+            padding: "16px",
+            background: "var(--bg)",
+            border: "1px solid var(--border)",
+            borderRadius: "var(--radius-md)",
+          }}
+        >
+          <strong
+            style={{
+              display: "block",
+              marginBottom: "8px",
+            }}
+          >
+            Still unable to access the assignment?
+          </strong>
+
+          <p style={{ margin: 0 }}>
+            If you have completed the steps above and the assignment still
+            cannot be opened, please contact your instructor or support.
+          </p>
+
+          <p
+            style={{
+              margin: "10px 0 0",
+            }}
+          >
+            Please include:
+          </p>
+
+          <ul
+            style={{
+              marginBottom: 0,
+              paddingLeft: "22px",
+              lineHeight: 1.7,
+            }}
+          >
+            <li>A screenshot of this page.</li>
+            <li>The exact error message shown below.</li>
+            <li>Your LMS course and assignment name.</li>
+            <li>The browser you are using.</li>
+            <li>
+              Whether you already tried another browser or
+              private/incognito mode.
+            </li>
+          </ul>
+        </div>
+
+        <div
+          style={{
+            marginTop: "20px",
+            padding: "16px",
+            background: "var(--bg)",
+            border: "1px solid var(--border)",
+            borderRadius: "var(--radius-md)",
+          }}
+        >
+          <strong
+            style={{
+              display: "block",
+              marginBottom: "8px",
+            }}
+          >
+            Technical error details
+          </strong>
 
           <p
             role="alert"
-            className="error-message"
+            style={{
+              margin: 0,
+              fontSize: "13px",
+              overflowWrap: "anywhere",
+            }}
           >
             {error}
           </p>
+
+          <p
+            style={{
+              margin: "10px 0 0",
+              fontSize: "13px",
+              color: "var(--text-muted)",
+            }}
+          >
+            Please include this exact error message when contacting
+            support. Do not edit or shorten it.
+          </p>
         </div>
-      </main>
+
+        <div
+          className="form-actions"
+          style={{ marginTop: "20px" }}
+        >
+          <button
+            type="button"
+            className="btn-primary"
+            onClick={() => window.location.reload()}
+          >
+            Retry
+          </button>
+        </div>
+      </section>
     );
   }
 
@@ -1021,6 +1275,53 @@ export function MappingSubmissionPage() {
     setSelectedFile(file);
     setError("");
     return true;
+  }
+
+  function isPendingFacultyReview(
+    attempt: Submission | undefined,
+  ) {
+    return (
+      !!attempt &&
+      attempt.requires_faculty_approval === true &&
+      !attempt.is_manual_override &&
+      attempt.status === "completed"
+    );
+  }
+
+  function isFacultyReviewedAttempt(
+    attempt: Submission | undefined,
+  ) {
+    if (
+      !attempt ||
+      attempt.requires_faculty_approval !== true ||
+      attempt.is_manual_override ||
+      attempt.status !== "completed"
+    ) {
+      return false;
+    }
+
+    return attempts.some(
+      (candidate) =>
+        candidate.is_manual_override &&
+        candidate.attempt_number > attempt.attempt_number,
+    );
+  }
+
+
+  function getLearnerReviewStatus(
+    attempt: Submission | undefined,
+  ) {
+    if (isFacultyReviewedAttempt(attempt)) {
+      return "Reviewed";
+    }
+
+    if (isPendingFacultyReview(attempt)) {
+      return "In Review";
+    }
+
+    return attempt
+      ? getStatusLabel(attempt.status)
+      : "";
   }
 
   function getStatusLabel(status: Submission["status"]) {
@@ -1172,23 +1473,6 @@ export function MappingSubmissionPage() {
               </div>
             </section>
 
-            {/* {attemptPolicy?.limited_mode && (
-          <div className="grading-wait-message">
-            <strong>
-              {attemptPolicy.attempts_remaining === 0
-                ? "No attempts remaining"
-                : `${attemptPolicy.attempts_remaining} ${attemptPolicy.attempts_remaining === 1
-                  ? "attempt"
-                  : "attempts"
-                } remaining`}
-            </strong>
-
-            <p>
-              You have used{" "}
-              {attemptPolicy.attempts_used} of 3 attempts.
-            </p>
-          </div>
-        )} */}
 
 
 
@@ -1203,32 +1487,13 @@ export function MappingSubmissionPage() {
                       : "Submit Your First Attempt"}
               </h2>
 
-              <p>
-                {context.show_result_to_learner && latestAttemptFailed
-                  ? "Your latest graded attempt was Failed. Review the feedback, make your changes, then upload a revised submission."
-                  : "Choose the submission track and upload your completed assignment."}
-              </p>
+              {!latestAttemptFailed && (
+                <p className="page-subtitle">
+                  Upload a revised submission below.
+                </p>
+              )}
             </div>
-            {/* 
-        {isWaitingForGrading && (
-          <div className="grading-wait-message">
-            <strong>
-              Your latest attempt is still being graded.
-            </strong>
 
-            <p>
-              You can submit another attempt after
-              grading is complete.
-            </p>
-          </div>
-        )} */}
-            {/* {isWaitingForGrading
-              ? "Waiting for Grading"
-              : isSubmitting
-                ? "Submitting..."
-                : attempts.length > 0
-                  ? "Submit New Attempt"
-                  : "Submit Assignment"} */}
 
 
             {context.show_result_to_learner && latestAttemptFailed && (
@@ -1238,7 +1503,8 @@ export function MappingSubmissionPage() {
                 </strong>
 
                 <p>
-                  You may resubmit after reviewing the feedback below.
+                  Review the feedback below, make the necessary changes, then upload
+                  a revised submission.
                 </p>
               </div>
             )}
@@ -1411,7 +1677,7 @@ export function MappingSubmissionPage() {
                 </div>
               )}
 
-              {notice && (
+              {notice && attempts.length === 0 && (
                 <div
                   role="status"
                   className="submission-notice"
@@ -1461,17 +1727,59 @@ export function MappingSubmissionPage() {
                                 : "Submit Assignment"}
                 </button>
               </div>
+
+              {attempts.length > 0 && (
+                <>
+                  {latestAttempt?.status === "uploaded" ||
+                    latestAttempt?.status === "processing" ? (
+                    <div className="grading-review-message" style={{
+                      marginTop: "18px",
+                      padding: "16px 18px",
+                      border: "1px solid var(--border)",
+                      borderRadius: "var(--radius-md)",
+                      background: "var(--bg)",
+                    }}>
+                      <strong>Submission received</strong>
+
+                      <p>
+                        Your submission has been received successfully and is
+                        being processed. You may leave this page and return later
+                        to check its status.
+                      </p>
+                    </div>
+                  ) : context.require_faculty_approval &&
+                    latestAttempt?.status === "completed" &&
+                    !latestAttempt?.is_manual_override ? (
+                    <div className="grading-review-message" style={{
+                      marginTop: "18px",
+                      padding: "16px 18px",
+                      border: "1px solid var(--border)",
+                      borderRadius: "var(--radius-md)",
+                      background: "var(--bg)",
+                    }}>
+                      <strong>In review</strong>
+
+                      <p>
+                        Your submission is now awaiting faculty
+                        review. Your final result and feedback will be available
+                        after the review is completed.
+                      </p>
+                    </div>
+                  ) : !context.show_result_to_learner ? (
+                    <div className="grading-review-message">
+                      <strong>Submission received</strong>
+
+                      <p>
+                        Your submission has been received successfully. Your
+                        assessment result is not currently available for viewing.
+                      </p>
+                    </div>
+                  ) : null}
+                </>
+              )}
             </form>
 
-            {!context.show_result_to_learner && attempts.length > 0 && (
-              <div className="grading-wait-message">
-                <strong>Submission received.</strong>
-                <p>
-                  Your submission has been received and is being reviewed.
-                  Your result and feedback will be available soon.
-                </p>
-              </div>
-            )}
+
 
             {context.show_result_to_learner && attempts.length > 0 && (
               <section className="latest-result">
@@ -1495,7 +1803,7 @@ export function MappingSubmissionPage() {
                   <span
                     className={`attempt-status status-${attempts[0].status}`}
                   >
-                    {getStatusLabel(attempts[0].status)}
+                    {getLearnerReviewStatus(attempts[0])}
                   </span>
                 </div>
 
@@ -1527,20 +1835,24 @@ export function MappingSubmissionPage() {
                     </span>
 
                     <strong className="attempt-detail-value">
-                      {attempts[0].status === "error"
-                        ? "Unavailable"
-                        : attempts[0].status === "uploaded" ||
-                          attempts[0].status === "processing"
-                          ? "Processing"
-                          : attempts[0].final_score !== null &&
-                            attempts[0].maximum_score !== null &&
-                            Number(attempts[0].maximum_score) > 0
-                            ? `${(
-                              (Number(attempts[0].final_score) /
-                                Number(attempts[0].maximum_score)) *
-                              100
-                            ).toFixed(2)} / 100`
-                            : "Pending"}
+                      <strong className="attempt-detail-value">
+                        {isPendingFacultyReview(attempts[0])
+                          ? "In review"
+                          : attempts[0].status === "error"
+                            ? "Unavailable"
+                            : attempts[0].status === "uploaded" ||
+                              attempts[0].status === "processing"
+                              ? "Processing"
+                              : attempts[0].final_score !== null &&
+                                attempts[0].maximum_score !== null &&
+                                Number(attempts[0].maximum_score) > 0
+                                ? `${(
+                                  (Number(attempts[0].final_score) /
+                                    Number(attempts[0].maximum_score)) *
+                                  100
+                                ).toFixed(2)} / 100`
+                                : "Pending"}
+                      </strong>
                     </strong>
                   </div>
 
@@ -1550,15 +1862,19 @@ export function MappingSubmissionPage() {
                     </span>
 
                     <strong className="attempt-detail-value">
-                      {attempts[0].status === "error"
-                        ? "Not graded"
-                        : attempts[0].status === "uploaded" ||
-                          attempts[0].status === "processing"
-                          ? "Processing"
-                          : attempts[0].achieved_band
-                            ? attempts[0].achieved_band.charAt(0).toUpperCase() +
-                            attempts[0].achieved_band.slice(1)
-                            : "Pending"}
+                      <strong className="attempt-detail-value">
+                        {isPendingFacultyReview(attempts[0])
+                          ? "In review"
+                          : attempts[0].status === "error"
+                            ? "Not graded"
+                            : attempts[0].status === "uploaded" ||
+                              attempts[0].status === "processing"
+                              ? "Processing"
+                              : attempts[0].achieved_band
+                                ? attempts[0].achieved_band.charAt(0).toUpperCase() +
+                                attempts[0].achieved_band.slice(1)
+                                : "Pending"}
+                      </strong>
                     </strong>
                   </div>
 
@@ -1575,17 +1891,19 @@ export function MappingSubmissionPage() {
                   </div>
                 </div>
 
-                {attempts[0].feedback && (
-                  <div className="latest-feedback">
-                    <span className="attempt-detail-label">
-                      Overall Feedback
-                    </span>
+                {!isPendingFacultyReview(attempts[0]) &&
+                  attempts[0].feedback && (
+                    <div className="latest-feedback">
+                      <span className="attempt-detail-label">
+                        Overall Feedback
+                      </span>
 
-                    <p>{attempts[0].feedback}</p>
-                  </div>
-                )}
+                      <p>{attempts[0].feedback}</p>
+                    </div>
+                  )}
 
-                {attempts[0].status === "completed" &&
+                {!isPendingFacultyReview(attempts[0]) &&
+                  attempts[0].status === "completed" &&
                   attempts[0].criterion_results.length > 0 && (
                     <details className="latest-feedback detailed-feedback-collapse">
                       <summary>
@@ -1625,17 +1943,18 @@ export function MappingSubmissionPage() {
                     </details>
                   )}
 
-                {attempts[0].status === "completed" && (
-                  <button
-                    type="button"
-                    className="btn-primary feedback-download-btn"
-                    onClick={() =>
-                      downloadFeedbackPdf(attempts[0])
-                    }
-                  >
-                    Download Detailed Feedback PDF
-                  </button>
-                )}
+                {!isPendingFacultyReview(attempts[0]) &&
+                  attempts[0].status === "completed" && (
+                    <button
+                      type="button"
+                      className="btn-primary feedback-download-btn"
+                      onClick={() =>
+                        downloadFeedbackPdf(attempts[0])
+                      }
+                    >
+                      Download Detailed Feedback PDF
+                    </button>
+                  )}
 
                 {attempts[0].status === "manual_review" && (
                   <div className="grading-review-message">
@@ -1699,7 +2018,7 @@ export function MappingSubmissionPage() {
                           <span
                             className={`attempt-status status-${attempt.status}`}
                           >
-                            {getStatusLabel(attempt.status)}
+                            {getLearnerReviewStatus(attempt)}
                           </span>
                         </div>
 
@@ -1723,20 +2042,24 @@ export function MappingSubmissionPage() {
                             <span className="attempt-detail-label">Score</span>
 
                             <strong>
-                              {attempt.status === "error"
-                                ? "Unavailable"
-                                : attempt.status === "uploaded" ||
-                                  attempt.status === "processing"
-                                  ? "Processing"
-                                  : attempt.final_score !== null &&
-                                    attempt.maximum_score !== null &&
-                                    Number(attempt.maximum_score) > 0
-                                    ? `${(
-                                      (Number(attempt.final_score) /
-                                        Number(attempt.maximum_score)) *
-                                      100
-                                    ).toFixed(2)} / 100`
-                                    : "Pending"}
+                              <strong>
+                                {isPendingFacultyReview(attempt)
+                                  ? "In review"
+                                  : attempt.status === "error"
+                                    ? "Unavailable"
+                                    : attempt.status === "uploaded" ||
+                                      attempt.status === "processing"
+                                      ? "Processing"
+                                      : attempt.final_score !== null &&
+                                        attempt.maximum_score !== null &&
+                                        Number(attempt.maximum_score) > 0
+                                        ? `${(
+                                          (Number(attempt.final_score) /
+                                            Number(attempt.maximum_score)) *
+                                          100
+                                        ).toFixed(2)} / 100`
+                                        : "Pending"}
+                              </strong>
                             </strong>
                           </div>
 
@@ -1744,12 +2067,14 @@ export function MappingSubmissionPage() {
                             <span className="attempt-detail-label">Band</span>
 
                             <strong>
-                              {attempt.status === "error"
-                                ? "Not graded"
-                                : attempt.status === "uploaded" ||
-                                  attempt.status === "processing"
-                                  ? "Processing"
-                                  : attempt.achieved_band || "Pending"}
+                              {isPendingFacultyReview(attempt)
+                                ? "In review"
+                                : attempt.status === "error"
+                                  ? "Not graded"
+                                  : attempt.status === "uploaded" ||
+                                    attempt.status === "processing"
+                                    ? "Processing"
+                                    : attempt.achieved_band || "Pending"}
                             </strong>
                           </div>
 
@@ -1763,15 +2088,16 @@ export function MappingSubmissionPage() {
                             </strong>
                           </div>
                         </div>
-                        {attempt.feedback && (
-                          <div className="latest-feedback">
-                            <span className="attempt-detail-label">
-                              Feedback
-                            </span>
+                        {!isPendingFacultyReview(attempt) &&
+                          attempt.feedback && (
+                            <div className="latest-feedback">
+                              <span className="attempt-detail-label">
+                                Feedback
+                              </span>
 
-                            <p>{attempt.feedback}</p>
-                          </div>
-                        )}
+                              <p>{attempt.feedback}</p>
+                            </div>
+                          )}
 
 
                       </article>
@@ -1780,6 +2106,7 @@ export function MappingSubmissionPage() {
                 )}
               </section>
             )}
+
 
           </>
         )}
@@ -1838,7 +2165,45 @@ export function MappingSubmissionPage() {
                     When enabled, learners can view their grading result
                     and feedback for this assignment.
                   </p>
+
+
+                  <label
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "10px",
+                      cursor: isUpdatingFacultyApproval
+                        ? "default"
+                        : "pointer",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={context.require_faculty_approval}
+                      onChange={(event) =>
+                        void handleFacultyApprovalRequirementChange(
+                          event.target.checked,
+                        )
+                      }
+                      disabled={isUpdatingFacultyApproval}
+                    />
+
+                    <strong>
+                      Require faculty approval before sending grade to LMS
+                    </strong>
+                  </label>
+
+                  <p
+                    className="table-subtext"
+                    style={{ marginTop: "6px" }}
+                  >
+                    When enabled, grading is completed and saved, but the grade
+                    is only sent to the LMS after faculty approval.
+                  </p>
                 </div>
+
+
+
 
                 <section className="submission-record-metrics">
                   <div className="submission-record-metric">
@@ -2001,9 +2366,11 @@ export function MappingSubmissionPage() {
                                                       )
                                                     }
                                                   >
-                                                    {attempt.status === "completed"
-                                                      ? "Override"
-                                                      : "Manual Review"}
+                                                    {context.require_faculty_approval
+                                                      ? "Review"
+                                                      : attempt.status === "completed"
+                                                        ? "Override"
+                                                        : "Manual Review"}
                                                   </button>
                                                 )}
                                             </div>
@@ -2198,7 +2565,11 @@ export function MappingSubmissionPage() {
             <div className="faculty-override-header">
               <div>
                 <p className="submission-eyebrow">Faculty Review</p>
-                <h2 id="faculty-override-title">Manual Grade Override</h2>
+                <h2 id="faculty-override-title">
+                  {context.require_faculty_approval
+                    ? "Faculty Grade Review"
+                    : "Manual Grade Override"}
+                </h2>
                 <p>
                   {overrideTarget.learner.name ||
                     overrideTarget.learner.learner_id}
@@ -2327,7 +2698,13 @@ export function MappingSubmissionPage() {
                 className="btn-primary"
                 disabled={isSavingOverride}
               >
-                {isSavingOverride ? "Saving Override..." : "Submit Override"}
+                {isSavingOverride
+                  ? context.require_faculty_approval
+                    ? "Saving Review..."
+                    : "Saving Override..."
+                  : context.require_faculty_approval
+                    ? "Submit Review"
+                    : "Submit Override"}
               </button>
             </div>
           </form>

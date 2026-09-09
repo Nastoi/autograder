@@ -1,6 +1,5 @@
 import base64
 import json
-import re
 
 from pydantic import BaseModel, Field
 
@@ -186,35 +185,6 @@ def _neutral_overall_feedback():
     )
 
 
-def _is_task_requirement_assessable(task):
-    title = (task.title or "").strip().lower()
-    evidence_required = (
-        task.evidence_required or ""
-    ).strip().lower()
-
-    if not evidence_required:
-        return False
-
-    title_words = set(
-        re.findall(r"\b\w+\b", title)
-    )
-
-    evidence_words = set(
-        re.findall(r"\b\w+\b", evidence_required)
-    )
-
-    if title == evidence_required:
-        return False
-
-    if (
-        title_words
-        and evidence_words
-        and title_words == evidence_words
-    ):
-        return False
-
-    return True
-
 def analyze_document_authenticity(submission):
     pages = (
         SubmissionPage.objects
@@ -298,7 +268,7 @@ def analyze_document_authenticity(submission):
                 },
             ],
             response_format=DocumentAuthenticitySchema,
-            # temperature=0.0,
+            temperature=0.0,
         )
 
         result = completion.choices[0].message.parsed
@@ -464,24 +434,9 @@ def map_submission_tasks(submission):
         "5. For observable requirements, distinguish written claims from what is visibly demonstrated in the rendered page.\n"
         "6. Written evidence is valid for genuinely written or reflective requirements when the task permits it.\n"
         "7. Evidence explicitly identified as placeholder, synthetic, mock, sample, test-only, fabricated, not genuine, or not evidence of completed work may still be relevant, but it does not verify completion. State this clearly in justification.\n"
-        "8. Apply document-wide warnings according to their stated scope. "
-        "A warning on an earlier page may invalidate evidence on later pages.\n"
-        "9. If no materially relevant evidence exists, return "
-        "is_relevant=false and no mapped pages.\n"
-        "10. Keep mapped pages selective and explain what each mapped page "
-        "actually demonstrates or fails to demonstrate.\n"
-        "11. Never infer missing task requirements from the surrounding "
-        "submission, assignment context, template structure, section names, "
-        "screenshots, or the apparent purpose of the document. The configured "
-        "task title and Required Evidence are authoritative.\n"
-        "12. If the configured task is too vague, generic, circular, or "
-        "non-specific to determine what must actually be demonstrated, do not "
-        "invent a requirement from the submission. Return is_relevant=false "
-        "with no mapped pages for that task.\n"
-        "13. Matching words, task names, headings, copied requirements, or "
-        "similar wording alone do not demonstrate task completion and are not "
-        "sufficient reason to map evidence.\n"
-        
+        "8. Apply document-wide warnings according to their stated scope. A warning on an earlier page may invalidate evidence on later pages.\n"
+        "9. If no materially relevant evidence exists, return is_relevant=false and no mapped pages.\n"
+        "10. Keep mapped pages selective and explain what each mapped page actually demonstrates or fails to demonstrate."
     )
 
     http_client = httpx.Client()
@@ -504,7 +459,7 @@ def map_submission_tasks(submission):
             },
         ],
         response_format=PDFTaskMappingResponseSchema,
-        # temperature=0.0,
+        temperature=0.0,
     )
 
     mapping_data = completion.choices[0].message.parsed
@@ -668,18 +623,7 @@ def verify_task_evidence(
         "17. verified_facts must contain only facts independently supported by "
         "the supplied evidence. Put anything required but not demonstrated into "
         "missing_or_unverified.\n"
-        "18. Return exactly one task verification for the supplied task code.\n"
-        "19. Matching words, task names, headings, copied requirements, or "
-        "similar wording do not demonstrate task completion. Text that merely "
-        "repeats or paraphrases the requirement must not be treated as evidence "
-        "that the required work was completed.\n"
-        "20. Verification requires substantive evidence of the action, output, "
-        "artefact, explanation, result, or state required by the task. If the "
-        "submission only mentions the requirement without demonstrating it, "
-        "return verification_status='not_verified'.\n"
-        "21. Never infer missing task requirements from the surrounding "
-        "submission, assignment context, template structure, headings, images, "
-        "or apparent purpose of the document."
+        "18. Return exactly one task verification for the supplied task code."
     )
 
     all_verifications = []
@@ -700,33 +644,9 @@ def verify_task_evidence(
             if not task:
                 continue
 
-            if not _is_task_requirement_assessable(task):
-                all_verifications.append(
-                    TaskEvidenceVerification(
-                        task_code=task_code,
-                        verification_status="not_verified",
-                        evidence_type_required="unspecified",
-                        evidence_type_found="unverifiable",
-                        visual_requirement_satisfied=None,
-                        quantity_requirement_satisfied=None,
-                        verified_facts=[],
-                        missing_or_unverified=[
-                            (
-                                "The configured task requirement does not "
-                                "define specific evidence that can be "
-                                "reliably verified."
-                            )
-                        ],
-                        reasoning=(
-                            "The configured task title and required evidence "
-                            "are too vague or circular to determine what must "
-                            "actually be demonstrated. No requirement was "
-                            "inferred from the submitted document."
-                        ),
-                    )
-                )
-                continue
-
+            # IMPORTANT:
+            # New content for EACH task.
+            # Nothing from another task is carried into this verification call.
             user_content = [
                 {
                     "type": "text",
@@ -846,7 +766,7 @@ def verify_task_evidence(
                     },
                 ],
                 response_format=EvidenceVerificationResponse,
-                # temperature=0.0,
+                temperature=0.0,
             )
 
             parsed = completion.choices[0].message.parsed
@@ -1026,19 +946,9 @@ def grade_submission(submission):
         "what an image should contain. If Evidence Verification says a required "
         "visual, quantity, configuration, response, or artefact is not_verified "
         "or partial, grade on that basis.\n"
-        "If verification_status='not_verified', no required evidence for that "
-        "task has been verified and score_percentage must be 0. Do not award "
-        "credit for relevance, effort, keyword similarity, plausible claims, "
-        "document quality, or content that resembles an expected solution.\n"
-        "If verification_status='partial', award credit only for the specific "
-        "facts listed in verified_facts and do not award credit for requirements "
-        "listed in missing_or_unverified.\n"
         "6. For tasks requiring screenshots, configuration states, outputs, interfaces, testing results, dashboards, or other observable artefacts, written descriptions may support intent but cannot substitute for required genuine observable evidence.\n"
         "7. For reflective, explanatory, or written requirements, genuine written evidence may be sufficient unless the submission explicitly identifies that content as synthetic or invalid.\n"
-        "8. If genuine evidence is incomplete, contradictory, or otherwise "
-        "insufficient, reduce score_percentage according to the verified evidence "
-        "and rubric. Do not use this rule to override the mandatory zero score "
-        "for verification_status='not_verified'.\n"
+        "8. If genuine evidence is missing, incomplete, contradictory, or unverifiable, reduce score_percentage accordingly.\n"
         "9. Follow the supplied rubric descriptors. Do not automatically give high partial credit simply because some related text exists.\n"
         "10. Return exactly one criterion_evaluation for every Task Code + Rubric Criterion ID pair supplied in this request, and no other pairs.\n\n"
         "11. Do NOT mention grading band names, performance band labels, "
@@ -1170,7 +1080,7 @@ def grade_submission(submission):
                     {"role": "user", "content": criterion_user_content},
                 ],
                 response_format=GradingResponseSchema,
-                # temperature=0.0,
+                temperature=0.0,
             )
             grading_call_usage.append({
                 "stage": f"criterion_grading_{criterion.criterion_code}",
@@ -1188,25 +1098,7 @@ def grade_submission(submission):
                     f"{criterion.criterion_code}. Expected: {sorted(expected_keys)}; "
                     f"received: {sorted(returned_keys)}."
                 )
-            
-            for item in result.criterion_evaluations:
-                verification = task_verification_map.get(
-                    item.task_code,
-                    {},
-                )
-
-                verification_status = verification.get(
-                    "verification_status",
-                    "",
-                )
-
-                if verification_status == "not_verified":
-                    item.score_percentage = 0.0
-                    item.passed = False
-
-
             all_evaluations.extend(result.criterion_evaluations)
-
     except Exception as exc:
         record_submission_event(
             submission,
@@ -1241,7 +1133,7 @@ def grade_submission(submission):
             {"role": "user", "content": summary_input},
         ],
         response_format=OverallSummaryResponseSchema,
-        # temperature=0.0,
+        temperature=0.1,
     )
     grading_call_usage.append({
         "stage": "overall_summary",

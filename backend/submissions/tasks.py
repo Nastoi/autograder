@@ -160,6 +160,7 @@ def grade_submission_task(
 def push_submission_grade_task(
     self,
     submission_id: str,
+    faculty_approved: bool = False,
 ):
     """Push the authoritative latest accepted attempt to the LMS via AGS.
 
@@ -223,6 +224,25 @@ def push_submission_grade_task(
             event_code="AGS_NO_MAPPING",
             message="LMS grade posting was skipped because no assessment mapping is linked.",
         )
+        return
+
+    if (
+        submission.requires_faculty_approval
+        and not faculty_approved
+    ):
+        logger.info(
+            "Waiting for faculty approval before AGS passback for submission %s.",
+            submission_id,
+        )
+
+        record_submission_event(
+            submission,
+            stage="grade_posting",
+            status="warning",
+            event_code="AGS_PENDING_FACULTY_APPROVAL",
+            message="LMS grade posting is waiting for faculty approval.",
+        )
+
         return
 
     if not all([

@@ -235,6 +235,7 @@ class AssessmentMappingSubmissionView(generics.RetrieveAPIView):
                 "context_id": str(context.id) if context else None,
                 "mapping_id": str(mapping.id),
                 "show_result_to_learner": mapping.show_result_to_learner,
+                "require_faculty_approval": mapping.require_faculty_approval,
                 
                 "cohort": {
                     "id": str(mapping.cohort.id),

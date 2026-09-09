@@ -9,6 +9,7 @@ class AssessmentMapping(models.Model):
 
     show_result_to_learner = models.BooleanField(default=True)
 
+    require_faculty_approval = models.BooleanField(default=False)
     
     id = models.UUIDField(
         primary_key=True,

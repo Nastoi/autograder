@@ -204,17 +204,24 @@ function getEstimatedApiCost(
       cachedInput: 0.10,
       output: 1.60,
     },
+    "gpt-5.6-luna": {
+      input: 0.20,
+      cachedInput: 0.02,
+      output: 1.20,
+    },
   };
 
   const modelPricing =
     pricing[normalizedModel] ??
-    (normalizedModel.startsWith("gpt-4.1-mini")
-      ? pricing["gpt-4.1-mini"]
-      : normalizedModel.startsWith("gpt-4o-mini")
-        ? pricing["gpt-4o-mini"]
-        : normalizedModel.startsWith("gpt-4o")
-          ? pricing["gpt-4o"]
-          : null);
+    (normalizedModel.startsWith("gpt-5.6-luna")
+      ? pricing["gpt-5.6-luna"]
+      : normalizedModel.startsWith("gpt-4.1-mini")
+        ? pricing["gpt-4.1-mini"]
+        : normalizedModel.startsWith("gpt-4o-mini")
+          ? pricing["gpt-4o-mini"]
+          : normalizedModel.startsWith("gpt-4o")
+            ? pricing["gpt-4o"]
+            : null);
 
   if (!modelPricing) {
     return null;

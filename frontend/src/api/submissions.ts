@@ -94,6 +94,7 @@ export type Submission = {
   criterion_results: CriterionResult[];
   submitted_at: string;
   completed_at: string | null;
+  requires_faculty_approval: boolean;
 };
 
 export type AttemptPolicy = {
@@ -465,6 +466,7 @@ export type MappingSubmissionContext = {
     lms_course_id: string | null;
     lms_resource_link_id: string | null;
     show_result_to_learner: boolean;
+    require_faculty_approval: boolean;
 };
 
 export async function getMappingSubmissionContext(

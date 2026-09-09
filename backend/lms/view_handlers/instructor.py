@@ -273,6 +273,7 @@ class InstructorMappingDashboardView(APIView):
                     "lms_course_id": mapping.external_context_id,
                     "lms_resource_link_id": mapping.external_resource_link_id,
                     "show_result_to_learner": mapping.show_result_to_learner,
+                    "require_faculty_approval": mapping.require_faculty_approval,
                 },
                 "learners": list(learners.values()),
             }
@@ -319,6 +320,42 @@ class InstructorMappingDashboardView(APIView):
                 {
                     "show_result_to_learner":
                         mapping.show_result_to_learner,
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        # Faculty approval requirement update.
+        if "require_faculty_approval" in request.data:
+            require_faculty_approval = request.data.get(
+                "require_faculty_approval"
+            )
+
+            if not isinstance(require_faculty_approval, bool):
+                return Response(
+                    {
+                        "detail": (
+                            "require_faculty_approval must be true or false."
+                        )
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            mapping.require_faculty_approval = (
+                require_faculty_approval
+            )
+            mapping.updated_by = request.user
+            mapping.save(
+                update_fields=[
+                    "require_faculty_approval",
+                    "updated_by",
+                    "updated_at",
+                ]
+            )
+
+            return Response(
+                {
+                    "require_faculty_approval":
+                        mapping.require_faculty_approval,
                 },
                 status=status.HTTP_200_OK,
             )
@@ -708,6 +745,9 @@ class InstructorSubmissionOverrideView(
                 achieved_band=achieved_band,
                 feedback=overall_feedback.strip(),
                 completed_at=timezone.now(),
+                requires_faculty_approval=(
+                    source_submission.requires_faculty_approval
+                ),
             )
 
             CriterionResult.objects.bulk_create([
@@ -789,6 +829,169 @@ class InstructorSubmissionOverrideView(
             status=status.HTTP_201_CREATED,
         )
 
+class InstructorSubmissionApproveView(
+    InstructorMappingDashboardView
+):
+    """Approve the latest faculty-reviewed result and queue LMS AGS posting."""
+
+    http_method_names = ["post", "options"]
+
+    def post(
+        self,
+        request,
+        mapping_id,
+        submission_id,
+    ):
+        mapping, error_response = self._get_mapping(
+            request,
+            mapping_id,
+        )
+
+        if error_response is not None:
+            return error_response
+
+        if not submission.requires_faculty_approval:
+            return Response(
+                {
+                    "detail": (
+                        "Faculty approval is not required for this assessment."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        submission = get_object_or_404(
+            LearnerSubmission.objects.select_related(
+                "learner",
+                "context",
+                "assignment_level",
+                "assignment_level__assignment",
+            ),
+            id=submission_id,
+            context__assessment_mapping=mapping,
+        )
+
+        if (
+            submission.status
+            != LearnerSubmission.Status.COMPLETED
+            or submission.final_score is None
+            or submission.maximum_score is None
+        ):
+            return Response(
+                {
+                    "detail": (
+                        "Only a completed graded submission can be approved."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        latest_submission = (
+            LearnerSubmission.objects
+            .filter(
+                learner=submission.learner,
+                context__cohort=submission.context.cohort,
+                assignment_level__assignment=
+                    submission.assignment_level.assignment,
+            )
+            .order_by(
+                "-attempt_number",
+                "-submitted_at",
+            )
+            .first()
+        )
+
+        if (
+            latest_submission is None
+            or latest_submission.id != submission.id
+        ):
+            return Response(
+                {
+                    "detail": (
+                        "Only the latest submission attempt can be approved."
+                    )
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        if submission.faculty_approved_at is not None:
+            return Response(
+                {
+                    "detail": "This grade has already been approved.",
+                    "faculty_approved": True,
+                    "faculty_approved_at":
+                        submission.faculty_approved_at.isoformat(),
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        submission.faculty_approved_at = timezone.now()
+        submission.faculty_approved_by = request.user
+        submission.save(
+            update_fields=[
+                "faculty_approved_at",
+                "faculty_approved_by",
+            ]
+        )
+
+        record_submission_event(
+            submission,
+            stage="grade_posting",
+            status="success",
+            event_code="FACULTY_GRADE_APPROVED",
+            message="Faculty approved the grade for LMS posting.",
+            details={
+                "faculty_user_id": str(request.user.id),
+                "faculty_name": (
+                    request.user.get_full_name()
+                    or request.user.username
+                ),
+            },
+        )
+
+        ags_queued = True
+
+        try:
+            celery_app.send_task(
+                "submissions.tasks.push_submission_grade_task",
+                args=[
+                    str(submission.id),
+                    True,
+                ],
+            )
+        except Exception as exc:
+            ags_queued = False
+
+            logger.exception(
+                "Unable to queue AGS passback after faculty approval for %s",
+                submission.id,
+            )
+
+            record_submission_event(
+                submission,
+                stage="grade_posting",
+                status="warning",
+                event_code="AGS_APPROVAL_QUEUE_ERROR",
+                message=(
+                    "The grade was approved, but LMS grade posting "
+                    "could not be queued."
+                ),
+                details={
+                    "error_type": type(exc).__name__,
+                    "error_message": str(exc),
+                },
+            )
+
+        return Response(
+            {
+                "submission_id": str(submission.id),
+                "faculty_approved": True,
+                "faculty_approved_at":
+                    submission.faculty_approved_at.isoformat(),
+                "ags_queued": ags_queued,
+            },
+            status=status.HTTP_200_OK,
+        )
 
 class InstructorSubmissionDownloadView(
     InstructorMappingDashboardView

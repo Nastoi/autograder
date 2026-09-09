@@ -142,6 +142,23 @@ class LearnerSubmission(models.Model):
         null=True,
     )
 
+    faculty_approved_at = models.DateTimeField(
+        null=True,
+        blank=True,
+    )
+
+    faculty_approved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="approved_submissions",
+    )
+
+    requires_faculty_approval = models.BooleanField(
+        default=False
+    )
+
     class Meta:
         db_table = "learner_submission"
         ordering = ("-submitted_at",)
@@ -151,6 +168,8 @@ class LearnerSubmission(models.Model):
             f"{self.learner.username} — "
             f"{self.original_filename}"
         )
+
+    
 
 
 class SubmissionGradingAudit(models.Model):

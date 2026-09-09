@@ -313,3 +313,41 @@ export async function updateInstructorResultVisibility(
     show_result_to_learner: boolean;
   };
 }
+
+export async function updateInstructorFacultyApprovalRequirement(
+  mappingId: string,
+  requireFacultyApproval: boolean,
+): Promise<{
+  require_faculty_approval: boolean;
+}> {
+  const csrfToken = await getCsrfToken();
+
+  const response = await fetch(
+    `${API_BASE_URL}/lms/assessment-mappings/${mappingId}/instructor/`,
+    {
+      method: "PATCH",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRFToken": csrfToken,
+      },
+      body: JSON.stringify({
+        require_faculty_approval: requireFacultyApproval,
+      }),
+    },
+  );
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(
+      typeof data?.detail === "string"
+        ? data.detail
+        : "Unable to update faculty approval requirement.",
+    );
+  }
+
+  return data as {
+    require_faculty_approval: boolean;
+  };
+}

@@ -198,6 +198,7 @@ class SubmissionCreateView(APIView):
             attempt_number=previous_attempts + 1,
             status=LearnerSubmission.Status.UPLOADED,
             maximum_score=assignment.maximum_score,
+            requires_faculty_approval=mapping.require_faculty_approval,
         )
 
         record_submission_event(

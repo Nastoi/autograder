@@ -129,6 +129,7 @@ class LearnerSubmissionSerializer(serializers.ModelSerializer):
             "criterion_results",
             "submitted_at",
             "completed_at",
+            "requires_faculty_approval",
         )
         read_only_fields = (
             "original_filename",
