@@ -1221,3 +1221,10 @@
   margin-top: 8px;
   white-space: normal;
 }
+
+
+.status-cancelled {
+  background: #e9ecef;
+  color: #6c757d;
+  border: 1px solid #ced4da;
+}

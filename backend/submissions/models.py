@@ -66,6 +66,8 @@ class LearnerSubmission(models.Model):
         COMPLETED = "completed", "Completed"
         ERROR = "error", "Error"
         MANUAL_REVIEW = "manual_review", "Manual review"
+        CANCELLED = "cancelled", "Cancelled"
+
 
     submission_track = models.CharField(
         max_length=50,

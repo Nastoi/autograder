@@ -517,3 +517,9 @@
     text-align: left;
   }
 }
+
+
+.submission-learner-heading.submission-learner-heading-review {
+  background: #fff7dc;
+  border-left: 5px solid #d8a100;
+}

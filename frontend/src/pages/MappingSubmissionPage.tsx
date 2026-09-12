@@ -1288,6 +1288,16 @@ export function MappingSubmissionPage() {
     );
   }
 
+
+  function shouldHideLearnerResult(
+    attempt: Submission | undefined,
+  ) {
+    return (
+      isPendingFacultyReview(attempt) ||
+      attempt?.status === "cancelled"
+    );
+  }
+
   function isFacultyReviewedAttempt(
     attempt: Submission | undefined,
   ) {
@@ -1339,6 +1349,10 @@ export function MappingSubmissionPage() {
 
     if (status === "manual_review") {
       return "Manual Review";
+    }
+
+    if (status === "cancelled") {
+      return "Cancelled";
     }
 
     return status;
@@ -1834,8 +1848,10 @@ export function MappingSubmissionPage() {
 
                     <strong className="attempt-detail-value">
                       <strong className="attempt-detail-value">
-                        {isPendingFacultyReview(attempts[0])
-                          ? "In review"
+                        {attempts[0].status === "cancelled"
+                          ? "—"
+                          : isPendingFacultyReview(attempts[0])
+                            ? "In review"
                           : attempts[0].status === "error"
                             ? "Unavailable"
                             : attempts[0].status === "uploaded" ||
@@ -1861,8 +1877,10 @@ export function MappingSubmissionPage() {
 
                     <strong className="attempt-detail-value">
                       <strong className="attempt-detail-value">
-                        {isPendingFacultyReview(attempts[0])
-                          ? "In review"
+                        {attempts[0].status === "cancelled"
+                          ? "—"
+                          : isPendingFacultyReview(attempts[0])
+                            ? "In review"
                           : attempts[0].status === "error"
                             ? "Not graded"
                             : attempts[0].status === "uploaded" ||
@@ -1889,7 +1907,7 @@ export function MappingSubmissionPage() {
                   </div>
                 </div>
 
-                {!isPendingFacultyReview(attempts[0]) &&
+                {!shouldHideLearnerResult(attempts[0]) &&
                   attempts[0].feedback && (
                     <div className="latest-feedback">
                       <span className="attempt-detail-label">
@@ -1900,7 +1918,7 @@ export function MappingSubmissionPage() {
                     </div>
                   )}
 
-                {!isPendingFacultyReview(attempts[0]) &&
+                {!shouldHideLearnerResult(attempts[0]) &&
                   attempts[0].status === "completed" &&
                   attempts[0].criterion_results.length > 0 && (
                     <details className="latest-feedback detailed-feedback-collapse">
@@ -1941,7 +1959,7 @@ export function MappingSubmissionPage() {
                     </details>
                   )}
 
-                {!isPendingFacultyReview(attempts[0]) &&
+                {!shouldHideLearnerResult(attempts[0]) &&
                   attempts[0].status === "completed" && (
                     <button
                       type="button"
@@ -2041,8 +2059,10 @@ export function MappingSubmissionPage() {
 
                             <strong>
                               <strong>
-                                {isPendingFacultyReview(attempt)
-                                  ? "In review"
+                                {attempt.status === "cancelled"
+                                  ? "—"
+                                  : isPendingFacultyReview(attempt)
+                                    ? "In review"
                                   : attempt.status === "error"
                                     ? "Unavailable"
                                     : attempt.status === "uploaded" ||
@@ -2065,8 +2085,10 @@ export function MappingSubmissionPage() {
                             <span className="attempt-detail-label">Band</span>
 
                             <strong>
-                              {isPendingFacultyReview(attempt)
-                                ? "In review"
+                              {attempt.status === "cancelled"
+                                ? "—"
+                                : isPendingFacultyReview(attempt)
+                                  ? "In review"
                                 : attempt.status === "error"
                                   ? "Not graded"
                                   : attempt.status === "uploaded" ||
@@ -2086,7 +2108,7 @@ export function MappingSubmissionPage() {
                             </strong>
                           </div>
                         </div>
-                        {!isPendingFacultyReview(attempt) &&
+                        {!shouldHideLearnerResult(attempt) &&
                           attempt.feedback && (
                             <div className="latest-feedback">
                               <span className="attempt-detail-label">
@@ -2231,6 +2253,21 @@ export function MappingSubmissionPage() {
                     </strong>
                   </div>
 
+                  <div className="submission-record-metric">
+                    <span>Needs review</span>
+                    <strong>
+                      {instructorData?.learners.filter((learner) => {
+                        const latestAttempt =
+                          learner.attempts[0];
+
+                        return (
+                          latestAttempt?.requires_faculty_approval === true &&
+                          latestAttempt?.status === "completed"
+                        );
+                      }).length ?? 0}
+                    </strong>
+                  </div>
+
 
                 </section>
 
@@ -2247,6 +2284,14 @@ export function MappingSubmissionPage() {
                           learner.id,
                         );
 
+                        const latestInstructorAttempt =
+                          learner.attempts[0];
+
+                        const needsFacultyReview =
+                          latestInstructorAttempt?.requires_faculty_approval === true &&
+                          latestInstructorAttempt?.status === "completed";
+
+
                       return (
                         <article
                           key={learner.id}
@@ -2254,7 +2299,14 @@ export function MappingSubmissionPage() {
                         >
                           <button
                             type="button"
-                            className="submission-learner-heading"
+                            className={[
+                              "submission-learner-heading",
+                              needsFacultyReview
+                                ? "submission-learner-heading-review"
+                                : "",
+                            ]
+                              .filter(Boolean)
+                              .join(" ")}
                             onClick={() =>
                               toggleInstructorLearner(learner.id)
                             }

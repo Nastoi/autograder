@@ -84,7 +84,8 @@ export type Submission = {
   | "completed"
   | "failed"
   | "error"
-  | "manual_review";
+  | "manual_review"
+  | "cancelled";
   final_score: string | null;
   maximum_score: string | null;
   achieved_band: string;

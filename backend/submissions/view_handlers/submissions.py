@@ -188,6 +188,19 @@ class SubmissionCreateView(APIView):
         ).count()
 
 
+        previous_latest = (
+            LearnerSubmission.objects.filter(
+                context=context,
+                learner=request.user,
+            )
+            .order_by(
+                "-attempt_number",
+                "-submitted_at",
+            )
+            .first()
+        )
+
+            
         submission = LearnerSubmission.objects.create(
             context=context,
             learner=request.user,
@@ -201,6 +214,20 @@ class SubmissionCreateView(APIView):
             requires_faculty_approval=mapping.require_faculty_approval,
         )
 
+        if (
+            previous_latest
+            and previous_latest.requires_faculty_approval
+            and previous_latest.status
+            == LearnerSubmission.Status.COMPLETED
+        ):
+            previous_latest.status = (
+                LearnerSubmission.Status.CANCELLED
+            )
+            previous_latest.save(
+                update_fields=["status"]
+            )
+
+            
         record_submission_event(
             submission,
             stage="submission",
