@@ -372,7 +372,12 @@ export function CohortsPage() {
     setEditLtiAccessTokenUrl(mapping.lti_access_token_url || "");
     setEditLtiIsActive(mapping.is_active);
     setMappingError("");
-    setEditLtiRegistrationId("");
+    setEditLtiRegistrationId(
+      mapping.lti_jwks_url
+        ?.split("/public_keysets/")
+        .pop()
+        ?.replace(/\/$/, "") || "",
+    );
   }
 
   function closeLtiEdit() {
