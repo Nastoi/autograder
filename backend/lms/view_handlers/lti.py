@@ -21,7 +21,7 @@ from ..services import (
 from lms.models import AssessmentMapping
 import hashlib
 from urllib.parse import urlparse
-
+import jwt
 
 logger = logging.getLogger(__name__)
 
@@ -32,8 +32,21 @@ class LtiLoginView(APIView):
     authentication_classes = []
 
     def get(self, request):
+        # logger.info(
+        #     "LTI LOGIN PARAMS: %s",
+        #     dict(request.query_params),
+        # )
+        # logger.info(
+        #     "LTI RAW QUERY STRING: %s",
+        #     request.META.get("QUERY_STRING"),
+        # )
+        
+                
         issuer = request.query_params.get("iss")
         client_id = request.query_params.get("client_id")
+        deployment_id = request.query_params.get(
+            "lti_deployment_id"
+        )
         login_hint = request.query_params.get("login_hint")
         lti_message_hint = request.query_params.get(
             "lti_message_hint"
@@ -48,6 +61,7 @@ class LtiLoginView(APIView):
         if not all([
             issuer,
             client_id,
+            deployment_id,
             login_hint,
             target_link_uri,
         ]):
@@ -156,18 +170,19 @@ class LtiLoginView(APIView):
             )
 
         # ---------------------------------------------------------
-        # 5. Verify this mapping has complete LTI configuration.
+        # 5. The registration-specific URLs must already exist.
+        #
+        # Client ID and Deployment ID are supplied by Open edX
+        # during the LTI login initiation and are captured below.
         # ---------------------------------------------------------
         if not all([
-            mapping.lti_client_id,
-            mapping.lti_deployment_id,
             mapping.lti_jwks_url,
             mapping.lti_access_token_url,
         ]):
             return Response(
                 {
                     "detail": (
-                        "LTI configuration is incomplete "
+                        "LTI registration is incomplete "
                         "for this assessment mapping."
                     )
                 },
@@ -175,27 +190,70 @@ class LtiLoginView(APIView):
             )
 
         # ---------------------------------------------------------
-        # 6. Client ID from LMS must match this mapping.
+        # 6. Bind Client ID / Deployment ID on first LTI login.
+        #
+        # Once stored, later launches must continue to match them.
         # ---------------------------------------------------------
-        if client_id != mapping.lti_client_id:
-            logger.warning(
-                "LTI client mismatch mapping=%s "
-                "received=%s expected=%s",
-                mapping.id,
-                client_id,
-                mapping.lti_client_id,
+        lti_identity_update_fields = []
+
+        if mapping.lti_client_id:
+            if client_id != mapping.lti_client_id:
+                logger.warning(
+                    "LTI client mismatch mapping=%s "
+                    "received=%s expected=%s",
+                    mapping.id,
+                    client_id,
+                    mapping.lti_client_id,
+                )
+
+                return Response(
+                    {
+                        "detail": (
+                            "Invalid LTI client ID "
+                            "for this mapping."
+                        )
+                    },
+                    status=400,
+                )
+        else:
+            mapping.lti_client_id = client_id
+            lti_identity_update_fields.append(
+                "lti_client_id"
             )
 
-            return Response(
-                {
-                    "detail": (
-                        "Invalid LTI client ID "
-                        "for this mapping."
-                    )
-                },
-                status=400,
+        if mapping.lti_deployment_id:
+            if deployment_id != mapping.lti_deployment_id:
+                logger.warning(
+                    "LTI deployment mismatch mapping=%s "
+                    "received=%s expected=%s",
+                    mapping.id,
+                    deployment_id,
+                    mapping.lti_deployment_id,
+                )
+
+                return Response(
+                    {
+                        "detail": (
+                            "Invalid LTI deployment ID "
+                            "for this mapping."
+                        )
+                    },
+                    status=400,
+                )
+        else:
+            mapping.lti_deployment_id = deployment_id
+            lti_identity_update_fields.append(
+                "lti_deployment_id"
             )
 
+        if lti_identity_update_fields:
+            lti_identity_update_fields.append(
+                "updated_at"
+            )
+
+            mapping.save(
+                update_fields=lti_identity_update_fields
+            )
         # ---------------------------------------------------------
         # 7. Verify the target URL belongs to AutoGrad3r.
         # ---------------------------------------------------------
@@ -292,6 +350,21 @@ class LtiLaunchView(APIView):
         id_token = request.data.get("id_token")
         state = request.data.get("state")
 
+
+        # try:
+        #     header = jwt.get_unverified_header(id_token)
+
+        #     logger.info(
+        #         "LTI ID TOKEN HEADER: %s",
+        #         header,
+        #     )
+        # except Exception as exc:
+        #     logger.warning(
+        #         "Unable to read LTI token header: %r",
+        #         exc,
+        #     )
+
+        
         claims, launch_error = verify_lti_launch(
             id_token=id_token,
             state=state,
@@ -300,6 +373,19 @@ class LtiLaunchView(APIView):
         if launch_error is not None:
             return launch_error
 
+        # logger.info(
+        #     "LTI CLAIM KEYS: %s",
+        #     list(claims.keys()),
+        # )
+
+        # for key, value in claims.items():
+        #     if isinstance(value, dict):
+        #         logger.info(
+        #             "LTI CLAIM %s = %s",
+        #             key,
+        #             value,
+        #         )
+        
         ags_endpoint = claims.get(
             "https://purl.imsglobal.org/spec/lti-ags/claim/endpoint"
         )

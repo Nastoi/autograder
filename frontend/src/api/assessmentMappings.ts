@@ -34,6 +34,7 @@ export type AssessmentMapping = {
     due_date: string | null;
 
     show_result_to_learner: boolean;
+    require_faculty_approval: boolean;
 };
 
 export async function getAssessmentMappings(): Promise<
@@ -52,10 +53,7 @@ export type CreateAssessmentMappingInput = {
     cohort: string;
     assignment: string;
 
-    lti_client_id: string;
-    lti_deployment_id: string;
-    lti_jwks_url: string;
-    lti_access_token_url: string;
+    lti_registration_id: string;
 
     is_active: boolean;
     final_mark_weight: string;
@@ -176,6 +174,8 @@ export async function updateAssessmentMapping(
     lti_access_token_url: string;
     is_active: boolean;
     show_result_to_learner: boolean;
+    require_faculty_approval: boolean;
+    lti_registration_id: string;
   }>,
 ): Promise<AssessmentMapping> {
   const csrfToken = await getCsrfToken();

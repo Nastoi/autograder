@@ -4,7 +4,10 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from ..permissions import CanViewPortalLogs
-from submissions.models import SubmissionProcessLog
+from submissions.models import (
+    LearnerSubmission,
+    SubmissionProcessLog,
+)
 
 
 class PortalLogView(APIView):
@@ -146,6 +149,9 @@ class PortalLogView(APIView):
         if source == "grading":
             return self._grading_logs(request, lines)
 
+        if source == "queue":
+            return self._queue_logs(request, lines)
+
         if source not in self.LOG_FILES:
             return Response(
                 {"detail": "Invalid log source."},
@@ -182,3 +188,131 @@ class PortalLogView(APIView):
             },
             status=status.HTTP_200_OK,
         )
+
+    def _queue_logs(self, request, lines):
+        queryset = (
+            LearnerSubmission.objects
+            .filter(
+                status__in=[
+                    LearnerSubmission.Status.UPLOADED,
+                    LearnerSubmission.Status.PROCESSING,
+                ],
+            )
+            .select_related(
+                "learner",
+                "assignment_level",
+                "assignment_level__assignment",
+                "context",
+                "context__cohort",
+            )
+            .order_by("submitted_at")
+        )
+
+        submissions = list(queryset[:lines])
+
+        queued_count = sum(
+            1
+            for submission in submissions
+            if submission.status
+            == LearnerSubmission.Status.UPLOADED
+        )
+
+        processing_count = sum(
+            1
+            for submission in submissions
+            if submission.status
+            == LearnerSubmission.Status.PROCESSING
+        )
+
+
+        now = timezone.now()
+        formatted_lines = []
+
+        for submission in submissions:
+            elapsed = now - submission.submitted_at
+            elapsed_seconds = int(elapsed.total_seconds())
+
+            if elapsed_seconds >= 3600:
+                age_state = "danger"
+            elif elapsed_seconds >= 1800:
+                age_state = "warning"
+            else:
+                age_state = "normal"
+
+            hours, remainder = divmod(
+                elapsed_seconds,
+                3600,
+            )
+            minutes, seconds = divmod(
+                remainder,
+                60,
+            )
+
+            if hours > 0:
+                elapsed_display = (
+                    f"{hours}h {minutes}m {seconds}s"
+                )
+            elif minutes > 0:
+                elapsed_display = (
+                    f"{minutes}m {seconds}s"
+                )
+            else:
+                elapsed_display = f"{seconds}s"
+
+            learner = submission.learner
+
+            learner_display = (
+                learner.email
+                or learner.username
+            )
+
+            assignment = (
+                submission.assignment_level.assignment
+            )
+
+            cohort = submission.context.cohort
+
+            timestamp = timezone.localtime(
+                submission.submitted_at,
+            ).isoformat(timespec="seconds")
+
+            parts = [
+                timestamp,
+                f"status={submission.status}",
+                f"waiting={elapsed_display}",
+                f"age_state={age_state}",
+                f"cohort={cohort.cohort_code} ({cohort.cohort_name})",
+                (
+                    "assignment="
+                    f"{assignment.assignment_code}"
+                ),
+                (
+                    "track="
+                    f"{submission.assignment_level.level_code}"
+                ),
+                f"learner={learner_display}",
+                f"attempt={submission.attempt_number}",
+                f"submission={submission.id}",
+            ]
+
+            formatted_lines.append(
+                " | ".join(parts)
+            )
+
+        return Response(
+        {
+            "source": "queue",
+            "lines": formatted_lines,
+            "queue_summary": {
+                "queued": queued_count,
+                "processing": processing_count,
+                "total": len(submissions),
+            },
+            "message": (
+                None
+                if formatted_lines
+                else "No queued or processing submissions."
+            ),
+        },
+        status=status.HTTP_200_OK,
+    )

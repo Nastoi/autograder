@@ -156,7 +156,7 @@
 
 @media (max-height: 760px) {
   .logs-output {
-    height: 38vh;
+    height: 60vh;
     min-height: 220px;
   }
 }
@@ -174,4 +174,22 @@
     height: 42vh;
     min-height: 240px;
   }
+}
+
+.logs-line-warning {
+  background: rgba(245, 158, 11, 0.12);
+  display: block;
+}
+
+.logs-line-danger {
+  background: rgba(239, 68, 68, 0.14);
+  display: block;
+  font-weight: 600;
+}
+
+.logs-queue-summary {
+  display: flex;
+  gap: 24px;
+  align-items: center;
+  flex-wrap: wrap;
 }

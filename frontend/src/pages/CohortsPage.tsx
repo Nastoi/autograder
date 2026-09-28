@@ -107,6 +107,8 @@ export function CohortsPage() {
   const [editLtiIsActive, setEditLtiIsActive] = useState(true);
   const [isSavingLtiConfig, setIsSavingLtiConfig] = useState(false);
 
+  const [editLtiRegistrationId, setEditLtiRegistrationId] = useState("");
+
   async function loadData() {
     try {
       const [
@@ -370,6 +372,7 @@ export function CohortsPage() {
     setEditLtiAccessTokenUrl(mapping.lti_access_token_url || "");
     setEditLtiIsActive(mapping.is_active);
     setMappingError("");
+    setEditLtiRegistrationId("");
   }
 
   function closeLtiEdit() {
@@ -391,11 +394,21 @@ export function CohortsPage() {
       await updateAssessmentMapping(
         editingLtiMapping.id,
         {
-          lti_client_id: editLtiClientId.trim(),
-          lti_deployment_id: editLtiDeploymentId.trim(),
-          lti_jwks_url: editLtiJwksUrl.trim(),
-          lti_access_token_url: editLtiAccessTokenUrl.trim(),
-          is_active: editLtiIsActive,
+          ...(editLtiRegistrationId.trim()
+            ? {
+              lti_registration_id:
+                editLtiRegistrationId.trim(),
+            }
+            : {
+              lti_client_id:
+                editLtiClientId.trim(),
+              lti_deployment_id:
+                editLtiDeploymentId.trim(),
+              lti_jwks_url:
+                editLtiJwksUrl.trim(),
+              lti_access_token_url:
+                editLtiAccessTokenUrl.trim(),
+            }),
         },
       );
 
@@ -519,6 +532,36 @@ export function CohortsPage() {
     }
   }
 
+  async function toggleFacultyApprovalRequirement(
+    mapping: AssessmentMapping,
+  ) {
+    setMappingError("");
+
+    try {
+      await updateAssessmentMapping(mapping.id, {
+        require_faculty_approval:
+          !mapping.require_faculty_approval,
+      });
+
+      setMappings((current) =>
+        current.map((item) =>
+          item.id === mapping.id
+            ? {
+                ...item,
+                require_faculty_approval:
+                  !mapping.require_faculty_approval,
+              }
+            : item,
+        ),
+      );
+    } catch (caughtError) {
+      setMappingError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Unable to update faculty approval requirement.",
+      );
+    }
+  }
 
   async function unassignAssessment(
     mapping: AssessmentMapping,
@@ -1331,7 +1374,35 @@ export function CohortsPage() {
                                   : "Hidden"}
                               </small>
                             </div>
+                                  
+                            <div className="learner-result-action">
+                              <span>Faculty approval</span>
 
+                              <label
+                                className="learner-result-switch"
+                                title={
+                                  mapping.require_faculty_approval
+                                    ? "Disable faculty approval requirement"
+                                    : "Require faculty approval before sending grade to LMS"
+                                }
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={mapping.require_faculty_approval}
+                                  onChange={() =>
+                                    void toggleFacultyApprovalRequirement(mapping)
+                                  }
+                                />
+
+                                <span className="learner-result-switch-slider" />
+                              </label>
+
+                              <small>
+                                {mapping.require_faculty_approval
+                                  ? "Required"
+                                  : "Not required"}
+                              </small>
+                            </div>
 
                             <button
                               type="button"
@@ -1403,59 +1474,25 @@ export function CohortsPage() {
             >
               <div className="form-grid form-grid-2">
                 <div className="form-group">
-                  <label htmlFor="edit-lti-client-id">
-                    Client ID
-                  </label>
-                  <input
-                    id="edit-lti-client-id"
-                    value={editLtiClientId}
-                    onChange={(event) =>
-                      setEditLtiClientId(event.target.value)
-                    }
-                  />
-                </div>
+                  <label>LTI Registration ID</label>
 
-                <div className="form-group">
-                  <label htmlFor="edit-lti-deployment-id">
-                    Deployment ID
-                  </label>
                   <input
-                    id="edit-lti-deployment-id"
-                    value={editLtiDeploymentId}
+                    value={editLtiRegistrationId}
                     onChange={(event) =>
-                      setEditLtiDeploymentId(event.target.value)
+                      setEditLtiRegistrationId(
+                        event.target.value,
+                      )
                     }
                   />
+
+                  <small className="table-subtext">
+                    Copy the registration ID from the Open edX
+                    Keyset URL or Access Token URL.
+                  </small>
                 </div>
               </div>
 
-              <div className="form-group">
-                <label htmlFor="edit-lti-jwks-url">
-                  LMS Keyset / JWKS URL
-                </label>
-                <input
-                  id="edit-lti-jwks-url"
-                  type="url"
-                  value={editLtiJwksUrl}
-                  onChange={(event) =>
-                    setEditLtiJwksUrl(event.target.value)
-                  }
-                />
-              </div>
 
-              <div className="form-group">
-                <label htmlFor="edit-lti-token-url">
-                  LMS Access Token URL
-                </label>
-                <input
-                  id="edit-lti-token-url"
-                  type="url"
-                  value={editLtiAccessTokenUrl}
-                  onChange={(event) =>
-                    setEditLtiAccessTokenUrl(event.target.value)
-                  }
-                />
-              </div>
 
               <label className="checkbox-group">
                 <input

@@ -1,7 +1,12 @@
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL || "http://localhost:8000/api";
 
-export type LogSource = "backend" | "celery" | "errors" | "grading";
+export type LogSource =
+  | "backend"
+  | "celery"
+  | "errors"
+  | "grading"
+  | "queue";
 
 export type GradingLogFilters = {
   cohort?: string;
@@ -26,6 +31,7 @@ export type PortalLogsResponse = {
   lines: string[];
   message?: string | null;
   grading_filters?: GradingLogFilterOptions;
+  queue_summary?: QueueSummary;
 };
 
 export async function getPortalLogs(
@@ -60,3 +66,9 @@ export async function getPortalLogs(
 
   return data as PortalLogsResponse;
 }
+
+export type QueueSummary = {
+  queued: number;
+  processing: number;
+  total: number;
+};

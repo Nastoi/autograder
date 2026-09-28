@@ -14,6 +14,7 @@ const SOURCE_LABELS: Record<LogSource, string> = {
   celery: "Celery",
   errors: "Errors",
   grading: "Grading Attempts",
+  queue: "Queue / Processing",
 };
 
 export function LogsPage() {
@@ -41,6 +42,12 @@ export function LogsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const logBoxRef = useRef<HTMLPreElement | null>(null);
+  const shouldAutoScrollRef = useRef(true);
+  const [queueSummary, setQueueSummary] = useState({
+    queued: 0,
+    processing: 0,
+    total: 0,
+  });
 
   async function loadLogs(showSpinner = false) {
     if (showSpinner) setLoading(true);
@@ -62,6 +69,9 @@ export function LogsPage() {
       setLines(data.lines ?? []);
       if (data.grading_filters) {
         setGradingFilterOptions(data.grading_filters);
+      }
+      if (data.queue_summary) {
+        setQueueSummary(data.queue_summary);
       }
       setError("");
     } catch (err) {
@@ -90,8 +100,16 @@ export function LogsPage() {
   }, [lines, search]);
 
   useEffect(() => {
-    if (!live || !logBoxRef.current) return;
-    logBoxRef.current.scrollTop = logBoxRef.current.scrollHeight;
+    if (
+      !live ||
+      !logBoxRef.current ||
+      !shouldAutoScrollRef.current
+    ) {
+      return;
+    }
+
+    logBoxRef.current.scrollTop =
+      logBoxRef.current.scrollHeight;
   }, [visibleLines, live]);
 
   if (!user || !(user.is_superuser || user.can_view_logs)) {
@@ -100,7 +118,23 @@ export function LogsPage() {
         <div className="logs-error">You do not have permission to view logs.</div>
       </div>
     );
+  } 
+
+
+  function handleLogScroll() {
+    const element = logBoxRef.current;
+
+    if (!element) return;
+
+    const distanceFromBottom =
+      element.scrollHeight -
+      element.scrollTop -
+      element.clientHeight;
+
+    shouldAutoScrollRef.current =
+      distanceFromBottom <= 40;
   }
+
 
   return (
     <div className="logs-page">
@@ -222,17 +256,53 @@ export function LogsPage() {
       </div>
 
       {error && <div className="logs-error">{error}</div>}
+      
+      {source === "queue" && (
+        <div className="logs-queue-summary">
+          <strong>Queued: {queueSummary.queued}</strong>
+          <strong>Processing: {queueSummary.processing}</strong>
+          <strong>Total active: {queueSummary.total}</strong>
+        </div>
+      )}
 
       <div className="logs-panel">
         <div className="logs-panel-title">
           {SOURCE_LABELS[source]} log
           <span>{visibleLines.length} lines shown</span>
         </div>
-        <pre ref={logBoxRef} className="logs-output">
+        <pre
+          ref={logBoxRef}
+          className="logs-output"
+          onScroll={handleLogScroll}
+        >
           {loading && lines.length === 0
             ? "Loading logs..."
             : visibleLines.length > 0
-              ? visibleLines.join("\n")
+              ? visibleLines.map((line, index) => {
+                  const isDanger =
+                    source === "queue" &&
+                    line.includes("age_state=danger");
+
+                  const isWarning =
+                    source === "queue" &&
+                    line.includes("age_state=warning");
+
+                  return (
+                    <span
+                      key={`${index}-${line}`}
+                      className={
+                        isDanger
+                          ? "logs-line-danger"
+                          : isWarning
+                            ? "logs-line-warning"
+                            : undefined
+                      }
+                    >
+                      {line}
+                      {"\n"}
+                    </span>
+                  );
+                })
               : "No matching log entries."}
         </pre>
       </div>

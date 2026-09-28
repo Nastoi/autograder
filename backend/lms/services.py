@@ -283,6 +283,7 @@ def verify_lti_launch(id_token, state):
             algorithms=["RS256"],
             audience=mapping.lti_client_id,
             issuer=settings.LTI_PLATFORM_ISSUER,
+            leeway=30,
         )
 
     except Exception as exc:

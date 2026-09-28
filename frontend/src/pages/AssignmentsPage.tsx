@@ -1146,17 +1146,29 @@ export function AssignmentsPage() {
       "instructions",
       "deliverables",
       "expected_outcome",
+
       "task_code",
       "task_title",
       "task_evidence_required",
+
       "criterion_code",
       "criterion_title",
       "criterion_description",
       "maximum_score",
+
+      "band_code",
+      "band_display_name",
+      "band_minimum_percentage",
+      "band_maximum_percentage",
+      "band_descriptor",
+
+      "inferred_weight",
+      "ai_explanation",
     ];
 
     const rows = [
       headers,
+
       [
         "configuration",
         level.title || "",
@@ -1167,14 +1179,26 @@ export function AssignmentsPage() {
         "Enter the submission instructions here",
         "Deliverable 1 | Deliverable 2",
         "Enter the expected outcome here",
+
+        "",
+        "",
+        "",
+
+        "",
+        "",
+        "",
+        "",
+
         "",
         "",
         "",
         "",
         "",
+
         "",
         "",
       ],
+
       [
         "task",
         "",
@@ -1185,14 +1209,26 @@ export function AssignmentsPage() {
         "",
         "",
         "",
+
         "T01",
         "Task title",
         "Describe the evidence or work required for this task",
+
         "",
         "",
+        "",
+        "",
+
+        "",
+        "",
+        "",
+        "",
+        "",
+
         "",
         "",
       ],
+
       [
         "task",
         "",
@@ -1203,14 +1239,26 @@ export function AssignmentsPage() {
         "",
         "",
         "",
+
         "T02",
         "Another task title",
         "Describe the evidence or work required for this task",
+
         "",
         "",
+        "",
+        "",
+
+        "",
+        "",
+        "",
+        "",
+        "",
+
         "",
         "",
       ],
+
       [
         "criterion",
         "",
@@ -1221,16 +1269,28 @@ export function AssignmentsPage() {
         "",
         "",
         "",
+
         "",
         "",
         "",
+
         "C01",
         "Criterion title",
         "Describe what is being assessed",
         "10",
+
+        "",
+        "",
+        "",
+        "",
+        "",
+
+        "",
+        "",
       ],
+
       [
-        "criterion",
+        "band",
         "",
         "",
         "",
@@ -1239,13 +1299,114 @@ export function AssignmentsPage() {
         "",
         "",
         "",
+
         "",
         "",
         "",
-        "C02",
-        "Another criterion",
-        "Describe what is being assessed",
-        "20",
+
+        "C01",
+        "",
+        "",
+        "",
+
+        "failed",
+        "Failed",
+        "0",
+        "69.99",
+        "Below required standard",
+
+        "",
+        "",
+      ],
+
+      [
+        "band",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+
+        "",
+        "",
+        "",
+
+        "C01",
+        "",
+        "",
+        "",
+
+        "foundation",
+        "Foundation",
+        "70",
+        "79.99",
+        "Meets foundation standard",
+
+        "",
+        "",
+      ],
+
+      [
+        "band",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+
+        "",
+        "",
+        "",
+
+        "C01",
+        "",
+        "",
+        "",
+
+        "proficient",
+        "Proficient",
+        "80",
+        "100",
+        "Meets proficient standard",
+
+        "",
+        "",
+      ],
+
+      [
+        "mapping",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+
+        "T01",
+        "",
+        "",
+
+        "C01",
+        "",
+        "",
+        "",
+
+        "",
+        "",
+        "",
+        "",
+        "",
+
+        "100",
+        "Manual task-to-rubric mapping",
       ],
     ];
 
@@ -1269,6 +1430,267 @@ export function AssignmentsPage() {
     document.body.removeChild(anchor);
     URL.revokeObjectURL(url);
   }
+
+
+  function exportConfigurationCsv(
+    level: AssignmentLevel,
+  ) {
+    const headers = [
+      "record_type",
+      "title",
+      "skill_statement_code",
+      "skill_statement",
+      "objective",
+      "scenario",
+      "instructions",
+      "deliverables",
+      "expected_outcome",
+
+      "task_code",
+      "task_title",
+      "task_evidence_required",
+
+      "criterion_code",
+      "criterion_title",
+      "criterion_description",
+      "maximum_score",
+
+      "band_code",
+      "band_display_name",
+      "band_minimum_percentage",
+      "band_maximum_percentage",
+      "band_descriptor",
+
+      "inferred_weight",
+      "ai_explanation",
+    ];
+
+    const levelTasks = tasks
+      .filter(
+        (task) =>
+          task.assignment_level === level.id,
+      )
+      .sort((a, b) => a.sequence - b.sequence);
+
+    const levelCriteria = criteria
+      .filter(
+        (criterion) =>
+          criterion.assignment_level === level.id,
+      )
+      .sort((a, b) => a.sequence - b.sequence);
+
+    const criterionIds = levelCriteria.map(
+      (criterion) => criterion.id,
+    );
+
+    const levelBands = bands
+      .filter((band) =>
+        criterionIds.includes(
+          band.rubric_criterion,
+        ),
+      )
+      .sort((a, b) => a.sequence - b.sequence);
+
+    const levelMappings =
+      taskCriteriaMappings.filter(
+        (mapping) =>
+          mapping.assignment_level === level.id,
+      );
+
+    const rows: string[][] = [
+      headers,
+
+      [
+        "configuration",
+        level.title || "",
+        level.skill_statement_code || "",
+        level.skill_statement || "",
+        level.objective || "",
+        level.scenario || "",
+        level.instructions || "",
+        Array.isArray(level.deliverables)
+          ? level.deliverables.join(" | ")
+          : "",
+        level.expected_outcome || "",
+
+        "",
+        "",
+        "",
+
+        "",
+        "",
+        "",
+        "",
+
+        "",
+        "",
+        "",
+        "",
+        "",
+
+        "",
+        "",
+      ],
+    ];
+
+    for (const task of levelTasks) {
+      rows.push([
+        "task",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+
+        task.task_code,
+        task.title,
+        task.evidence_required || "",
+
+        "",
+        "",
+        "",
+        "",
+
+        "",
+        "",
+        "",
+        "",
+        "",
+
+        "",
+        "",
+      ]);
+    }
+
+    for (const criterion of levelCriteria) {
+      rows.push([
+        "criterion",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+
+        "",
+        "",
+        "",
+
+        criterion.criterion_code,
+        criterion.title,
+        criterion.description || "",
+        criterion.maximum_score,
+
+        "",
+        "",
+        "",
+        "",
+        "",
+
+        "",
+        "",
+      ]);
+    }
+
+    for (const band of levelBands) {
+      rows.push([
+        "band",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+
+        "",
+        "",
+        "",
+
+        band.criterion_code,
+        "",
+        "",
+        "",
+
+        band.band_code,
+        band.display_name,
+        band.minimum_percentage,
+        band.maximum_percentage,
+        band.descriptor || "",
+
+        "",
+        "",
+      ]);
+    }
+
+    for (const mapping of levelMappings) {
+      rows.push([
+        "mapping",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+
+        mapping.task_code,
+        "",
+        "",
+
+        mapping.criterion_code,
+        "",
+        "",
+        "",
+
+        "",
+        "",
+        "",
+        "",
+        "",
+
+        String(mapping.inferred_weight),
+        mapping.ai_explanation || "",
+      ]);
+    }
+
+    const escapeCsvCell = (value: string) =>
+      `"${String(value).replace(/"/g, '""')}"`;
+
+    const csv = rows
+      .map((row) =>
+        row.map(escapeCsvCell).join(","),
+      )
+      .join("\n");
+
+    const blob = new Blob(
+      [`\uFEFF${csv}`],
+      {
+        type: "text/csv;charset=utf-8;",
+      },
+    );
+
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+
+    anchor.href = url;
+    anchor.download =
+      `${level.level_code}-configuration-export.csv`;
+
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
+
+    URL.revokeObjectURL(url);
+  }
+
 
   async function importConfigurationCsv(
     level: AssignmentLevel,
@@ -2021,6 +2443,9 @@ export function AssignmentsPage() {
 
                               downloadConfigurationCsvTemplate={
                                 downloadConfigurationCsvTemplate
+                              }
+                              exportConfigurationCsv={
+                                exportConfigurationCsv
                               }
                               importConfigurationCsv={
                                 importConfigurationCsv

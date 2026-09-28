@@ -1002,43 +1002,51 @@ export type AssignmentConfigurationLock = {
 };
 
 export async function getAssignmentLevels(
-    moduleId?: string,
-    assignmentId?: string,
+  moduleId?: string,
+  assignmentId?: string,
 ): Promise<AssignmentLevel[]> {
-    const params = new URLSearchParams();
+  const params = new URLSearchParams();
 
-    if (moduleId) {
-        params.set("module_id", moduleId);
-    }
+  if (moduleId) {
+    params.set("module_id", moduleId);
+  }
 
-    if (assignmentId) {
-        params.set("assignment_id", assignmentId);
-    }
+  if (assignmentId) {
+    params.set("assignment_id", assignmentId);
+  }
 
-    const query = params.toString()
-        ? `?${params.toString()}`
-        : "";
+  let nextUrl =
+    `${API_BASE_URL}/courses/assignment-levels/` +
+    (params.toString() ? `?${params.toString()}` : "");
 
-    const response = await fetch(
-        `${API_BASE_URL}/courses/assignment-levels/${query}`,
-        {
-            method: "GET",
-            credentials: "include",
-        },
-    );
+  const allLevels: AssignmentLevel[] = [];
+
+  while (nextUrl) {
+    const response = await fetch(nextUrl, {
+      method: "GET",
+      credentials: "include",
+    });
 
     const data = await response.json();
 
     if (!response.ok) {
-        throw new Error(
-            typeof data?.detail === "string"
-                ? data.detail
-                : "Unable to load assignment levels.",
-        );
+      throw new Error(
+        typeof data?.detail === "string"
+          ? data.detail
+          : "Unable to load assignment levels.",
+      );
     }
 
-    return extractResults<AssignmentLevel>(data);
+    if (Array.isArray(data)) {
+      allLevels.push(...data);
+      break;
+    }
 
+    allLevels.push(...(data.results ?? []));
+    nextUrl = data.next ?? "";
+  }
+
+  return allLevels;
 }
 
 

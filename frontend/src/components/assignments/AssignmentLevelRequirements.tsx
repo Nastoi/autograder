@@ -33,6 +33,10 @@ type AssignmentLevelRequirementsProps = {
     level: AssignmentLevel,
   ) => void;
 
+  exportConfigurationCsv: (
+    level: AssignmentLevel,
+  ) => void;
+
   importConfigurationCsv: (
     level: AssignmentLevel,
     file: File,
@@ -77,6 +81,7 @@ export function AssignmentLevelRequirements({
   setEditingLevelId,
 
   downloadConfigurationCsvTemplate,
+  exportConfigurationCsv,
   importConfigurationCsv,
   startEditingLevel,
   saveLevel,
@@ -120,6 +125,17 @@ export function AssignmentLevelRequirements({
         >
           Download CSV Template
         </button>
+
+        <button
+          type="button"
+          className="btn-secondary"
+          onClick={() =>
+            exportConfigurationCsv(level)
+          }
+        >
+          Export Configuration CSV
+        </button>
+
 
         <label
           className="btn-primary"

@@ -20,8 +20,6 @@ import {
   downloadInstructorSubmission,
   getInstructorMappingDashboard,
   syncInstructorMappingDueDate,
-  updateInstructorResultVisibility,
-  updateInstructorFacultyApprovalRequirement,
   type InstructorMappingAttempt,
   type InstructorMappingDashboard,
   type InstructorMappingLearner,
@@ -72,8 +70,6 @@ export function MappingSubmissionPage() {
     useState<InstructorMappingDashboard | null>(null);
   const [isLoadingInstructor, setIsLoadingInstructor] = useState(false);
   const [instructorError, setInstructorError] = useState("");
-  const [isUpdatingResultVisibility, setIsUpdatingResultVisibility] =
-    useState(false);
   const [expandedInstructorLearners, setExpandedInstructorLearners] =
     useState<string[]>([]);
   const [overrideTarget, setOverrideTarget] = useState<{
@@ -85,9 +81,6 @@ export function MappingSubmissionPage() {
   const [overrideOverallFeedback, setOverrideOverallFeedback] = useState("");
   const [isSavingOverride, setIsSavingOverride] = useState(false);
   const [overrideError, setOverrideError] = useState("");
-
-  const [isUpdatingFacultyApproval, setIsUpdatingFacultyApproval] =
-    useState(false);
 
   const [isDragging, setIsDragging] =
     useState(false);
@@ -643,101 +636,6 @@ export function MappingSubmissionPage() {
     return `${percentage.toFixed(2)} / 100`;
   }
 
-  async function handleFacultyApprovalRequirementChange(
-    requireFacultyApproval: boolean,
-  ) {
-    if (!mappingId) {
-      setInstructorError("Assessment mapping is missing.");
-      return;
-    }
-
-    setInstructorError("");
-    setIsUpdatingFacultyApproval(true);
-
-    try {
-      await updateInstructorFacultyApprovalRequirement(
-        mappingId,
-        requireFacultyApproval,
-      );
-
-      setContext((current) =>
-        current
-          ? {
-            ...current,
-            require_faculty_approval: requireFacultyApproval,
-          }
-          : current,
-      );
-
-      setInstructorData((current) =>
-        current
-          ? {
-            ...current,
-            mapping: {
-              ...current.mapping,
-              require_faculty_approval: requireFacultyApproval,
-            },
-          }
-          : current,
-      );
-    } catch (caughtError) {
-      setInstructorError(
-        caughtError instanceof Error
-          ? caughtError.message
-          : "Unable to update faculty approval requirement.",
-      );
-    } finally {
-      setIsUpdatingFacultyApproval(false);
-    }
-  }
-
-  async function handleResultVisibilityChange(
-    showResultToLearner: boolean,
-  ) {
-    if (!mappingId) {
-      setInstructorError("Assessment mapping is missing.");
-      return;
-    }
-
-    setInstructorError("");
-    setIsUpdatingResultVisibility(true);
-
-    try {
-      await updateInstructorResultVisibility(
-        mappingId,
-        showResultToLearner,
-      );
-
-      setContext((current) =>
-        current
-          ? {
-            ...current,
-            show_result_to_learner: showResultToLearner,
-          }
-          : current,
-      );
-
-      setInstructorData((current) =>
-        current
-          ? {
-            ...current,
-            mapping: {
-              ...current.mapping,
-              show_result_to_learner: showResultToLearner,
-            },
-          }
-          : current,
-      );
-    } catch (caughtError) {
-      setInstructorError(
-        caughtError instanceof Error
-          ? caughtError.message
-          : "Unable to update learner result visibility.",
-      );
-    } finally {
-      setIsUpdatingResultVisibility(false);
-    }
-  }
 
   async function handleInstructorSubmissionDownload(
     submissionId: string,
@@ -2145,86 +2043,7 @@ export function MappingSubmissionPage() {
                   </p>
                 )}
 
-                <div
-                  className="content-card"
-                  style={{
-                    padding: "18px 20px",
-                    marginBottom: "20px",
-                  }}
-                >
-                  <label
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "10px",
-                      cursor: isUpdatingResultVisibility
-                        ? "default"
-                        : "pointer",
-                    }}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={context.show_result_to_learner}
-                      onChange={(event) =>
-                        void handleResultVisibilityChange(
-                          event.target.checked,
-                        )
-                      }
-                      disabled={isUpdatingResultVisibility}
-                    />
-
-                    <strong>
-                      Show grading result to learner
-                    </strong>
-                  </label>
-
-                  <p
-                    className="table-subtext"
-                    style={{ marginTop: "6px" }}
-                  >
-                    When enabled, learners can view their grading result
-                    and feedback for this assignment.
-                  </p>
-
-
-                  <label
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "10px",
-                      cursor: isUpdatingFacultyApproval
-                        ? "default"
-                        : "pointer",
-                    }}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={context.require_faculty_approval}
-                      onChange={(event) =>
-                        void handleFacultyApprovalRequirementChange(
-                          event.target.checked,
-                        )
-                      }
-                      disabled={isUpdatingFacultyApproval}
-                    />
-
-                    <strong>
-                      Require faculty approval before sending grade to LMS
-                    </strong>
-                  </label>
-
-                  <p
-                    className="table-subtext"
-                    style={{ marginTop: "6px" }}
-                  >
-                    When enabled, grading is completed and saved, but the grade
-                    is only sent to the LMS after faculty approval.
-                  </p>
-                </div>
-
-
-
-
+      
                 <section className="submission-record-metrics">
                   <div className="submission-record-metric">
                     <span>Learners submitted</span>

@@ -1,3 +1,4 @@
+from django.conf import settings
 from rest_framework import serializers
 
 from .models import AssessmentMapping
@@ -39,6 +40,13 @@ class AssessmentMappingSerializer(
     has_submissions = serializers.SerializerMethodField()
     can_delete = serializers.SerializerMethodField()
 
+
+    lti_registration_id = serializers.CharField(
+        write_only=True,
+        required=False,
+        allow_blank=True,
+    )
+        
     class Meta:
         model = AssessmentMapping
         fields = (
@@ -58,6 +66,7 @@ class AssessmentMappingSerializer(
             "lti_jwks_url",
             "lti_deployment_id",
             "lti_access_token_url",
+            "lti_registration_id",  
             "is_active",
             "has_submissions",
             "can_delete",
@@ -92,6 +101,26 @@ class AssessmentMappingSerializer(
         return not self.get_has_submissions(obj)
 
     def validate(self, attrs):
+
+        registration_id = (
+            attrs.pop("lti_registration_id", "") or ""
+        ).strip()
+
+        if registration_id:
+            base_url = settings.LTI_PLATFORM_ISSUER.rstrip("/")
+
+            attrs["lti_jwks_url"] = (
+                f"{base_url}"
+                f"/api/lti_consumer/v1/public_keysets/"
+                f"{registration_id}"
+            )
+
+            attrs["lti_access_token_url"] = (
+                f"{base_url}"
+                f"/api/lti_consumer/v1/token/"
+                f"{registration_id}"
+            )
+            
         cohort = attrs.get(
             "cohort",
             getattr(self.instance, "cohort", None),
