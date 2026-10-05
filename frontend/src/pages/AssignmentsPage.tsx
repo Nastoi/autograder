@@ -184,6 +184,9 @@ export function AssignmentsPage() {
   const [selectedMappingTaskIds, setSelectedMappingTaskIds] = useState<string[]>([]);
   const [isSavingTaskMapping, setIsSavingTaskMapping] = useState(false);
   const [importingLevelId, setImportingLevelId] = useState("");
+  const [importErrors, setImportErrors] = useState<
+    Record<string, string>
+  >({});
   const [levelLocks, setLevelLocks] = useState<
     Record<
       string,
@@ -1146,27 +1149,22 @@ export function AssignmentsPage() {
       "instructions",
       "deliverables",
       "expected_outcome",
-
       "task_code",
       "task_title",
       "task_evidence_required",
-
       "criterion_code",
       "criterion_title",
       "criterion_description",
       "maximum_score",
-
       "band_code",
-      "band_display_name",
-      "band_minimum_percentage",
-      "band_maximum_percentage",
       "band_descriptor",
-
       "inferred_weight",
       "ai_explanation",
     ];
 
-    const rows = [
+    const bandDefinitions = level.band_definitions || [];
+
+    const rows: string[][] = [
       headers,
 
       [
@@ -1179,22 +1177,15 @@ export function AssignmentsPage() {
         "Enter the submission instructions here",
         "Deliverable 1 | Deliverable 2",
         "Enter the expected outcome here",
-
-        "",
-        "",
-        "",
-
-        "",
-        "",
-        "",
-        "",
-
         "",
         "",
         "",
         "",
         "",
-
+        "",
+        "",
+        "",
+        "",
         "",
         "",
       ],
@@ -1209,22 +1200,15 @@ export function AssignmentsPage() {
         "",
         "",
         "",
-
         "T01",
         "Task title",
         "Describe the evidence or work required for this task",
-
-        "",
-        "",
-        "",
-        "",
-
         "",
         "",
         "",
         "",
         "",
-
+        "",
         "",
         "",
       ],
@@ -1239,22 +1223,15 @@ export function AssignmentsPage() {
         "",
         "",
         "",
-
         "T02",
         "Another task title",
         "Describe the evidence or work required for this task",
-
-        "",
-        "",
-        "",
-        "",
-
         "",
         "",
         "",
         "",
         "",
-
+        "",
         "",
         "",
       ],
@@ -1269,27 +1246,72 @@ export function AssignmentsPage() {
         "",
         "",
         "",
-
         "",
         "",
         "",
-
         "C01",
         "Criterion title",
         "Describe what is being assessed",
         "10",
-
         "",
         "",
-        "",
-        "",
-        "",
-
         "",
         "",
       ],
 
       [
+        "criterion",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "C02",
+        "Another criterion",
+        "Describe what is being assessed",
+        "20",
+        "",
+        "",
+        "",
+        "",
+      ],
+    ];
+
+    const nonFailedBands = bandDefinitions.filter(
+      (band) => band.band_code !== "failed",
+    );
+
+    rows.push([
+      "band",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "C01",
+      "",
+      "",
+      "",
+      "failed",
+      "Enter descriptor for Failed",
+      "",
+      "",
+    ]);
+
+    nonFailedBands.forEach((band, index) => {
+      rows.push([
         "band",
         "",
         "",
@@ -1299,27 +1321,45 @@ export function AssignmentsPage() {
         "",
         "",
         "",
-
         "",
         "",
         "",
-
         "C01",
         "",
         "",
         "",
-
-        "failed",
-        "Failed",
-        "0",
-        "69.99",
-        "Below required standard",
-
+        `band${index + 1}`,
+        `Enter descriptor for ${band.display_name}`,
         "",
         "",
-      ],
+      ]);
+    });
 
-      [
+    rows.push([
+      "band",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "C02",
+      "",
+      "",
+      "",
+      "failed",
+      "Enter descriptor for Failed",
+      "",
+      "",
+    ]);
+
+    nonFailedBands.forEach((band, index) => {
+      rows.push([
         "band",
         "",
         "",
@@ -1329,56 +1369,21 @@ export function AssignmentsPage() {
         "",
         "",
         "",
+        "",
+        "",
+        "",
+        "C02",
+        "",
+        "",
+        "",
+        `band${index + 1}`,
+        `Enter descriptor for ${band.display_name}`,
+        "",
+        "",
+      ]);
+    });
 
-        "",
-        "",
-        "",
-
-        "C01",
-        "",
-        "",
-        "",
-
-        "foundation",
-        "Foundation",
-        "70",
-        "79.99",
-        "Meets foundation standard",
-
-        "",
-        "",
-      ],
-
-      [
-        "band",
-        "",
-        "",
-        "",
-        "",
-        "",
-        "",
-        "",
-        "",
-
-        "",
-        "",
-        "",
-
-        "C01",
-        "",
-        "",
-        "",
-
-        "proficient",
-        "Proficient",
-        "80",
-        "100",
-        "Meets proficient standard",
-
-        "",
-        "",
-      ],
-
+    rows.push(
       [
         "mapping",
         "",
@@ -1389,29 +1394,44 @@ export function AssignmentsPage() {
         "",
         "",
         "",
-
         "T01",
         "",
         "",
-
         "C01",
         "",
         "",
         "",
-
         "",
         "",
-        "",
-        "",
-        "",
-
         "100",
-        "Manual task-to-rubric mapping",
+        "T01 is assessed by C01",
       ],
-    ];
+      [
+        "mapping",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "T02",
+        "",
+        "",
+        "C02",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "100",
+        "T02 is assessed by C02",
+      ],
+    );
 
     const escapeCsvCell = (value: string) =>
-      `"${value.replace(/"/g, '""')}"`;
+      `"${String(value ?? "").replace(/"/g, '""')}"`;
 
     const csv = rows
       .map((row) => row.map(escapeCsvCell).join(","))
@@ -1423,11 +1443,14 @@ export function AssignmentsPage() {
 
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
+
     anchor.href = url;
     anchor.download = "assignment-configuration-template.csv";
+
     document.body.appendChild(anchor);
     anchor.click();
     document.body.removeChild(anchor);
+
     URL.revokeObjectURL(url);
   }
 
@@ -1456,9 +1479,6 @@ export function AssignmentsPage() {
       "maximum_score",
 
       "band_code",
-      "band_display_name",
-      "band_minimum_percentage",
-      "band_maximum_percentage",
       "band_descriptor",
 
       "inferred_weight",
@@ -1483,13 +1503,11 @@ export function AssignmentsPage() {
       (criterion) => criterion.id,
     );
 
-    const levelBands = bands
-      .filter((band) =>
-        criterionIds.includes(
-          band.rubric_criterion,
-        ),
-      )
-      .sort((a, b) => a.sequence - b.sequence);
+    const levelBands = bands.filter((band) =>
+      criterionIds.includes(
+        band.rubric_criterion,
+      ),
+    );
 
     const levelMappings =
       taskCriteriaMappings.filter(
@@ -1524,9 +1542,6 @@ export function AssignmentsPage() {
 
         "",
         "",
-        "",
-        "",
-        "",
 
         "",
         "",
@@ -1556,9 +1571,6 @@ export function AssignmentsPage() {
 
         "",
         "",
-        "",
-        "",
-        "",
 
         "",
         "",
@@ -1584,49 +1596,98 @@ export function AssignmentsPage() {
         criterion.criterion_code,
         criterion.title,
         criterion.description || "",
-        criterion.maximum_score,
+        String(criterion.maximum_score),
 
         "",
         "",
-        "",
-        "",
-        "",
-
-        "",
-        "",
-      ]);
-    }
-
-    for (const band of levelBands) {
-      rows.push([
-        "band",
-        "",
-        "",
-        "",
-        "",
-        "",
-        "",
-        "",
-        "",
-
-        "",
-        "",
-        "",
-
-        band.criterion_code,
-        "",
-        "",
-        "",
-
-        band.band_code,
-        band.display_name,
-        band.minimum_percentage,
-        band.maximum_percentage,
-        band.descriptor || "",
 
         "",
         "",
       ]);
+
+      const criterionBands = levelBands
+        .filter(
+          (band) =>
+            band.rubric_criterion === criterion.id,
+        )
+        .sort((a, b) => a.sequence - b.sequence);
+
+      const failedBand = criterionBands.find(
+        (band) =>
+          band.band_code.toLowerCase() === "failed",
+      );
+
+      if (failedBand) {
+        rows.push([
+          "band",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          criterion.criterion_code,
+          "",
+          "",
+          "",
+          "failed",
+          (failedBand.descriptor || "").replace(
+            new RegExp(
+              `^${criterion.criterion_code}\\s*:\\s*`,
+              "i",
+            ),
+            "",
+          ),
+          "",
+          "",
+        ]);
+      }
+
+      const nonFailedCriterionBands =
+        criterionBands.filter(
+          (band) =>
+            band.band_code.toLowerCase() !== "failed",
+        );
+
+      nonFailedCriterionBands.forEach(
+        (band, index) => {
+          rows.push([
+            "band",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            criterion.criterion_code,
+            "",
+            "",
+            "",
+            `band${index + 1}`,
+            (band.descriptor || "").replace(
+              new RegExp(
+                `^${criterion.criterion_code}\\s*:\\s*`,
+                "i",
+              ),
+              "",
+            ),
+            "",
+            "",
+          ]);
+        },
+      );
+
+
     }
 
     for (const mapping of levelMappings) {
@@ -1652,9 +1713,6 @@ export function AssignmentsPage() {
 
         "",
         "",
-        "",
-        "",
-        "",
 
         String(mapping.inferred_weight),
         mapping.ai_explanation || "",
@@ -1662,7 +1720,7 @@ export function AssignmentsPage() {
     }
 
     const escapeCsvCell = (value: string) =>
-      `"${String(value).replace(/"/g, '""')}"`;
+      `"${String(value ?? "").replace(/"/g, '""')}"`;
 
     const csv = rows
       .map((row) =>
@@ -1696,19 +1754,31 @@ export function AssignmentsPage() {
     level: AssignmentLevel,
     file: File,
   ) {
-    setError("");
+    setImportErrors((current) => ({
+      ...current,
+      [level.id]: "",
+    }));
+
     setImportingLevelId(level.id);
 
     try {
-      await importAssignmentConfigurationCsv(level.id, file);
+      await importAssignmentConfigurationCsv(
+        level.id,
+        file,
+      );
+
       await loadData();
       setExpandedLevelIds([level.id]);
     } catch (caughtError) {
-      setError(
+      const message =
         caughtError instanceof Error
           ? caughtError.message
-          : "Unable to import assignment configuration CSV.",
-      );
+          : "Unable to import assignment configuration CSV.";
+
+      setImportErrors((current) => ({
+        ...current,
+        [level.id]: message,
+      }));
     } finally {
       setImportingLevelId("");
     }
@@ -2245,8 +2315,8 @@ export function AssignmentsPage() {
 
                                   <span
                                     className={`track-status-badge ${level.configuration_status === "ready"
-                                        ? "track-status-ready"
-                                        : "track-status-draft"
+                                      ? "track-status-ready"
+                                      : "track-status-draft"
                                       }`}
                                   >
                                     {level.configuration_status === "ready"
@@ -2452,6 +2522,8 @@ export function AssignmentsPage() {
                               }
                               startEditingLevel={startEditingLevel}
                               saveLevel={saveLevel}
+
+                              importError={importErrors[level.id] || ""}
                             />
 
                             <AssignmentTasksSection

@@ -2,14 +2,14 @@ import csv
 import io
 from decimal import Decimal
 
-from rest_framework import status
+from rest_framework import serializers, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response as DRFResponse
 from rest_framework.views import APIView
 
 
 from django.shortcuts import get_object_or_404
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from courses.configuration_locks import require_lock_owner
 
 from lms.permissions import IsMappingAdmin
@@ -93,6 +93,10 @@ class AssignmentLevelConfigurationCsvImportView(APIView):
             "criterion_title",
             "criterion_description",
             "maximum_score",
+            "band_code",
+            "band_descriptor",
+            "inferred_weight",
+            "ai_explanation",
         }
         actual_headers = set(reader.fieldnames or [])
 
@@ -254,22 +258,7 @@ class AssignmentLevelConfigurationCsvImportView(APIView):
             elif record_type == "band":
                 criterion_code = row.get("criterion_code", "").strip()
                 band_code = row.get("band_code", "").strip()
-                display_name = row.get("band_display_name", "").strip()
-
-                minimum_percentage = row.get(
-                    "band_minimum_percentage",
-                    "",
-                ).strip()
-
-                maximum_percentage = row.get(
-                    "band_maximum_percentage",
-                    "",
-                ).strip()
-
-                descriptor = row.get(
-                    "band_descriptor",
-                    "",
-                ).strip()
+                descriptor = row.get("band_descriptor", "").strip()
 
                 if not criterion_code:
                     errors.append(
@@ -283,40 +272,10 @@ class AssignmentLevelConfigurationCsvImportView(APIView):
                     )
                     continue
 
-                if not display_name:
-                    errors.append(
-                        f"Row {row_number}: band_display_name is required."
-                    )
-                    continue
-
-                try:
-                    numeric_minimum = Decimal(minimum_percentage)
-                    numeric_maximum = Decimal(maximum_percentage)
-                except Exception:
-                    errors.append(
-                        f"Row {row_number}: band minimum and maximum "
-                        "percentages must be valid numbers."
-                    )
-                    continue
-
-                if (
-                    numeric_minimum < 0
-                    or numeric_maximum > 100
-                    or numeric_minimum > numeric_maximum
-                ):
-                    errors.append(
-                        f"Row {row_number}: band percentage range must "
-                        "be between 0 and 100 and minimum cannot exceed maximum."
-                    )
-                    continue
-
                 band_rows.append(
                     {
                         "criterion_code": criterion_code,
                         "band_code": band_code,
-                        "display_name": display_name,
-                        "minimum_percentage": numeric_minimum,
-                        "maximum_percentage": numeric_maximum,
                         "descriptor": descriptor,
                     }
                 )
@@ -449,157 +408,302 @@ class AssignmentLevelConfigurationCsvImportView(APIView):
             errors.append(
                 "CSV contains duplicate task-to-criterion mappings."
             )
-            
+
+        track_band_definitions = assignment_level.band_definitions or []
+
+        non_failed_bands = [
+            band
+            for band in track_band_definitions
+            if str(band.get("band_code", "")).strip().lower() != "failed"
+        ]
+
+        expected_csv_band_codes = ["failed"] + [
+            f"band{index}"
+            for index in range(1, len(non_failed_bands) + 1)
+        ]
+
+        expected_csv_band_code_set = set(expected_csv_band_codes)
+
+        for row in band_rows:
+            csv_band_code = row["band_code"].strip().lower()
+
+            if csv_band_code not in expected_csv_band_code_set:
+                errors.append(
+                    (
+                        f"Band '{row['band_code']}' for criterion "
+                        f"'{row['criterion_code']}' is invalid. "
+                        f"Expected one of: {', '.join(expected_csv_band_codes)}."
+                    )
+                )
+
+        band_codes_by_criterion = {}
+        for row in band_rows:
+            criterion_code = row["criterion_code"].upper()
+            band_codes_by_criterion.setdefault(criterion_code, set()).add(
+                row["band_code"].strip().lower()
+            )
+
+        for criterion_code in criterion_codes:
+            supplied_band_codes = band_codes_by_criterion.get(
+                criterion_code,
+                set(),
+            )
+            missing_band_codes = (
+                expected_csv_band_code_set - supplied_band_codes
+            )
+
+            if missing_band_codes:
+                errors.append(
+                    (
+                        f"Criterion '{criterion_code}' is missing band rows for: "
+                        + ", ".join(sorted(missing_band_codes))
+                        + "."
+                    )
+                )
+
         if errors:
             return DRFResponse(
                 {"errors": errors},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        requirements_updated = False
+        try:
+            with transaction.atomic():
+                requirements_updated = False
 
-        if requirement_updates:
-            for field, value in requirement_updates.items():
-                setattr(assignment_level, field, value)
+                if requirement_updates:
+                    for field, value in requirement_updates.items():
+                        setattr(assignment_level, field, value)
 
-            assignment_level.save(
-                update_fields=[
-                    *requirement_updates.keys(),
-                    "updated_at",
-                ]
-            )
-            requirements_updated = True
-
-        # CSV import is authoritative for this assignment level.
-        # Replace existing Tasks and Criteria instead of appending to them.
-        #
-        # Deleting criteria also removes their RubricBands and
-        # TaskCriteriaMappings through the existing CASCADE relationships.
-        # Deleting tasks removes their task mappings as well.
-        RubricCriterion.objects.filter(
-            assignment_level=assignment_level,
-        ).delete()
-
-        Task.objects.filter(
-            assignment_level=assignment_level,
-        ).delete()
-
-        for sequence, row in enumerate(task_rows, start=1):
-            Task.objects.create(
-                assignment_level=assignment_level,
-                task_code=row["task_code"],
-                title=row["title"],
-                evidence_required=row["evidence_required"],
-                sequence=sequence,
-            )
-
-        for sequence, row in enumerate(criterion_rows, start=1):
-            serializer = RubricCriterionSerializer(
-                data={
-                    "assignment_level": str(assignment_level.id),
-                    "criterion_code": row["criterion_code"],
-                    "title": row["title"],
-                    "description": row["description"],
-                    "maximum_score": str(row["maximum_score"]),
-                    "sequence": sequence,
-                    "ai_gradable": True,
-                    "deterministic": False,
-                }
-            )
-            serializer.is_valid(raise_exception=True)
-            serializer.save()
-
-        # All tasks and criteria must exist before bands/mappings
-        # are resolved by their CSV codes.
-        tasks_by_code = {
-            task.task_code.upper(): task
-            for task in Task.objects.filter(
-                assignment_level=assignment_level,
-            )
-        }
-
-        criteria_by_code = {
-            criterion.criterion_code.upper(): criterion
-            for criterion in RubricCriterion.objects.filter(
-                assignment_level=assignment_level,
-            )
-        }
-
-        # RubricCriterionSerializer creates the assignment level's
-        # default bands automatically. When explicit band rows are
-        # supplied by the CSV, replace those defaults with the
-        # exported/imported band definitions.
-        if band_rows:
-            RubricBand.objects.filter(
-                rubric_criterion__assignment_level=assignment_level,
-            ).delete()
-
-            band_sequence_by_criterion = {}
-
-            for row in band_rows:
-                criterion_code = row["criterion_code"].upper()
-                criterion = criteria_by_code[criterion_code]
-
-                next_sequence = (
-                    band_sequence_by_criterion.get(
-                        criterion_code,
-                        0,
+                    assignment_level.save(
+                        update_fields=[
+                            *requirement_updates.keys(),
+                            "updated_at",
+                        ]
                     )
-                    + 1
-                )
+                    requirements_updated = True
 
-                band_sequence_by_criterion[
-                    criterion_code
-                ] = next_sequence
-
-                RubricBand.objects.create(
-                    rubric_criterion=criterion,
-                    band_code=row["band_code"],
-                    display_name=row["display_name"],
-                    minimum_percentage=row[
-                        "minimum_percentage"
-                    ],
-                    maximum_percentage=row[
-                        "maximum_percentage"
-                    ],
-                    descriptor=row["descriptor"],
-                    sequence=next_sequence,
-                )
-
-        if mapping_rows:
-            for row in mapping_rows:
-                task = tasks_by_code[
-                    row["task_code"].upper()
-                ]
-
-                criterion = criteria_by_code[
-                    row["criterion_code"].upper()
-                ]
-
-                TaskCriteriaMapping.objects.create(
+                # CSV import is authoritative for this assignment level.
+                # Existing tasks, criteria, bands, and mappings are replaced.
+                RubricCriterion.objects.filter(
                     assignment_level=assignment_level,
-                    task=task,
-                    rubric_criterion=criterion,
-                    inferred_weight=row["inferred_weight"],
-                    ai_explanation=row["ai_explanation"],
-                )
-                    
-        return DRFResponse(
-        {
-            "assignment_level": str(assignment_level.id),
-            "level_code": assignment_level.level_code,
-            "requirements_updated": requirements_updated,
-            "configuration_replaced": True,
-            "tasks_created": len(task_rows),
-            "criteria_created": len(criterion_rows),
-            "bands_created": (
-                len(band_rows)
-                if band_rows
-                else RubricBand.objects.filter(
+                ).delete()
+
+                Task.objects.filter(
+                    assignment_level=assignment_level,
+                ).delete()
+
+                for sequence, row in enumerate(task_rows, start=1):
+                    Task.objects.create(
+                        assignment_level=assignment_level,
+                        task_code=row["task_code"],
+                        title=row["title"],
+                        evidence_required=row["evidence_required"],
+                        sequence=sequence,
+                    )
+
+                for sequence, row in enumerate(criterion_rows, start=1):
+                    serializer = RubricCriterionSerializer(
+                        data={
+                            "assignment_level": str(assignment_level.id),
+                            "criterion_code": row["criterion_code"],
+                            "title": row["title"],
+                            "description": row["description"],
+                            "maximum_score": str(row["maximum_score"]),
+                            "sequence": sequence,
+                            "ai_gradable": True,
+                            "deterministic": False,
+                        }
+                    )
+                    serializer.is_valid(raise_exception=True)
+                    serializer.save()
+
+                tasks_by_code = {
+                    task.task_code.upper(): task
+                    for task in Task.objects.filter(
+                        assignment_level=assignment_level,
+                    )
+                }
+
+                criteria_by_code = {
+                    criterion.criterion_code.upper(): criterion
+                    for criterion in RubricCriterion.objects.filter(
+                        assignment_level=assignment_level,
+                    )
+                }
+
+                # Criterion creation automatically creates the track's bands.
+                # CSV band rows only provide criterion-specific descriptors.
+                for row in band_rows:
+                    criterion_code = row["criterion_code"].upper()
+                    criterion = criteria_by_code[criterion_code]
+
+                    criterion_bands = list(
+                        RubricBand.objects.filter(
+                            rubric_criterion=criterion,
+                        ).order_by("sequence", "id")
+                    )
+
+                    csv_band_code = (
+                        row["band_code"]
+                        .strip()
+                        .lower()
+                    )
+
+                    if csv_band_code == "failed":
+                        band = next(
+                            (
+                                item
+                                for item in criterion_bands
+                                if item.band_code.lower()
+                                == "failed"
+                            ),
+                            None,
+                        )
+
+                    elif csv_band_code.startswith("band"):
+                        try:
+                            band_number = int(
+                                csv_band_code[4:]
+                            )
+                        except ValueError:
+                            band_number = 0
+
+                        non_failed_criterion_bands = [
+                            item
+                            for item in criterion_bands
+                            if item.band_code.lower()
+                            != "failed"
+                        ]
+
+                        if (
+                            1
+                            <= band_number
+                            <= len(
+                                non_failed_criterion_bands
+                            )
+                        ):
+                            band = (
+                                non_failed_criterion_bands[
+                                    band_number - 1
+                                ]
+                            )
+                        else:
+                            band = None
+
+                    else:
+                        band = None
+
+                    if band is None:
+                        raise ValueError(
+                            (
+                                f"Unable to map CSV band "
+                                f"'{row['band_code']}' "
+                                f"for criterion "
+                                f"'{row['criterion_code']}' "
+                                "to the configured track bands."
+                            )
+                        )
+
+                    band.descriptor = row["descriptor"]
+                    band.save(
+                        update_fields=["descriptor"]
+                    )
+
+                for row in mapping_rows:
+                    task = tasks_by_code[row["task_code"].upper()]
+                    criterion = criteria_by_code[
+                        row["criterion_code"].upper()
+                    ]
+
+                    TaskCriteriaMapping.objects.create(
+                        assignment_level=assignment_level,
+                        task=task,
+                        rubric_criterion=criterion,
+                        inferred_weight=row["inferred_weight"],
+                        ai_explanation=row["ai_explanation"],
+                    )
+
+                actual_task_count = Task.objects.filter(
+                    assignment_level=assignment_level,
+                ).count()
+                actual_criterion_count = RubricCriterion.objects.filter(
+                    assignment_level=assignment_level,
+                ).count()
+                actual_band_count = RubricBand.objects.filter(
                     rubric_criterion__assignment_level=assignment_level,
                 ).count()
-            ),
-            "mappings_created": len(mapping_rows),
-        },
-        status=status.HTTP_200_OK,
-    )
+                actual_mapping_count = TaskCriteriaMapping.objects.filter(
+                    assignment_level=assignment_level,
+                ).count()
+
+                expected_band_count = (
+                    len(criterion_rows)
+                    * len(track_band_definitions)
+                )
+
+                integrity_errors = []
+
+                if actual_task_count != len(task_rows):
+                    integrity_errors.append(
+                        f"tasks expected {len(task_rows)}, found {actual_task_count}"
+                    )
+
+                if actual_criterion_count != len(criterion_rows):
+                    integrity_errors.append(
+                        "criteria expected "
+                        f"{len(criterion_rows)}, found {actual_criterion_count}"
+                    )
+
+                if actual_band_count != expected_band_count:
+                    integrity_errors.append(
+                        f"bands expected {expected_band_count}, "
+                        f"found {actual_band_count}"
+                    )
+
+                if actual_mapping_count != len(mapping_rows):
+                    integrity_errors.append(
+                        "mappings expected "
+                        f"{len(mapping_rows)}, found {actual_mapping_count}"
+                    )
+
+                if integrity_errors:
+                    raise ValueError(
+                        "Import integrity check failed: "
+                        + "; ".join(integrity_errors)
+                    )
+
+            return DRFResponse(
+                {
+                    "assignment_level": str(assignment_level.id),
+                    "level_code": assignment_level.level_code,
+                    "requirements_updated": requirements_updated,
+                    "configuration_replaced": True,
+                    "tasks_created": len(task_rows),
+                    "criteria_created": len(criterion_rows),
+                    "bands_updated": len(band_rows),
+                    "mappings_created": len(mapping_rows),
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        except serializers.ValidationError as exc:
+            return DRFResponse(
+                {
+                    "detail": (
+                        "Import failed while creating the configuration: "
+                        f"{exc.detail}. No configuration changes were saved."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except (ValueError, KeyError, IntegrityError) as exc:
+            return DRFResponse(
+                {
+                    "detail": (
+                        f"Import failed: {exc}. "
+                        "No configuration changes were saved."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )

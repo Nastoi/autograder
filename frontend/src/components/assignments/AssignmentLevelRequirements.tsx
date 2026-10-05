@@ -19,6 +19,8 @@ type AssignmentLevelRequirementsProps = {
 
   isSavingLevel: boolean;
 
+  importError: string;
+  
   setLevelTitle: (value: string) => void;
   setLevelSkillStatementCode: (value: string) => void;
   setLevelSkillStatement: (value: string) => void;
@@ -56,7 +58,7 @@ export function AssignmentLevelRequirements({
   levelReadOnly,
   lockedBy,
   importingLevelId,
-
+  importError,
   editingLevelId,
 
   levelTitle,
@@ -158,7 +160,7 @@ export function AssignmentLevelRequirements({
             type="file"
             accept=".csv,text/csv"
             disabled={
-              importingLevelId === level.id 
+              importingLevelId === level.id
             }
             style={{ display: "none" }}
             onChange={(event) => {
@@ -179,6 +181,35 @@ export function AssignmentLevelRequirements({
           />
         </label>
       </div>
+
+      {importError && (
+        <div
+          role="alert"
+          className="error-message"
+          style={{
+            marginBottom: "16px",
+          }}
+        >
+          <strong>CSV import failed</strong>
+
+          <ul
+            style={{
+              margin: "8px 0 0",
+              paddingLeft: "20px",
+            }}
+          >
+            {importError
+              .split("|")
+              .map((message) => message.trim())
+              .filter(Boolean)
+              .map((message, index) => (
+                <li key={`${message}-${index}`}>
+                  {message}
+                </li>
+              ))}
+          </ul>
+        </div>
+      )}
 
       {levelReadOnly && (
         <p
@@ -202,12 +233,11 @@ export function AssignmentLevelRequirements({
         </div>
 
         <span
-          className={`status-badge ${
-            level.configuration_status ===
+          className={`status-badge ${level.configuration_status ===
             "ready"
-              ? "status-active"
-              : "status-inactive"
-          }`}
+            ? "status-active"
+            : "status-inactive"
+            }`}
         >
           {level.configuration_status}
         </span>
