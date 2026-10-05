@@ -65,7 +65,15 @@ export async function fetchAllPaginatedResults<T>(
             Array.isArray(data.results)
         ) {
             results.push(...data.results);
-            nextUrl = data.next;
+            if (data.next) {
+                const parsedNext = new URL(data.next);
+                const apiBase = new URL(API_BASE_URL, window.location.origin);
+
+                nextUrl =
+                    `${apiBase.origin}${parsedNext.pathname}${parsedNext.search}`;
+                } else {
+                nextUrl = null;
+                }
             continue;
         }
 

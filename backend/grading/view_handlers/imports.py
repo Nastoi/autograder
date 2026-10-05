@@ -509,136 +509,80 @@ class AssignmentLevelConfigurationCsvImportView(APIView):
             serializer.is_valid(raise_exception=True)
             serializer.save()
 
-            tasks_by_code = {
-                task.task_code.upper(): task
-                for task in Task.objects.filter(
-                    assignment_level=assignment_level,
-                )
-            }
+        # All tasks and criteria must exist before bands/mappings
+        # are resolved by their CSV codes.
+        tasks_by_code = {
+            task.task_code.upper(): task
+            for task in Task.objects.filter(
+                assignment_level=assignment_level,
+            )
+        }
 
-            criteria_by_code = {
-                criterion.criterion_code.upper(): criterion
-                for criterion in RubricCriterion.objects.filter(
-                    assignment_level=assignment_level,
-                )
-            }
+        criteria_by_code = {
+            criterion.criterion_code.upper(): criterion
+            for criterion in RubricCriterion.objects.filter(
+                assignment_level=assignment_level,
+            )
+        }
 
-            if band_rows:
-                band_criterion_codes = {
+        # RubricCriterionSerializer creates the assignment level's
+        # default bands automatically. When explicit band rows are
+        # supplied by the CSV, replace those defaults with the
+        # exported/imported band definitions.
+        if band_rows:
+            RubricBand.objects.filter(
+                rubric_criterion__assignment_level=assignment_level,
+            ).delete()
+
+            band_sequence_by_criterion = {}
+
+            for row in band_rows:
+                criterion_code = row["criterion_code"].upper()
+                criterion = criteria_by_code[criterion_code]
+
+                next_sequence = (
+                    band_sequence_by_criterion.get(
+                        criterion_code,
+                        0,
+                    )
+                    + 1
+                )
+
+                band_sequence_by_criterion[
+                    criterion_code
+                ] = next_sequence
+
+                RubricBand.objects.create(
+                    rubric_criterion=criterion,
+                    band_code=row["band_code"],
+                    display_name=row["display_name"],
+                    minimum_percentage=row[
+                        "minimum_percentage"
+                    ],
+                    maximum_percentage=row[
+                        "maximum_percentage"
+                    ],
+                    descriptor=row["descriptor"],
+                    sequence=next_sequence,
+                )
+
+        if mapping_rows:
+            for row in mapping_rows:
+                task = tasks_by_code[
+                    row["task_code"].upper()
+                ]
+
+                criterion = criteria_by_code[
                     row["criterion_code"].upper()
-                    for row in band_rows
-                }
+                ]
 
-                missing_band_criteria = sorted(
-                    code
-                    for code in band_criterion_codes
-                    if code not in criteria_by_code
+                TaskCriteriaMapping.objects.create(
+                    assignment_level=assignment_level,
+                    task=task,
+                    rubric_criterion=criterion,
+                    inferred_weight=row["inferred_weight"],
+                    ai_explanation=row["ai_explanation"],
                 )
-
-                if missing_band_criteria:
-                    return DRFResponse(
-                        {
-                            "errors": [
-                                (
-                                    "Band rows reference unknown criterion codes: "
-                                    + ", ".join(missing_band_criteria)
-                                )
-                            ]
-                        },
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
-
-                RubricBand.objects.filter(
-                    rubric_criterion__assignment_level=assignment_level,
-                ).delete()
-
-                band_sequence_by_criterion = {}
-
-                for row in band_rows:
-                    criterion_code = row["criterion_code"].upper()
-                    criterion = criteria_by_code[criterion_code]
-
-                    next_sequence = (
-                        band_sequence_by_criterion.get(
-                            criterion_code,
-                            0,
-                        )
-                        + 1
-                    )
-
-                    band_sequence_by_criterion[
-                        criterion_code
-                    ] = next_sequence
-
-                    RubricBand.objects.create(
-                        rubric_criterion=criterion,
-                        band_code=row["band_code"],
-                        display_name=row["display_name"],
-                        minimum_percentage=row[
-                            "minimum_percentage"
-                        ],
-                        maximum_percentage=row[
-                            "maximum_percentage"
-                        ],
-                        descriptor=row["descriptor"],
-                        sequence=next_sequence,
-                    )
-
-            if mapping_rows:
-                missing_mapping_tasks = sorted(
-                    {
-                        row["task_code"].upper()
-                        for row in mapping_rows
-                        if row["task_code"].upper()
-                        not in tasks_by_code
-                    }
-                )
-
-                missing_mapping_criteria = sorted(
-                    {
-                        row["criterion_code"].upper()
-                        for row in mapping_rows
-                        if row["criterion_code"].upper()
-                        not in criteria_by_code
-                    }
-                )
-
-                mapping_errors = []
-
-                if missing_mapping_tasks:
-                    mapping_errors.append(
-                        "Mapping rows reference unknown task codes: "
-                        + ", ".join(missing_mapping_tasks)
-                    )
-
-                if missing_mapping_criteria:
-                    mapping_errors.append(
-                        "Mapping rows reference unknown criterion codes: "
-                        + ", ".join(missing_mapping_criteria)
-                    )
-
-                if mapping_errors:
-                    return DRFResponse(
-                        {"errors": mapping_errors},
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
-
-                for row in mapping_rows:
-                    task = tasks_by_code[
-                        row["task_code"].upper()
-                    ]
-
-                    criterion = criteria_by_code[
-                        row["criterion_code"].upper()
-                    ]
-
-                    TaskCriteriaMapping.objects.create(
-                        assignment_level=assignment_level,
-                        task=task,
-                        rubric_criterion=criterion,
-                        inferred_weight=row["inferred_weight"],
-                        ai_explanation=row["ai_explanation"],
-                    )
                     
         return DRFResponse(
         {
