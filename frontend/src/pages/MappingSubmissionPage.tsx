@@ -88,12 +88,12 @@ export function MappingSubmissionPage() {
   const latestAttempt = attempts[0];
 
   const latestAttemptFailed =
-  latestAttempt?.status === "completed" &&
-  latestAttempt?.achieved_band?.toLowerCase() === "failed" &&
-  !(
-    latestAttempt?.requires_faculty_approval === true &&
-    !latestAttempt?.is_manual_override
-  );
+    latestAttempt?.status === "completed" &&
+    latestAttempt?.achieved_band?.toLowerCase() === "failed" &&
+    !(
+      latestAttempt?.requires_faculty_approval === true &&
+      !latestAttempt?.is_manual_override
+    );
 
   // const hasNoAttemptsRemaining =
   //   attemptPolicy?.can_submit === false;
@@ -496,7 +496,13 @@ export function MappingSubmissionPage() {
           y = 20;
         }
 
-        addText(`Criterion ${index + 1}`, 12, true);
+        addText(
+          criterion.criterion_code
+            ? `Criterion ${criterion.criterion_code.replace(/^C0*/i, "")}`
+            : `Criterion ${index + 1}`,
+          12,
+          true,
+        );
         addText(`Awarded marks: ${criterion.awarded_marks}`);
 
         if (criterion.achievement_band) {
@@ -1272,6 +1278,24 @@ export function MappingSubmissionPage() {
     return `${megabytes.toFixed(1)} MB`;
   }
 
+
+  function sortCriteriaByCode<T extends { criterion_code?: string | null }>(
+    criteria: T[],
+  ): T[] {
+    return [...criteria].sort((a, b) => {
+      const aNumber = Number(
+        a.criterion_code?.replace(/\D/g, "") || Number.MAX_SAFE_INTEGER,
+      );
+
+      const bNumber = Number(
+        b.criterion_code?.replace(/\D/g, "") || Number.MAX_SAFE_INTEGER,
+      );
+
+      return aNumber - bNumber;
+    });
+  }
+
+
   return (
     <main className="submission-page">
       <div className="submission-content">
@@ -1750,20 +1774,20 @@ export function MappingSubmissionPage() {
                           ? "—"
                           : isPendingFacultyReview(attempts[0])
                             ? "In review"
-                          : attempts[0].status === "error"
-                            ? "Unavailable"
-                            : attempts[0].status === "uploaded" ||
-                              attempts[0].status === "processing"
-                              ? "Processing"
-                              : attempts[0].final_score !== null &&
-                                attempts[0].maximum_score !== null &&
-                                Number(attempts[0].maximum_score) > 0
-                                ? `${(
-                                  (Number(attempts[0].final_score) /
-                                    Number(attempts[0].maximum_score)) *
-                                  100
-                                ).toFixed(2)} / 100`
-                                : "Pending"}
+                            : attempts[0].status === "error"
+                              ? "Unavailable"
+                              : attempts[0].status === "uploaded" ||
+                                attempts[0].status === "processing"
+                                ? "Processing"
+                                : attempts[0].final_score !== null &&
+                                  attempts[0].maximum_score !== null &&
+                                  Number(attempts[0].maximum_score) > 0
+                                  ? `${(
+                                    (Number(attempts[0].final_score) /
+                                      Number(attempts[0].maximum_score)) *
+                                    100
+                                  ).toFixed(2)} / 100`
+                                  : "Pending"}
                       </strong>
                     </strong>
                   </div>
@@ -1779,15 +1803,15 @@ export function MappingSubmissionPage() {
                           ? "—"
                           : isPendingFacultyReview(attempts[0])
                             ? "In review"
-                          : attempts[0].status === "error"
-                            ? "Not graded"
-                            : attempts[0].status === "uploaded" ||
-                              attempts[0].status === "processing"
-                              ? "Processing"
-                              : attempts[0].achieved_band
-                                ? attempts[0].achieved_band.charAt(0).toUpperCase() +
-                                attempts[0].achieved_band.slice(1)
-                                : "Pending"}
+                            : attempts[0].status === "error"
+                              ? "Not graded"
+                              : attempts[0].status === "uploaded" ||
+                                attempts[0].status === "processing"
+                                ? "Processing"
+                                : attempts[0].achieved_band
+                                  ? attempts[0].achieved_band.charAt(0).toUpperCase() +
+                                  attempts[0].achieved_band.slice(1)
+                                  : "Pending"}
                       </strong>
                     </strong>
                   </div>
@@ -1825,7 +1849,7 @@ export function MappingSubmissionPage() {
                       </summary>
 
                       <div className="detailed-feedback-content">
-                        {attempts[0].criterion_results.map(
+                        {sortCriteriaByCode(attempts[0].criterion_results).map(
                           (criterion, index) => (
                             <div
                               key={criterion.id}
@@ -1833,7 +1857,9 @@ export function MappingSubmissionPage() {
                             >
                               <div className="criterion-feedback-header">
                                 <strong>
-                                  Criterion {index + 1}
+                                  {criterion.criterion_code
+                                    ? `Criterion ${criterion.criterion_code.replace(/^C0*/i, "")}`
+                                    : `Criterion ${index + 1}`}
                                 </strong>
 
                                 <span>
@@ -1961,20 +1987,20 @@ export function MappingSubmissionPage() {
                                   ? "—"
                                   : isPendingFacultyReview(attempt)
                                     ? "In review"
-                                  : attempt.status === "error"
-                                    ? "Unavailable"
-                                    : attempt.status === "uploaded" ||
-                                      attempt.status === "processing"
-                                      ? "Processing"
-                                      : attempt.final_score !== null &&
-                                        attempt.maximum_score !== null &&
-                                        Number(attempt.maximum_score) > 0
-                                        ? `${(
-                                          (Number(attempt.final_score) /
-                                            Number(attempt.maximum_score)) *
-                                          100
-                                        ).toFixed(2)} / 100`
-                                        : "Pending"}
+                                    : attempt.status === "error"
+                                      ? "Unavailable"
+                                      : attempt.status === "uploaded" ||
+                                        attempt.status === "processing"
+                                        ? "Processing"
+                                        : attempt.final_score !== null &&
+                                          attempt.maximum_score !== null &&
+                                          Number(attempt.maximum_score) > 0
+                                          ? `${(
+                                            (Number(attempt.final_score) /
+                                              Number(attempt.maximum_score)) *
+                                            100
+                                          ).toFixed(2)} / 100`
+                                          : "Pending"}
                               </strong>
                             </strong>
                           </div>
@@ -1987,12 +2013,12 @@ export function MappingSubmissionPage() {
                                 ? "—"
                                 : isPendingFacultyReview(attempt)
                                   ? "In review"
-                                : attempt.status === "error"
-                                  ? "Not graded"
-                                  : attempt.status === "uploaded" ||
-                                    attempt.status === "processing"
-                                    ? "Processing"
-                                    : attempt.achieved_band || "Pending"}
+                                  : attempt.status === "error"
+                                    ? "Not graded"
+                                    : attempt.status === "uploaded" ||
+                                      attempt.status === "processing"
+                                      ? "Processing"
+                                      : attempt.achieved_band || "Pending"}
                             </strong>
                           </div>
 
@@ -2043,7 +2069,7 @@ export function MappingSubmissionPage() {
                   </p>
                 )}
 
-      
+
                 <section className="submission-record-metrics">
                   <div className="submission-record-metric">
                     <span>Learners submitted</span>
@@ -2103,12 +2129,12 @@ export function MappingSubmissionPage() {
                           learner.id,
                         );
 
-                        const latestInstructorAttempt =
-                          learner.attempts[0];
+                      const latestInstructorAttempt =
+                        learner.attempts[0];
 
-                        const needsFacultyReview =
-                          latestInstructorAttempt?.requires_faculty_approval === true &&
-                          latestInstructorAttempt?.status === "completed";
+                      const needsFacultyReview =
+                        latestInstructorAttempt?.requires_faculty_approval === true &&
+                        latestInstructorAttempt?.status === "completed";
 
 
                       return (
@@ -2236,10 +2262,10 @@ export function MappingSubmissionPage() {
                                                     }
                                                   >
                                                     {attempt.requires_faculty_approval
-  ? "Review"
-  : attempt.status === "completed"
-    ? "Override"
-    : "Manual Review"}
+                                                      ? "Review"
+                                                      : attempt.status === "completed"
+                                                        ? "Override"
+                                                        : "Manual Review"}
                                                   </button>
                                                 )}
                                             </div>
@@ -2269,7 +2295,7 @@ export function MappingSubmissionPage() {
                                                       marginTop: "12px",
                                                     }}
                                                   >
-                                                    {attempt.criterion_results.map(
+                                                    {sortCriteriaByCode(attempt.criterion_results).map(
                                                       (
                                                         criterion,
                                                         index,
@@ -2283,8 +2309,9 @@ export function MappingSubmissionPage() {
                                                         >
                                                           <div className="criterion-feedback-header">
                                                             <strong>
-                                                              Criterion{" "}
-                                                              {index + 1}
+                                                              {criterion.criterion_code
+                                                                ? `Criterion ${criterion.criterion_code.replace(/^C0*/i, "")}`
+                                                                : `Criterion ${index + 1}`}
                                                             </strong>
                                                             <span>
                                                               {criterion.awarded_marks} /{" "}
@@ -2436,8 +2463,8 @@ export function MappingSubmissionPage() {
                 <p className="submission-eyebrow">Faculty Review</p>
                 <h2 id="faculty-override-title">
                   {overrideTarget.attempt.requires_faculty_approval
-  ? "Faculty Grade Review"
-  : "Manual Grade Override"}
+                    ? "Faculty Grade Review"
+                    : "Manual Grade Override"}
                 </h2>
                 <p>
                   {overrideTarget.learner.name ||
@@ -2568,12 +2595,12 @@ export function MappingSubmissionPage() {
                 disabled={isSavingOverride}
               >
                 {isSavingOverride
-  ? overrideTarget.attempt.requires_faculty_approval
-    ? "Saving Review..."
-    : "Saving Override..."
-  : overrideTarget.attempt.requires_faculty_approval
-    ? "Submit Review"
-    : "Submit Override"}
+                  ? overrideTarget.attempt.requires_faculty_approval
+                    ? "Saving Review..."
+                    : "Saving Override..."
+                  : overrideTarget.attempt.requires_faculty_approval
+                    ? "Submit Review"
+                    : "Submit Override"}
               </button>
             </div>
           </form>

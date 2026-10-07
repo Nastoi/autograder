@@ -566,12 +566,24 @@ class ExtractedEvidenceSerializer(serializers.ModelSerializer):
 
 
 class CriterionResultSerializer(serializers.ModelSerializer):
+    criterion_code = serializers.CharField(
+        source="rubric_criterion.criterion_code",
+        read_only=True,
+    )
+
+    criterion_title = serializers.CharField(
+        source="rubric_criterion.title",
+        read_only=True,
+    )
+
     class Meta:
         model = CriterionResult
         fields = (
             "id",
             "submission",
             "rubric_criterion",
+            "criterion_code",
+            "criterion_title",
             "awarded_marks",
             "achievement_band",
             "feedback",

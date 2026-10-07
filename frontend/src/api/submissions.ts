@@ -65,6 +65,8 @@ export type CriterionResult = {
     | "";
   feedback: string;
   created_at: string;
+  criterion_code: string;
+  criterion_title: string;
 };
 
 export type SubmissionTrack = string;
