@@ -3,8 +3,10 @@ import { RefreshCw, Pause, Play, Search } from "lucide-react";
 
 import {
   getPortalLogs,
+  processSubmissionAction,
   type GradingLogFilterOptions,
   type LogSource,
+  type ProcessingSubmissionAction,
 } from "../api/logs";
 import { useAuth } from "../auth/AuthContext";
 import "../css/LogsPage.css";
@@ -48,6 +50,14 @@ export function LogsPage() {
     processing: 0,
     total: 0,
   });
+  const [processingSubmissionId, setProcessingSubmissionId] =
+    useState("");
+
+  const [processingActionLoading, setProcessingActionLoading] =
+    useState(false);
+
+  const [processingActionMessage, setProcessingActionMessage] =
+    useState("");
 
   async function loadLogs(showSpinner = false) {
     if (showSpinner) setLoading(true);
@@ -57,13 +67,13 @@ export function LogsPage() {
         lineCount,
         source === "grading"
           ? {
-              cohort: cohortFilter,
-              assignment: assignmentFilter,
-              learner: learnerFilter,
-              attempt: attemptFilter,
-              stage: stageFilter,
-              status: statusFilter,
-            }
+            cohort: cohortFilter,
+            assignment: assignmentFilter,
+            learner: learnerFilter,
+            attempt: attemptFilter,
+            stage: stageFilter,
+            status: statusFilter,
+          }
           : {},
       );
       setLines(data.lines ?? []);
@@ -78,6 +88,51 @@ export function LogsPage() {
       setError(err instanceof Error ? err.message : "Unable to load logs.");
     } finally {
       if (showSpinner) setLoading(false);
+    }
+  }
+
+
+  async function handleProcessingAction(
+    action: ProcessingSubmissionAction,
+  ) {
+    const submissionId =
+      processingSubmissionId.trim();
+
+    if (!submissionId) {
+      setError("Please enter a submission ID.");
+      return;
+    }
+
+    const confirmMessage =
+      action === "terminate"
+        ? "Terminate this processing submission?"
+        : "Terminate this processing submission and requeue it?";
+
+    if (!window.confirm(confirmMessage)) {
+      return;
+    }
+
+    setProcessingActionLoading(true);
+    setProcessingActionMessage("");
+    setError("");
+
+    try {
+      const result = await processSubmissionAction(
+        submissionId,
+        action,
+      );
+
+      setProcessingActionMessage(result.detail);
+
+      await loadLogs(false);
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Unable to process submission action.",
+      );
+    } finally {
+      setProcessingActionLoading(false);
     }
   }
 
@@ -118,7 +173,7 @@ export function LogsPage() {
         <div className="logs-error">You do not have permission to view logs.</div>
       </div>
     );
-  } 
+  }
 
 
   function handleLogScroll() {
@@ -256,12 +311,83 @@ export function LogsPage() {
       </div>
 
       {error && <div className="logs-error">{error}</div>}
-      
+
       {source === "queue" && (
         <div className="logs-queue-summary">
           <strong>Queued: {queueSummary.queued}</strong>
           <strong>Processing: {queueSummary.processing}</strong>
           <strong>Total active: {queueSummary.total}</strong>
+        </div>
+      )}
+
+      {source === "queue" && (
+        <div className="logs-processing-card">
+          <div className="logs-processing-card-header">
+            <div>
+              <strong>Processing recovery</strong>
+              <p>
+                Terminate a stuck processing submission or terminate it and requeue the same attempt.
+              </p>
+            </div>
+          </div>
+
+          <div className="logs-processing-actions">
+            <label className="logs-processing-field">
+              <span>Submission ID</span>
+
+              <input
+                type="text"
+                value={processingSubmissionId}
+                onChange={(e) =>
+                  setProcessingSubmissionId(e.target.value)
+                }
+                placeholder="e.g. 21df817b-f474-4467-9034-48e84cd5bfbd"
+                disabled={processingActionLoading}
+              />
+            </label>
+
+            <div className="logs-processing-buttons">
+              <button
+                type="button"
+                className="btn-action"
+                onClick={() =>
+                  void handleProcessingAction("terminate")
+                }
+                disabled={
+                  processingActionLoading ||
+                  !processingSubmissionId.trim()
+                }
+              >
+                {processingActionLoading
+                  ? "Working..."
+                  : "Terminate"}
+              </button>
+
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={() =>
+                  void handleProcessingAction(
+                    "terminate_requeue",
+                  )
+                }
+                disabled={
+                  processingActionLoading ||
+                  !processingSubmissionId.trim()
+                }
+              >
+                {processingActionLoading
+                  ? "Working..."
+                  : "Terminate & Requeue"}
+              </button>
+            </div>
+          </div>
+
+          {processingActionMessage && (
+            <div className="logs-processing-success">
+              {processingActionMessage}
+            </div>
+          )}
         </div>
       )}
 
@@ -279,30 +405,30 @@ export function LogsPage() {
             ? "Loading logs..."
             : visibleLines.length > 0
               ? visibleLines.map((line, index) => {
-                  const isDanger =
-                    source === "queue" &&
-                    line.includes("age_state=danger");
+                const isDanger =
+                  source === "queue" &&
+                  line.includes("age_state=danger");
 
-                  const isWarning =
-                    source === "queue" &&
-                    line.includes("age_state=warning");
+                const isWarning =
+                  source === "queue" &&
+                  line.includes("age_state=warning");
 
-                  return (
-                    <span
-                      key={`${index}-${line}`}
-                      className={
-                        isDanger
-                          ? "logs-line-danger"
-                          : isWarning
-                            ? "logs-line-warning"
-                            : undefined
-                      }
-                    >
-                      {line}
-                      {"\n"}
-                    </span>
-                  );
-                })
+                return (
+                  <span
+                    key={`${index}-${line}`}
+                    className={
+                      isDanger
+                        ? "logs-line-danger"
+                        : isWarning
+                          ? "logs-line-warning"
+                          : undefined
+                    }
+                  >
+                    {line}
+                    {"\n"}
+                  </span>
+                );
+              })
               : "No matching log entries."}
         </pre>
       </div>

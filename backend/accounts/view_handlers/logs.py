@@ -8,6 +8,9 @@ from submissions.models import (
     LearnerSubmission,
     SubmissionProcessLog,
 )
+from celery import current_app
+
+from submissions.audit import record_submission_event
 
 
 class PortalLogView(APIView):
@@ -316,3 +319,185 @@ class PortalLogView(APIView):
         },
         status=status.HTTP_200_OK,
     )
+
+    def post(self, request):
+        submission_id = str(
+            request.data.get("submission_id", "")
+        ).strip()
+
+        action = str(
+            request.data.get("action", "")
+        ).strip()
+
+        if not submission_id:
+            return Response(
+                {"detail": "Submission ID is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if action not in {
+            "terminate",
+            "terminate_requeue",
+        }:
+            return Response(
+                {"detail": "Invalid action."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            submission = LearnerSubmission.objects.get(
+                id=submission_id
+            )
+        except (LearnerSubmission.DoesNotExist, ValueError):
+            return Response(
+                {"detail": "Submission was not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if submission.status != LearnerSubmission.Status.PROCESSING:
+            return Response(
+                {
+                    "detail": (
+                        "Only submissions currently marked "
+                        "as processing can be terminated."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        active_task_id = None
+
+        try:
+            inspector = current_app.control.inspect()
+            active_workers = inspector.active() or {}
+
+            for worker_tasks in active_workers.values():
+                for task in worker_tasks:
+                    if (
+                        task.get("name")
+                        != "submissions.tasks.grade_submission_task"
+                    ):
+                        continue
+
+                    args = task.get("args") or []
+
+                    if args and str(args[0]) == submission_id:
+                        active_task_id = task.get("id")
+                        break
+
+                if active_task_id:
+                    break
+
+        except Exception:
+            active_task_id = None
+
+        if active_task_id:
+            current_app.control.revoke(
+                active_task_id,
+                terminate=True,
+                signal="SIGTERM",
+            )
+
+        if action == "terminate":
+            submission.status = LearnerSubmission.Status.CANCELLED
+            submission.save(update_fields=["status"])
+
+            record_submission_event(
+                submission,
+                stage="admin_recovery",
+                status="warning",
+                event_code="ADMIN_PROCESSING_TERMINATED",
+                message="Processing submission was terminated by an administrator.",
+                details={
+                    "celery_task_id": active_task_id,
+                    "active_task_found": bool(active_task_id),
+                    "performed_by": (
+                        request.user.email
+                        or request.user.username
+                    ),
+                },
+            )
+
+            return Response(
+                {
+                    "detail": "Processing submission terminated.",
+                    "submission_id": submission_id,
+                    "celery_task_id": active_task_id,
+                    "status": submission.status,
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        if submission.final_score is not None:
+            return Response(
+                {
+                    "detail": (
+                        "This submission already has a score "
+                        "and cannot be automatically requeued."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if submission.completed_at is not None:
+            return Response(
+                {
+                    "detail": (
+                        "This submission already has a completion "
+                        "timestamp and cannot be automatically requeued."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if submission.criterion_results.exists():
+            return Response(
+                {
+                    "detail": (
+                        "This submission already has criterion results "
+                        "and cannot be automatically requeued."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        submission.status = LearnerSubmission.Status.UPLOADED
+        submission.save(update_fields=["status"])
+
+        result = current_app.send_task(
+            "submissions.tasks.grade_submission_task",
+            args=[submission_id],
+        )
+
+        record_submission_event(
+            submission,
+            stage="admin_recovery",
+            status="started",
+            event_code="ADMIN_PROCESSING_REQUEUED",
+            message=(
+                "Processing submission was terminated "
+                "and requeued by an administrator."
+            ),
+            details={
+                "previous_celery_task_id": active_task_id,
+                "new_celery_task_id": result.id,
+                "active_task_found": bool(active_task_id),
+                "performed_by": (
+                    request.user.email
+                    or request.user.username
+                ),
+            },
+        )
+
+        return Response(
+            {
+                "detail": (
+                    "Processing submission terminated and requeued."
+                ),
+                "submission_id": submission_id,
+                "previous_celery_task_id": active_task_id,
+                "new_celery_task_id": result.id,
+                "status": submission.status,
+            },
+            status=status.HTTP_200_OK,
+        )
