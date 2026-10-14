@@ -61,6 +61,7 @@ import {
 import { RecentDeletedAuditButton } from "../components/RecentDeletedAuditButton";
 import { AssignmentSummaryCards } from "../components/assignments/AssignmentSummaryCards";
 import { AssignmentListContent } from "../components/assignments/AssignmentListContent";
+import { DEFAULT_TABLE_PAGE_SIZE } from "../components/PaginationControls";
 import { AssignmentWorkspaceShell } from "../components/assignments/AssignmentWorkspaceShell";
 import { AssignmentManagementModals } from "../components/assignments/AssignmentManagementModals";
 import { AssignmentOverviewPanel } from "../components/assignments/AssignmentOverviewPanel";
@@ -106,6 +107,7 @@ export function AssignmentsPage() {
 
   const [showCreateAssignment, setShowCreateAssignment] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [assignmentPage, setAssignmentPage] = useState(1);
   const [selectedAssignmentId, setSelectedAssignmentId] = useState("");
   const [activeWorkspaceTab, setActiveWorkspaceTab] =
     useState<WorkspaceTab>("overview");
@@ -294,6 +296,15 @@ export function AssignmentsPage() {
       assignment.module_code.toLowerCase().includes(term)
     );
   });
+
+  const paginatedAssignments = filteredAssignments.slice(
+    (assignmentPage - 1) * DEFAULT_TABLE_PAGE_SIZE,
+    assignmentPage * DEFAULT_TABLE_PAGE_SIZE,
+  );
+
+  useEffect(() => {
+    setAssignmentPage(1);
+  }, [searchTerm]);
 
   const selectedAssignment = assignments.find(
     (assignment) => assignment.id === selectedAssignmentId,
@@ -2046,7 +2057,10 @@ export function AssignmentsPage() {
       <section className="page-section">
 
         <AssignmentListContent
-          filteredAssignments={filteredAssignments}
+          filteredAssignments={paginatedAssignments}
+          totalAssignments={filteredAssignments.length}
+          currentPage={assignmentPage}
+          setCurrentPage={setAssignmentPage}
           qualifications={qualifications}
           filteredModules={filteredModules}
           selectedAssignmentId={selectedAssignmentId}

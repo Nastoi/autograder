@@ -8,6 +8,7 @@
 __pycache__/
 *.py[cod]
 *.pyo
+backend/config/settings.py
 backend/.venv/
 .venv/
 .pytest_cache/

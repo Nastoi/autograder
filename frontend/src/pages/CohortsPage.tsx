@@ -43,6 +43,7 @@ import "../css/QualificationsPage.css"; // For modern UI classes
 
 import { AuditTrailButton } from "../components/AuditTrailButton";
 import { RecentDeletedAuditButton } from "../components/RecentDeletedAuditButton";
+import { PaginationControls, DEFAULT_TABLE_PAGE_SIZE } from "../components/PaginationControls";
 
 export function CohortsPage() {
   const [cohorts, setCohorts] = useState<Cohort[]>([]);
@@ -61,6 +62,7 @@ export function CohortsPage() {
   const [selectedCohortId, setSelectedCohortId] = useState<string | null>(null);
   const [showCreateCohort, setShowCreateCohort] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [cohortPage, setCohortPage] = useState(1);
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -163,6 +165,12 @@ export function CohortsPage() {
       cohort.module_code.toLowerCase().includes(term)
     );
   });
+
+  const paginatedCohorts = filteredCohorts.slice(
+    (cohortPage - 1) * DEFAULT_TABLE_PAGE_SIZE,
+    cohortPage * DEFAULT_TABLE_PAGE_SIZE,
+  );
+
 
   const selectedCohortMappings = mappings.filter(
     (mapping) =>
@@ -822,7 +830,10 @@ export function CohortsPage() {
                 type="text"
                 placeholder="Search cohorts..."
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e) => {
+                  setSearchTerm(e.target.value);
+                  setCohortPage(1);
+                }}
                 style={{
                   paddingLeft: "32px",
                   height: "36px",
@@ -835,6 +846,12 @@ export function CohortsPage() {
             </div>
           </div>
         </div>
+
+        <PaginationControls
+          currentPage={cohortPage}
+          totalItems={filteredCohorts.length}
+          onPageChange={setCohortPage}
+        />
 
         {cohorts.length === 0 ? (
           <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
@@ -855,7 +872,7 @@ export function CohortsPage() {
               </tr>
             </thead>
             <tbody>
-              {filteredCohorts.map((cohort) => {
+              {paginatedCohorts.map((cohort) => {
                 const mappingCount = mappings.filter(
                   (mapping) => mapping.cohort === cohort.id,
                 ).length;

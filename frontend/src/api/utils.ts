@@ -1,6 +1,6 @@
 export const API_BASE_URL =
     import.meta.env.VITE_API_BASE_URL ||
-    "http://localhost:8000/api";
+    "/api";
 
 
 export type PaginatedResponse<T> = {
@@ -36,44 +36,67 @@ export async function fetchAllPaginatedResults<T>(
     errorMessage: string,
 ): Promise<T[]> {
     const results: T[] = [];
-    let nextUrl: string | null = initialUrl;
+    const apiBase = new URL(API_BASE_URL, window.location.origin);
+
+    // DRF may emit an absolute `next` URL using the Docker/internal host.
+    // Never ask the browser to follow that host directly. Keep every page
+    // request on the same public API origin used for the first request.
+    const normalisePageUrl = (url: string): string => {
+        const parsed = new URL(url, window.location.origin);
+        return `${apiBase.origin}${parsed.pathname}${parsed.search}`;
+    };
+
+    let nextUrl: string | null = normalisePageUrl(initialUrl);
 
     while (nextUrl) {
-        const response = await fetch(nextUrl, {
-            method: "GET",
-            credentials: "include",
-        });
+        let response: Response;
 
-        const data = await response.json();
+        try {
+            response = await fetch(nextUrl, {
+                method: "GET",
+                credentials: "include",
+            });
+        } catch {
+            throw new Error(errorMessage);
+        }
+
+        let data: unknown;
+        try {
+            data = await response.json();
+        } catch {
+            throw new Error(errorMessage);
+        }
 
         if (!response.ok) {
-            throw new Error(
-                typeof data?.detail === "string"
+            const detail =
+                data &&
+                typeof data === "object" &&
+                "detail" in data &&
+                typeof data.detail === "string"
                     ? data.detail
-                    : errorMessage,
-            );
+                    : errorMessage;
+            throw new Error(detail);
         }
 
         if (Array.isArray(data)) {
-            results.push(...data);
+            results.push(...(data as T[]));
             break;
         }
 
         if (
             data &&
             typeof data === "object" &&
+            "results" in data &&
             Array.isArray(data.results)
         ) {
-            results.push(...data.results);
-            if (data.next) {
-                const parsedNext = new URL(data.next);
-                const apiBase = new URL(API_BASE_URL, window.location.origin);
+            results.push(...(data.results as T[]));
 
-                nextUrl =
-                    `${apiBase.origin}${parsedNext.pathname}${parsedNext.search}`;
-                } else {
-                nextUrl = null;
-                }
+            const rawNext =
+                "next" in data && typeof data.next === "string"
+                    ? data.next
+                    : null;
+
+            nextUrl = rawNext ? normalisePageUrl(rawNext) : null;
             continue;
         }
 
@@ -82,5 +105,3 @@ export async function fetchAllPaginatedResults<T>(
 
     return results;
 }
-
-
