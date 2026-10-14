@@ -38,7 +38,7 @@ class QualificationListCreateView(
     ]
 
     def get_queryset(self):
-        return Qualification.objects.order_by("qualification_code")
+        return Qualification.objects.order_by("-created_at", "-id")
 
     def perform_create(self, serializer):
         qualification = serializer.save()
@@ -63,7 +63,7 @@ class QualificationDetailView(
     lookup_field = "id"
 
     def get_queryset(self):
-        return Qualification.objects.order_by("qualification_code")
+        return Qualification.objects.order_by("-created_at", "-id")
 
     def destroy(self, request, *args, **kwargs):
         qualification = self.get_object()

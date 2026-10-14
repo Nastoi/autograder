@@ -55,7 +55,6 @@ INSTALLED_APPS = [
     'debug_toolbar',
     'accounts',
     'courses',
-    'assignments',
     'submissions',
     'grading',
     'lms',
@@ -147,8 +146,12 @@ CACHES = {
 }
 
 # Session Cache (use Redis)
-SESSION_ENGINE = 'django.contrib.sessions.backends.cache'
+SESSION_ENGINE = "django.contrib.sessions.backends.cached_db"
 SESSION_CACHE_ALIAS = 'default'
+
+SESSION_COOKIE_AGE = 60 * 60 * 24 * 14
+SESSION_SAVE_EVERY_REQUEST = True
+SESSION_EXPIRE_AT_BROWSER_CLOSE = False
 
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
 OPENAI_API_MODEL = os.environ.get(
@@ -193,52 +196,57 @@ USE_TZ = True
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
-CORS_ALLOWED_ORIGINS = [
-    origin.strip()
-    for origin in os.environ.get(
-        "CORS_ALLOWED_ORIGINS",
-        "http://localhost:5173",
+# CORS_ALLOWED_ORIGINS = [
+#     origin.strip()
+#     for origin in os.environ.get(
+#         "CORS_ALLOWED_ORIGINS",
+#         "http://localhost:5173",
         
-    ).split(",")
-    if origin.strip()
-]
+#     ).split(",")
+#     if origin.strip()
+# ]
 
 #uncomment this for local
-# CORS_ALLOWED_ORIGINS = [
-#     "http://localhost:5173",
-#     "https://refill-blot-unnamed.ngrok-free.dev",
-# ]
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:5173",
+    "https://refill-blot-unnamed.ngrok-free.dev",
+]
 
 CORS_ALLOW_CREDENTIALS = True
 
 #uncomment this for prod
-CSRF_TRUSTED_ORIGINS = [
-    origin.strip()
-    for origin in os.environ.get(
-        "CSRF_TRUSTED_ORIGINS",
-        (
-            "http://localhost:5173,"
-            "https://claaslms.educlaas.com,"
-            "https://apps.claaslms.educlaas.com",
-        ),
-    ).split(",")
-    if origin.strip()
-]
-
-#uncomment this for local
 # CSRF_TRUSTED_ORIGINS = [
-#     "http://localhost:5173",
-#     "http://127.0.0.1:5173",
-#     "https://refill-blot-unnamed.ngrok-free.dev",
+#     origin.strip()
+#     for origin in os.environ.get(
+#         "CSRF_TRUSTED_ORIGINS",
+#         (
+#             "http://localhost:5173,"
+#             "https://claaslms.educlaas.com,"
+#             "https://apps.claaslms.educlaas.com",
+#         ),
+#     ).split(",")
+#     if origin.strip()
 # ]
 
+#uncomment this for local
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "https://refill-blot-unnamed.ngrok-free.dev",
+]
+
+# Local Docker/Vite development runs over HTTP, while LMS/LTI production
+# should run over HTTPS. Keep cookie security environment-aware so local
+# login/CSRF works without weakening production deployments.
+COOKIE_SECURE = os.environ.get("COOKIE_SECURE", "false").lower() == "true"
+
 SESSION_COOKIE_HTTPONLY = True
-SESSION_COOKIE_SAMESITE = "None"
-SESSION_COOKIE_SECURE = True
+SESSION_COOKIE_SECURE = COOKIE_SECURE
+SESSION_COOKIE_SAMESITE = "None" if COOKIE_SECURE else "Lax"
 
 CSRF_COOKIE_HTTPONLY = False
-CSRF_COOKIE_SAMESITE = "None"
-CSRF_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = COOKIE_SECURE
+CSRF_COOKIE_SAMESITE = "None" if COOKIE_SECURE else "Lax"
 
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
@@ -253,14 +261,6 @@ LTI_PLATFORM_ISSUER = os.environ.get("LTI_PLATFORM_ISSUER", "")
 LTI_LOGIN_URL = os.environ.get("LTI_LOGIN_URL", "")
 AUTOGRADER_PUBLIC_URL = os.environ.get("AUTOGRADER_PUBLIC_URL", "")
 
-CACHES = {
-    "default": {
-        "BACKEND": (
-            "django.core.cache.backends.redis.RedisCache"
-        ),
-        "LOCATION": "redis://redis:6379/1",
-    }
-}
 # Debug Toolbar
 INTERNAL_IPS = [
     "127.0.0.1",
@@ -271,3 +271,89 @@ INTERNAL_IPS = [
 if os.environ.get('DJANGO_ENV') == 'test':
     DATABASES['default']['NAME'] = 'test_' + os.environ.get("POSTGRES_DB", "autograder")
     CACHES['default']['LOCATION'] = 'redis://localhost:6379/1'
+
+
+CELERY_BROKER_URL = os.environ.get(
+    "CELERY_BROKER_URL",
+    "redis://redis:6379/2",
+)
+
+CELERY_RESULT_BACKEND = os.environ.get(
+    "CELERY_RESULT_BACKEND",
+    "redis://redis:6379/2",
+)
+
+CELERY_TASK_TRACK_STARTED = True
+
+CELERY_TASK_SOFT_TIME_LIMIT = 60 * 10   # 10 minutes
+CELERY_TASK_TIME_LIMIT = 60 * 12        # hard kill at 12 minutes
+
+# Portal-readable application logs. These are fixed application log files,
+# not Docker daemon access. Rotating handlers prevent unbounded disk growth.
+LOG_DIR = BASE_DIR / "logs"
+LOG_DIR.mkdir(parents=True, exist_ok=True)
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "filters": {
+        "skip_portal_log_requests": {
+            "()": "config.logging_filters.SkipPortalLogRequests",
+        },
+    },
+    "formatters": {
+        "portal": {
+            "format": "{asctime} {levelname:<8} {name} {message}",
+            "style": "{",
+        },
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "portal",
+        },
+        "backend_file": {
+            "class": "logging.handlers.RotatingFileHandler",
+            "filters": ["skip_portal_log_requests"],
+            "filename": LOG_DIR / "backend.log",
+            "maxBytes": 5 * 1024 * 1024,
+            "backupCount": 3,
+            "formatter": "portal",
+            "encoding": "utf-8",
+        },
+        "celery_file": {
+            "class": "logging.handlers.RotatingFileHandler",
+            "filename": LOG_DIR / "celery.log",
+            "maxBytes": 5 * 1024 * 1024,
+            "backupCount": 3,
+            "formatter": "portal",
+            "encoding": "utf-8",
+        },
+        "error_file": {
+            "class": "logging.handlers.RotatingFileHandler",
+            "filename": LOG_DIR / "error.log",
+            "level": "ERROR",
+            "maxBytes": 5 * 1024 * 1024,
+            "backupCount": 3,
+            "formatter": "portal",
+            "encoding": "utf-8",
+        },
+    },
+    "root": {
+        "handlers": ["console", "backend_file", "error_file"],
+        "level": "INFO",
+    },
+    "loggers": {
+        # Task lifecycle messages get their own focused log.
+        "submissions.tasks": {
+            "handlers": ["console", "celery_file", "error_file"],
+            "level": "INFO",
+            "propagate": False,
+        },
+        "django.server": {
+            "handlers": ["console", "backend_file", "error_file"],
+            "level": "INFO",
+            "propagate": False,
+        },
+    },
+}
