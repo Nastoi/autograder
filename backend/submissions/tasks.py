@@ -3,6 +3,7 @@ import logging
 from celery import shared_task
 from django.conf import settings
 import requests
+from billiard.exceptions import SoftTimeLimitExceeded
 
 from lms.ags import clear_ags_score, send_ags_score
 from lms.models import LtiUserIdentity
@@ -11,6 +12,7 @@ from .attempt_policy import get_latest_submission
 from .models import LearnerSubmission
 from .audit import record_submission_event, update_grading_audit
 from .services import run_ai_grading
+from .failures import clear_submission_failure, mark_submission_failed
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +40,50 @@ def grade_submission_task(
     )
 
     try:
+        delivery_info = getattr(self.request, "delivery_info", None) or {}
+        redelivered = bool(delivery_info.get("redelivered"))
+
+        # With acks_late + reject_on_worker_lost Celery redelivers a task if
+        # the worker process is killed (for example by OOM/SIGKILL).  Do not
+        # blindly run the same extreme submission again: convert the first
+        # redelivery into a durable, user-visible WORKER_LOST failure.
+        if redelivered and submission.status == LearnerSubmission.Status.PROCESSING:
+            logger.error(
+                "Grading task for submission %s was redelivered after worker loss; "
+                "marking the attempt failed instead of processing it again.",
+                submission_id,
+            )
+            mark_submission_failed(
+                submission,
+                code="WORKER_LOST",
+                technical_details={
+                    "celery_task_id": getattr(self.request, "id", None),
+                    "redelivered": True,
+                    "delivery_info": {
+                        key: value
+                        for key, value in delivery_info.items()
+                        if key in {"exchange", "routing_key", "priority", "redelivered"}
+                    },
+                },
+            )
+            update_grading_audit(
+                submission,
+                status="error",
+                error_code="WORKER_LOST",
+                error_message=submission.failure_message,
+            )
+            try:
+                self.app.send_task(
+                    "submissions.tasks.push_submission_grade_task",
+                    args=[str(submission.id)],
+                )
+            except Exception:
+                logger.exception(
+                    "Could not queue AGS passback for worker-lost submission %s.",
+                    submission_id,
+                )
+            return
+
         if submission.status == LearnerSubmission.Status.COMPLETED:
             # This can happen if a worker redelivers an already-completed task.
             # Queue AGS again safely; the passback task will verify this is
@@ -61,6 +107,7 @@ def grade_submission_task(
             message="Background grading worker started processing the attempt.",
         )
 
+        clear_submission_failure(submission)
         submission.status = LearnerSubmission.Status.PROCESSING
         submission.save(
             update_fields=["status"]
@@ -100,6 +147,49 @@ def grade_submission_task(
             args=[str(submission.id)],
         )
 
+    except SoftTimeLimitExceeded as exc:
+        logger.warning(
+            "Background grading timed out for submission %s.",
+            submission_id,
+        )
+        mark_submission_failed(
+            submission,
+            code="GRADING_TIMEOUT",
+            technical_details={
+                "error_type": type(exc).__name__,
+                "soft_time_limit_seconds": getattr(
+                    settings,
+                    "CELERY_TASK_SOFT_TIME_LIMIT",
+                    None,
+                ),
+                "hard_time_limit_seconds": getattr(
+                    settings,
+                    "CELERY_TASK_TIME_LIMIT",
+                    None,
+                ),
+            },
+        )
+        update_grading_audit(
+            submission,
+            status="error",
+            error_code="GRADING_TIMEOUT",
+            error_message=submission.failure_message,
+        )
+        try:
+            self.app.send_task(
+                "submissions.tasks.push_submission_grade_task",
+                args=[str(submission.id)],
+            )
+        except Exception:
+            logger.exception(
+                "Could not queue AGS passback for timed-out submission %s.",
+                submission_id,
+            )
+        # Re-raise so Celery records the task as failed. The important
+        # difference is that the submission has already been moved out of
+        # PROCESSING and now contains a safe reason + mitigation.
+        raise
+
     except Exception as exc:
         logger.exception(
             "Background grading failed for submission %s",
@@ -123,9 +213,14 @@ def grade_submission_task(
             error_message=str(exc),
         )
 
-        submission.status = LearnerSubmission.Status.ERROR
-        submission.save(
-            update_fields=["status"]
+        mark_submission_failed(
+            submission,
+            code="GRADING_TECHNICAL_ERROR",
+            technical_details={
+                "error_type": type(exc).__name__,
+                "error_message": str(exc),
+            },
+            overwrite=False,
         )
 
         # The submission row exists, so this is an accepted attempt.

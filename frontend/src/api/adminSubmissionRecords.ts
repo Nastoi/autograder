@@ -92,6 +92,10 @@ export type AdminSubmissionAttempt = {
   final_score: string | null;
   maximum_score: string | null;
   feedback: string;
+  failure_code: string;
+  failure_message: string;
+  failure_mitigation: string;
+  failed_at: string | null;
   achieved_band: string;
   original_filename: string;
   submitted_at: string;

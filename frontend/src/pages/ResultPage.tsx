@@ -8,6 +8,7 @@ import {
 } from "../api/submissions";
 
 import { jsPDF } from "jspdf";
+import { SubmissionFailureNotice } from "../components/SubmissionFailureNotice";
 
 export function ResultPage() {
   const navigate = useNavigate();
@@ -144,9 +145,25 @@ export function ResultPage() {
       <div className="result-card">
 
         <div className="result-header">
-          <div className="result-icon">✓</div>
-          <h1>Submission Received</h1>
-          <p>Your assignment has been successfully uploaded.</p>
+          <div
+            className={`result-icon${
+              submission.status === "error" || submission.status === "failed"
+                ? " result-icon--error"
+                : ""
+            }`}
+          >
+            {submission.status === "error" || submission.status === "failed" ? "!" : "✓"}
+          </div>
+          <h1>
+            {submission.status === "error" || submission.status === "failed"
+              ? "Grading Failed"
+              : "Submission Received"}
+          </h1>
+          <p>
+            {submission.status === "error" || submission.status === "failed"
+              ? "Your submission was received, but grading could not be completed."
+              : "Your assignment has been successfully uploaded."}
+          </p>
         </div>
 
         <div className="result-details">
@@ -177,6 +194,15 @@ export function ResultPage() {
             <span>Attempt</span>
             <strong>{submission.attempt_number}</strong>
           </div>
+
+          {(submission.status === "error" || submission.status === "failed") && (
+            <SubmissionFailureNotice
+              submissionId={submission.id}
+              code={submission.failure_code}
+              message={submission.failure_message}
+              mitigation={submission.failure_mitigation}
+            />
+          )}
 
           {submission.status === "completed" && (
             <>

@@ -37,6 +37,7 @@ import {
 
 
 import { jsPDF } from "jspdf";
+import { SubmissionFailureNotice } from "../components/SubmissionFailureNotice";
 
 
 
@@ -1683,6 +1684,14 @@ export function MappingSubmissionPage() {
                         to check its status.
                       </p>
                     </div>
+                  ) : latestAttempt?.status === "error" ||
+                    latestAttempt?.status === "failed" ? (
+                    <SubmissionFailureNotice
+                      submissionId={latestAttempt.id}
+                      code={latestAttempt.failure_code}
+                      message={latestAttempt.failure_message}
+                      mitigation={latestAttempt.failure_mitigation}
+                    />
                   ) : isPendingFacultyReview(latestAttempt) ? (
                     <div className="grading-review-message" style={{
                       marginTop: "18px",
@@ -2043,6 +2052,15 @@ export function MappingSubmissionPage() {
                             </div>
                           )}
 
+                        {(attempt.status === "error" || attempt.status === "failed") && (
+                          <SubmissionFailureNotice
+                            submissionId={attempt.id}
+                            code={attempt.failure_code}
+                            message={attempt.failure_message}
+                            mitigation={attempt.failure_mitigation}
+                            compact
+                          />
+                        )}
 
                       </article>
                     ))}
@@ -2283,6 +2301,16 @@ export function MappingSubmissionPage() {
                                               {attempt.feedback ||
                                                 "No feedback available."}
                                             </p>
+
+                                            {(attempt.status === "error" || attempt.status === "failed") && (
+                                              <SubmissionFailureNotice
+                                                submissionId={attempt.id}
+                                                code={attempt.failure_code}
+                                                message={attempt.failure_message}
+                                                mitigation={attempt.failure_mitigation}
+                                                compact
+                                              />
+                                            )}
 
                                             {attempt.criterion_results.length >
                                               0 && (

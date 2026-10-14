@@ -12,6 +12,7 @@ import {
 
 import "../css/AssessmentMappings.css";
 import "../css/SubmissionRecordsPage.css";
+import { SubmissionFailureNotice } from "../components/SubmissionFailureNotice";
 
 import {
   getAssessmentMappings,
@@ -974,6 +975,16 @@ export function SubmissionRecordsPage() {
                                                                   {attempt.feedback ||
                                                                     "No feedback available."}
                                                                 </p>
+
+                                                                {(attempt.status === "error" || attempt.status === "failed") && (
+                                                                  <SubmissionFailureNotice
+                                                                    submissionId={attempt.id}
+                                                                    code={attempt.failure_code}
+                                                                    message={attempt.failure_message}
+                                                                    mitigation={attempt.failure_mitigation}
+                                                                    compact
+                                                                  />
+                                                                )}
 
                                                                 {(attempt.criterion_results?.length ?? 0) > 0 && (
                                                                   <details className="submission-detail-section">

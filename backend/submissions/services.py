@@ -5,9 +5,11 @@ from django.conf import settings
 from django.utils import timezone
 
 from pdf2image import convert_from_path
+from PIL import Image
 from django.core.files.base import ContentFile
 from .models import LearnerSubmission, SubmissionPage
 from .audit import record_submission_event, update_grading_audit
+from .failures import mark_submission_failed
 from grading.services.submission_grader import (
     grade_submission,
     map_submission_tasks,
@@ -123,27 +125,81 @@ def extract_submission_pages(submission: LearnerSubmission) -> LearnerSubmission
     submission.pages.all().delete()
 
     try:
-        images = convert_from_path(pdf_path, dpi=200, fmt="webp")
+        pages_extracted = 0
+        batch_size = max(
+            1,
+            int(getattr(settings, "SUBMISSION_RENDER_BATCH_PAGES", 4)),
+        )
 
         with pdfplumber.open(pdf_path) as pdf:
-            for index, page_image in enumerate(images):
-                page_number = index + 1
-                extracted_text = ""
+            total_pages = len(pdf.pages)
 
-                if index < len(pdf.pages):
-                    extracted_text = pdf.pages[index].extract_text() or ""
-
-                image_buffer = io.BytesIO()
-                page_image.save(image_buffer, format="WEBP")
-                raw_image_bytes = image_buffer.getvalue()
-
-                SubmissionPage.objects.create(
-                    submission=submission,
-                    page_number=page_number,
-                    extracted_text=extracted_text.strip(),
-                    image_data=raw_image_bytes,
-                    image_mime_type="image/webp",
+            # Render a bounded number of pages at a time instead of asking
+            # pdf2image to materialize the complete PDF in memory. The page
+            # records, numbering, text extraction, stored image format and
+            # downstream grading flow remain unchanged.
+            for batch_start in range(1, total_pages + 1, batch_size):
+                batch_end = min(batch_start + batch_size - 1, total_pages)
+                images = convert_from_path(
+                    pdf_path,
+                    dpi=getattr(settings, "SUBMISSION_RENDER_DPI", 160),
+                    fmt="webp",
+                    first_page=batch_start,
+                    last_page=batch_end,
                 )
+
+                expected_batch_pages = batch_end - batch_start + 1
+                if len(images) != expected_batch_pages:
+                    raise RuntimeError(
+                        "PDF renderer returned an unexpected number of pages "
+                        f"for pages {batch_start}-{batch_end}: "
+                        f"expected {expected_batch_pages}, got {len(images)}."
+                    )
+
+                for offset, page_image in enumerate(images):
+                    page_number = batch_start + offset
+                    extracted_text = pdf.pages[page_number - 1].extract_text() or ""
+
+                    # Keep stored page renders compact enough for multimodal grading.
+                    # The grading layer also applies a per-request adaptive budget,
+                    # so this reduces storage/network cost without being the only
+                    # protection against oversized model requests.
+                    max_side = getattr(settings, "SUBMISSION_IMAGE_MAX_SIDE_PX", 1800)
+                    if max(page_image.size) > max_side:
+                        page_image.thumbnail(
+                            (max_side, max_side),
+                            resample=Image.Resampling.LANCZOS,
+                        )
+
+                    image_buffer = io.BytesIO()
+                    page_image.save(
+                        image_buffer,
+                        format="WEBP",
+                        quality=getattr(settings, "SUBMISSION_IMAGE_WEBP_QUALITY", 78),
+                        method=getattr(settings, "SUBMISSION_IMAGE_WEBP_METHOD", 3),
+                    )
+                    raw_image_bytes = image_buffer.getvalue()
+
+                    SubmissionPage.objects.create(
+                        submission=submission,
+                        page_number=page_number,
+                        extracted_text=extracted_text.strip(),
+                        image_data=raw_image_bytes,
+                        image_mime_type="image/webp",
+                    )
+                    pages_extracted += 1
+
+                    image_buffer.close()
+                    page_image.close()
+
+                # Drop the batch before asking Poppler/Pillow for the next one.
+                del images
+
+        if pages_extracted != total_pages:
+            raise RuntimeError(
+                "PDF extraction completed with an incomplete page set: "
+                f"expected {total_pages}, saved {pages_extracted}."
+            )
 
         submission.status = LearnerSubmission.Status.PROCESSING
         submission.save(update_fields=["status"])
@@ -154,12 +210,21 @@ def extract_submission_pages(submission: LearnerSubmission) -> LearnerSubmission
             status="success",
             event_code="PDF_EXTRACTION_COMPLETED",
             message="PDF pages were rendered and extracted successfully.",
-            details={"pages_extracted": len(images)},
+            details={
+                "pages_extracted": pages_extracted,
+                "render_batch_pages": batch_size,
+            },
         )
         return submission
     except Exception as exc:
-        submission.status = LearnerSubmission.Status.ERROR
-        submission.save(update_fields=["status"])
+        mark_submission_failed(
+            submission,
+            code="PDF_EXTRACTION_FAILED",
+            technical_details={
+                "error_type": type(exc).__name__,
+                "error_message": str(exc),
+            },
+        )
         record_submission_event(
             submission,
             stage="extraction",
@@ -198,6 +263,14 @@ def run_ai_grading(submission):
         try:
             mapping_result = map_submission_tasks(submission)
         except Exception as exc:
+            mark_submission_failed(
+                submission,
+                code="TASK_MAPPING_FAILED",
+                technical_details={
+                    "error_type": type(exc).__name__,
+                    "error_message": str(exc),
+                },
+            )
             record_submission_event(
                 submission,
                 stage="task_mapping",
@@ -230,20 +303,21 @@ def run_ai_grading(submission):
         )
 
         if mapping_result.get("is_unrelated_document"):
-            submission.status = LearnerSubmission.Status.ERROR
-            submission.feedback = (
-                "We detected that the submitted file does not "
-                "appear to be related to this assignment. "
-                "Please check that you uploaded the correct "
-                "document and submit again."
+            mark_submission_failed(
+                submission,
+                code="UNRELATED_DOCUMENT",
+                technical_details={
+                    "mapping_result": {
+                        "is_unrelated_document": True,
+                    },
+                },
             )
-            submission.save(update_fields=["status", "feedback"])
 
             update_grading_audit(
                 submission,
                 status="error",
                 error_code="UNRELATED_DOCUMENT",
-                error_message=submission.feedback,
+                error_message=submission.failure_message,
                 completed_at=timezone.now(),
             )
             record_submission_event(
@@ -266,6 +340,14 @@ def run_ai_grading(submission):
         try:
             grading_result = grade_submission(submission)
         except Exception as exc:
+            mark_submission_failed(
+                submission,
+                code="AI_GRADING_FAILED",
+                technical_details={
+                    "error_type": type(exc).__name__,
+                    "error_message": str(exc),
+                },
+            )
             update_grading_audit(
                 submission,
                 status="error",
@@ -342,8 +424,15 @@ def run_ai_grading(submission):
         return submission
 
     except Exception as exc:
-        submission.status = LearnerSubmission.Status.ERROR
-        submission.save(update_fields=["status"])
+        mark_submission_failed(
+            submission,
+            code="GRADING_TECHNICAL_ERROR",
+            technical_details={
+                "error_type": type(exc).__name__,
+                "error_message": str(exc),
+            },
+            overwrite=False,
+        )
         update_grading_audit(
             submission,
             status="error",

@@ -124,6 +124,10 @@ class LearnerSubmissionSerializer(serializers.ModelSerializer):
             "maximum_score",
             "achieved_band",
             "feedback",
+            "failure_code",
+            "failure_message",
+            "failure_mitigation",
+            "failed_at",
             "is_manual_override",
             "manual_override_by",
             "criterion_results",
@@ -138,6 +142,10 @@ class LearnerSubmissionSerializer(serializers.ModelSerializer):
             "maximum_score",
             "achieved_band",
             "feedback",
+            "failure_code",
+            "failure_message",
+            "failure_mitigation",
+            "failed_at",
             "submitted_at",
             "completed_at",
         )
@@ -169,6 +177,12 @@ class LearnerSubmissionDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = LearnerSubmission
         fields = "__all__"
+        read_only_fields = (
+            "failure_code",
+            "failure_message",
+            "failure_mitigation",
+            "failed_at",
+        )
 
 
 class LearnerSubmissionListSerializer(serializers.ModelSerializer):
@@ -196,6 +210,10 @@ class LearnerSubmissionListSerializer(serializers.ModelSerializer):
         fields = (
             "id",
             "status",
+            "failure_code",
+            "failure_message",
+            "failure_mitigation",
+            "failed_at",
             "attempt_number",
             "submitted_at",
             "assignment_code",
