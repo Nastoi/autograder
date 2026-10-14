@@ -42,7 +42,7 @@ class ManagedUserListCreateView(APIView):
             ]
         )
         .select_related("profile")
-        .order_by("username")
+        .order_by("-date_joined", "-id")
     )
 
         return Response(

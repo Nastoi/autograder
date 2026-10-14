@@ -34,11 +34,7 @@ class ModuleAssignmentListCreateView(
             "module",
             "module__qualification",
             "grading_configuration",
-        ).order_by(
-            "module__module_code",
-            "level",
-            "assignment_code",
-        )
+        ).order_by("-created_at", "-id")
 
         module_id = self.request.query_params.get(
             "module_id",

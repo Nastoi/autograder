@@ -38,7 +38,7 @@ class AssessmentMappingListCreateView(
                     "cohort__module",
                     "assignment",
                 )
-            .order_by("name")
+            .order_by("-created_at", "-id")
         )
 
     def perform_create(self, serializer):

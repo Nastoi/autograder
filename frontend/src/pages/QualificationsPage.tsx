@@ -42,6 +42,7 @@ import {
 
 import { AuditTrailButton } from "../components/AuditTrailButton";
 import { RecentDeletedAuditButton } from "../components/RecentDeletedAuditButton";
+import { PaginationControls, DEFAULT_TABLE_PAGE_SIZE } from "../components/PaginationControls";
 
 export function QualificationsPage() {
   const [searchParams] = useSearchParams();
@@ -63,6 +64,8 @@ export function QualificationsPage() {
   const [selectedQualificationId, setSelectedQualificationId] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [moduleSearchQuery, setModuleSearchQuery] = useState("");
+  const [qualificationPage, setQualificationPage] = useState(1);
+  const [modulePage, setModulePage] = useState(1);
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editQualificationCode, setEditQualificationCode] = useState("");
@@ -500,6 +503,17 @@ export function QualificationsPage() {
     m.module_name.toLowerCase().includes(moduleSearchQuery.toLowerCase())
   );
 
+  const paginatedQualifications = filteredQualifications.slice(
+    (qualificationPage - 1) * DEFAULT_TABLE_PAGE_SIZE,
+    qualificationPage * DEFAULT_TABLE_PAGE_SIZE,
+  );
+
+  const paginatedModules = filteredAllModules.slice(
+    (modulePage - 1) * DEFAULT_TABLE_PAGE_SIZE,
+    modulePage * DEFAULT_TABLE_PAGE_SIZE,
+  );
+
+
   return (
     <div className="academic-layout">
       {/* Sidebar */}
@@ -699,10 +713,19 @@ export function QualificationsPage() {
                   type="text"
                   placeholder="Search qualifications..."
                   value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
+                  onChange={e => {
+                    setSearchQuery(e.target.value);
+                    setQualificationPage(1);
+                  }}
                 />
               </div>
             </div>
+
+            <PaginationControls
+              currentPage={qualificationPage}
+              totalItems={filteredQualifications.length}
+              onPageChange={setQualificationPage}
+            />
 
             <table className="data-table">
               <thead>
@@ -721,7 +744,7 @@ export function QualificationsPage() {
                     <td colSpan={6} style={{ textAlign: 'center', padding: '40px' }}>No qualifications found.</td>
                   </tr>
                 ) : (
-                  filteredQualifications.map((qualification) => {
+                  paginatedQualifications.map((qualification) => {
                     const isEditing = editingId === qualification.id;
                     const moduleCount = modules.filter(
                       (m) => m.qualification === qualification.id,
@@ -863,10 +886,19 @@ export function QualificationsPage() {
                   type="text"
                   placeholder="Search modules..."
                   value={moduleSearchQuery}
-                  onChange={e => setModuleSearchQuery(e.target.value)}
+                  onChange={e => {
+                    setModuleSearchQuery(e.target.value);
+                    setModulePage(1);
+                  }}
                 />
               </div>
             </div>
+
+            <PaginationControls
+              currentPage={modulePage}
+              totalItems={filteredAllModules.length}
+              onPageChange={setModulePage}
+            />
 
             <table className="data-table">
               <thead>
@@ -885,7 +917,7 @@ export function QualificationsPage() {
                     <td colSpan={6} style={{ textAlign: 'center', padding: '40px' }}>No modules found.</td>
                   </tr>
                 ) : (
-                  filteredAllModules.map((module) => {
+                  paginatedModules.map((module) => {
                     const qName = qualifications.find(q => q.id === module.qualification)?.qualification_code || "—";
                     return (
                       <tr key={module.id}>

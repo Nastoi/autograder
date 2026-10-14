@@ -8,9 +8,13 @@ import type {
 } from "../../api/courses";
 
 import { AuditTrailButton } from "../AuditTrailButton";
+import { PaginationControls } from "../PaginationControls";
 
 type AssignmentListContentProps = {
   filteredAssignments: ModuleAssignment[];
+  totalAssignments: number;
+  currentPage: number;
+  setCurrentPage: (page: number) => void;
   qualifications: Qualification[];
   filteredModules: Module[];
 
@@ -66,6 +70,9 @@ type AssignmentListContentProps = {
 
 export function AssignmentListContent({
   filteredAssignments,
+  totalAssignments,
+  currentPage,
+  setCurrentPage,
   qualifications,
   filteredModules,
   selectedAssignmentId,
@@ -160,6 +167,12 @@ export function AssignmentListContent({
           </button>
         </div>
       </div>
+
+      <PaginationControls
+        currentPage={currentPage}
+        totalItems={totalAssignments}
+        onPageChange={setCurrentPage}
+      />
 
       {showCreateAssignment && (
         <form

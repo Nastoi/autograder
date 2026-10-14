@@ -1170,3 +1170,50 @@
     flex-direction: column;
   }
 }
+
+/* Shared 50-row table pagination */
+.table-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 4px 4px;
+  flex-wrap: wrap;
+}
+
+.table-pagination-summary {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.table-pagination-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.table-pagination-button {
+  min-width: 36px;
+  height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface, #fff);
+  color: var(--text-h);
+  cursor: pointer;
+}
+
+.table-pagination-button:hover:not(:disabled) {
+  border-color: var(--primary, #4f46e5);
+}
+
+.table-pagination-button.active {
+  background: var(--primary, #4f46e5);
+  border-color: var(--primary, #4f46e5);
+  color: #fff;
+}
+
+.table-pagination-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}

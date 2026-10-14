@@ -36,7 +36,7 @@ class CohortListCreateView(
         queryset = Cohort.objects.select_related(
             "module",
             "module__qualification",
-        ).order_by("cohort_code")
+        ).order_by("-created_at", "-id")
 
         module_id = self.request.query_params.get(
             "module_id",
@@ -82,7 +82,7 @@ class CohortDetailView(
         return Cohort.objects.select_related(
             "module",
             "module__qualification",
-        ).order_by("cohort_code")
+        ).order_by("-created_at", "-id")
 
     def destroy(self, request, *args, **kwargs):
         cohort = self.get_object()

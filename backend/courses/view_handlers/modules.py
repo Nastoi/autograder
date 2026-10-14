@@ -48,7 +48,7 @@ class ModuleListCreateView(
                 qualification_id=qualification_id,
             )
 
-        return queryset
+        return queryset.order_by("-created_at", "-id")
 
     def perform_create(self, serializer):
         module = serializer.save()
@@ -74,10 +74,7 @@ class ModuleDetailView(
         return Module.objects.select_related(
             "qualification",
 
-        ).order_by(
-            "qualification__qualification_code",
-            "module_code"
-        )
+        ).order_by("-created_at", "-id")
 
 
     def destroy(self, request, *args, **kwargs):
