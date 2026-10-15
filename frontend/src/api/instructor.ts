@@ -76,6 +76,10 @@ export type InstructorMappingAttempt = {
   maximum_score: string | null;
   achieved_band: string;
   feedback: string;
+  failure_code: string;
+  failure_message: string;
+  failure_mitigation: string;
+  failed_at: string | null;
   original_filename: string;
   has_submitted_file: boolean;
   submitted_at: string;

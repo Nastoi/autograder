@@ -1,4 +1,3 @@
-import base64
 import json
 import re
 
@@ -25,6 +24,11 @@ from grading.schemas import (
 )
 from submissions.models import SubmissionPage
 from submissions.audit import record_submission_event, update_grading_audit
+from grading.services.image_payloads import (
+    ImagePayloadBudget,
+    append_page_image,
+    enforce_message_image_budget,
+)
 
 
 class TaskEvidenceVerification(BaseModel):
@@ -43,6 +47,52 @@ class TaskEvidenceVerification(BaseModel):
 
 class EvidenceVerificationResponse(BaseModel):
     task_verifications: list[TaskEvidenceVerification]
+
+
+def _setting_int(name: str, default: int) -> int:
+    try:
+        return int(getattr(settings, name, default))
+    except (TypeError, ValueError):
+        return default
+
+
+def _sample_page_numbers(page_numbers, limit: int) -> list[int]:
+    """Select deterministic document-wide visual coverage within a cap."""
+    values = sorted({int(n) for n in page_numbers if n})
+    limit = max(1, int(limit or 1))
+    if len(values) <= limit:
+        return values
+    if limit == 1:
+        return [values[0]]
+
+    # Evenly sample across the full document so large submissions do not load
+    # or encode every page image in one worker/request.
+    indexes = {round(i * (len(values) - 1) / (limit - 1)) for i in range(limit)}
+    return [values[i] for i in sorted(indexes)]
+
+
+def _mapping_visual_page_numbers(submission) -> list[int]:
+    """Choose bounded mapping visuals, prioritising pages with little text."""
+    limit = _setting_int("OPENAI_MAPPING_MAX_IMAGES", 36)
+    rows = list(
+        SubmissionPage.objects
+        .filter(submission=submission, image_data__isnull=False)
+        .order_by("page_number")
+        .values_list("page_number", "extracted_text")
+    )
+    if len(rows) <= limit:
+        return [number for number, _ in rows]
+
+    low_text = [
+        number for number, text in rows
+        if len((text or "").strip()) < 120
+    ]
+    selected = _sample_page_numbers(low_text, min(limit, len(low_text))) if low_text else []
+    if len(selected) < limit:
+        selected_set = set(selected)
+        remaining = [number for number, _ in rows if number not in selected_set]
+        selected.extend(_sample_page_numbers(remaining, limit - len(selected)))
+    return sorted(set(selected))[:limit]
 
 def _completion_usage_snapshot(completion):
     usage = getattr(completion, "usage", None)
@@ -67,6 +117,34 @@ def _completion_usage_snapshot(completion):
         "output_tokens": int(getattr(usage, "completion_tokens", 0) or 0),
         "reasoning_tokens": int(
             getattr(completion_details, "reasoning_tokens", 0) or 0
+        ),
+        "total_tokens": int(getattr(usage, "total_tokens", 0) or 0),
+    }
+
+
+def _response_usage_snapshot(response):
+    usage = getattr(response, "usage", None)
+
+    if usage is None:
+        return {
+            "input_tokens": 0,
+            "cached_input_tokens": 0,
+            "output_tokens": 0,
+            "reasoning_tokens": 0,
+            "total_tokens": 0,
+        }
+
+    input_details = getattr(usage, "input_tokens_details", None)
+    output_details = getattr(usage, "output_tokens_details", None)
+
+    return {
+        "input_tokens": int(getattr(usage, "input_tokens", 0) or 0),
+        "cached_input_tokens": int(
+            getattr(input_details, "cached_tokens", 0) or 0
+        ),
+        "output_tokens": int(getattr(usage, "output_tokens", 0) or 0),
+        "reasoning_tokens": int(
+            getattr(output_details, "reasoning_tokens", 0) or 0
         ),
         "total_tokens": int(getattr(usage, "total_tokens", 0) or 0),
     }
@@ -391,9 +469,12 @@ def map_submission_tasks(submission):
         }
     ]
 
-    for page in submission_pages:
-        page_num = page.page_number
-
+    page_rows = (
+        submission_pages
+        .values_list("page_number", "extracted_text")
+        .iterator(chunk_size=20)
+    )
+    for page_num, extracted_text in page_rows:
         user_content.append(
             {
                 "type": "text",
@@ -404,52 +485,12 @@ def map_submission_tasks(submission):
             }
         )
 
-        page_text = (
-            evidence_text_map.get(page_num)
-            or getattr(page, "extracted_text", None)
-        )
-
+        page_text = evidence_text_map.get(page_num) or extracted_text
         if page_text:
             user_content.append(
                 {
                     "type": "text",
-                    "text": (
-                        f"Page {page_num} Extracted Text:\n"
-                        f"{page_text}"
-                    ),
-                }
-            )
-
-        if getattr(page, "image_data", None):
-            b64_image = base64.b64encode(
-                page.image_data
-            ).decode("utf-8")
-
-            mime_type = getattr(
-                page,
-                "image_mime_type",
-                "image/webp",
-            )
-
-            user_content.append(
-                {
-                    "type": "image_url",
-                    "image_url": {
-                        "url": (
-                            f"data:{mime_type};base64,"
-                            f"{b64_image}"
-                        )
-                    },
-                }
-            )
-
-        elif getattr(page, "image_url", None):
-            user_content.append(
-                {
-                    "type": "image_url",
-                    "image_url": {
-                        "url": page.image_url
-                    },
+                    "text": f"Page {page_num} Extracted Text:\n{page_text}",
                 }
             )
 
@@ -491,24 +532,61 @@ def map_submission_tasks(submission):
         http_client=http_client,
     )
 
-    completion = client.beta.chat.completions.parse(
-        model=settings.OPENAI_API_MODEL,
-        messages=[
-            {
-                "role": "system",
-                "content": system_prompt,
-            },
-            {
-                "role": "user",
-                "content": user_content,
-            },
-        ],
-        response_format=PDFTaskMappingResponseSchema,
-        # temperature=0.0,
-    )
+    if not submission.submitted_file:
+        http_client.close()
+        raise ValueError(
+            f"Submission {submission.id} has no original PDF file for task mapping"
+        )
 
-    mapping_data = completion.choices[0].message.parsed
-    mapping_usage = _completion_usage_snapshot(completion)
+    mapping_file = None
+    file_handle = None
+
+    try:
+        file_handle = submission.submitted_file.open("rb")
+        mapping_file = client.files.create(
+            file=(
+                submission.original_filename or "submission.pdf",
+                file_handle,
+                "application/pdf",
+            ),
+            purpose="user_data",
+        )
+
+        # Preserve the existing mapping prompt text exactly. Only the visual
+        # transport changes: one original PDF replaces per-page image inputs.
+        response_user_content = [
+            {"type": "input_file", "file_id": mapping_file.id},
+            *[
+                {"type": "input_text", "text": item["text"]}
+                for item in user_content
+            ],
+        ]
+
+        completion = client.responses.parse(
+            model=settings.OPENAI_API_MODEL,
+            input=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": response_user_content},
+            ],
+            text_format=PDFTaskMappingResponseSchema,
+        )
+
+        mapping_data = completion.output_parsed
+        mapping_usage = _response_usage_snapshot(completion)
+
+    finally:
+        if file_handle is not None:
+            file_handle.close()
+
+        if mapping_file is not None:
+            try:
+                client.files.delete(mapping_file.id)
+            except Exception:
+                # Mapping already has its response at this point. Failure to
+                # delete the temporary OpenAI file must not alter the grade.
+                pass
+
+        http_client.close()
 
     saved_records = []
 
@@ -604,12 +682,21 @@ def verify_task_evidence(
     assignment_context,
     document_authenticity,
 ):
+    # Keep text/model metadata cached, but defer binary images so large
+    # submissions do not materialise every page image in worker memory.
     submission_pages = {
         page.page_number: page
-        for page in SubmissionPage.objects.filter(
-            submission=submission
+        for page in (
+            SubmissionPage.objects
+            .filter(submission=submission)
+            .defer("image_data")
         )
     }
+    image_page_numbers = set(
+        SubmissionPage.objects
+        .filter(submission=submission, image_data__isnull=False)
+        .values_list("page_number", flat=True)
+    )
 
     assignment_level = submission.context.assignment_level
 
@@ -752,6 +839,21 @@ def verify_task_evidence(
                 }
             ]
 
+            verification_visual_pages = set(
+                _sample_page_numbers(
+                    [
+                        page_num
+                        for page_num in mapping.mapped_page_numbers
+                        if page_num in image_page_numbers
+                    ],
+                    _setting_int("OPENAI_VERIFICATION_MAX_IMAGES", 24),
+                )
+            )
+            remaining_verification_images = len(verification_visual_pages)
+            verification_image_budget = ImagePayloadBudget.for_stage(
+                f"evidence_verification_{task_code}"
+            )
+
             for page_num in mapping.mapped_page_numbers:
                 page = submission_pages.get(page_num)
 
@@ -778,17 +880,7 @@ def verify_task_evidence(
                         }
                     )
 
-                if getattr(page, "image_data", None):
-                    b64_image = base64.b64encode(
-                        page.image_data
-                    ).decode("utf-8")
-
-                    mime_type = getattr(
-                        page,
-                        "image_mime_type",
-                        "image/webp",
-                    )
-
+                if page_num in verification_visual_pages:
                     user_content.append(
                         {
                             "type": "text",
@@ -800,51 +892,32 @@ def verify_task_evidence(
                             ),
                         }
                     )
-
-                    user_content.append(
-                        {
-                            "type": "image_url",
-                            "image_url": {
-                                "url": (
-                                    f"data:{mime_type};base64,"
-                                    f"{b64_image}"
-                                )
-                            },
-                        }
+                    append_page_image(
+                        user_content,
+                        page,
+                        verification_image_budget,
+                        remaining_images=remaining_verification_images,
+                    )
+                    # Remove the lazily-loaded BinaryField from the model cache
+                    # after base64 payload creation to keep worker RSS bounded.
+                    page.__dict__.pop("image_data", None)
+                    remaining_verification_images = max(
+                        0, remaining_verification_images - 1
                     )
 
-                elif getattr(page, "image_url", None):
-                    user_content.append(
-                        {
-                            "type": "text",
-                            "text": (
-                                f"--- PAGE {page_num} RENDERED IMAGE ---\n"
-                                "Inspect this image independently."
-                            ),
-                        }
-                    )
-
-                    user_content.append(
-                        {
-                            "type": "image_url",
-                            "image_url": {
-                                "url": page.image_url
-                            },
-                        }
-                    )
+            verification_image_budget.log_summary()
+            verification_messages = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_content},
+            ]
+            enforce_message_image_budget(
+                verification_messages,
+                stage=f"evidence_verification_{task_code}",
+            )
 
             completion = client.beta.chat.completions.parse(
                 model=settings.OPENAI_API_MODEL,
-                messages=[
-                    {
-                        "role": "system",
-                        "content": system_prompt,
-                    },
-                    {
-                        "role": "user",
-                        "content": user_content,
-                    },
-                ],
+                messages=verification_messages,
                 response_format=EvidenceVerificationResponse,
                 # temperature=0.0,
             )
@@ -930,10 +1003,21 @@ def grade_submission(submission):
             f"Unmapped criteria: {', '.join(unmapped_codes)}"
         )
 
+    # Cache page text/metadata but defer BinaryField image bytes.  Criterion
+    # grading loads only the bounded visual subset selected below.
     submission_pages = {
         page.page_number: page
-        for page in SubmissionPage.objects.filter(submission=submission)
+        for page in (
+            SubmissionPage.objects
+            .filter(submission=submission)
+            .defer("image_data")
+        )
     }
+    image_page_numbers = set(
+        SubmissionPage.objects
+        .filter(submission=submission, image_data__isnull=False)
+        .values_list("page_number", flat=True)
+    )
     task_pages_map = {
         mapping.task_id: mapping.mapped_page_numbers
         for mapping in task_mappings
@@ -1094,6 +1178,28 @@ def grade_submission(submission):
 
             required_pairs = []
             pages_already_added = set()
+            criterion_page_numbers = {
+                page_num
+                for group_mapping in group_mappings
+                for page_num in task_pages_map.get(
+                    group_mapping.task.task_code, []
+                )
+            }
+            criterion_visual_pages = set(
+                _sample_page_numbers(
+                    [
+                        page_num
+                        for page_num in criterion_page_numbers
+                        if page_num in image_page_numbers
+                    ],
+                    _setting_int("OPENAI_CRITERION_MAX_IMAGES", 24),
+                )
+            )
+            remaining_criterion_images = len(criterion_visual_pages)
+            criterion_image_budget = ImagePayloadBudget.for_stage(
+                f"criterion_grading_{criterion.criterion_code}"
+            )
+
             for mapping in group_mappings:
                 task_code = mapping.task.task_code
 
@@ -1137,22 +1243,21 @@ def grade_submission(submission):
                             "type": "text",
                             "text": f"--- PAGE {page_num} TEXT ---\n{page_obj.extracted_text}",
                         })
-                    if getattr(page_obj, "image_data", None):
-                        b64_image = base64.b64encode(page_obj.image_data).decode("utf-8")
-                        mime_type = getattr(page_obj, "image_mime_type", "image/webp")
+                    if page_num in criterion_visual_pages:
                         criterion_user_content.append({
                             "type": "text",
                             "text": f"--- PAGE {page_num} RENDERED IMAGE ---",
                         })
-                        criterion_user_content.append({
-                            "type": "image_url",
-                            "image_url": {"url": f"data:{mime_type};base64,{b64_image}"},
-                        })
-                    elif getattr(page_obj, "image_url", None):
-                        criterion_user_content.append({
-                            "type": "image_url",
-                            "image_url": {"url": page_obj.image_url},
-                        })
+                        append_page_image(
+                            criterion_user_content,
+                            page_obj,
+                            criterion_image_budget,
+                            remaining_images=remaining_criterion_images,
+                        )
+                        page_obj.__dict__.pop("image_data", None)
+                        remaining_criterion_images = max(
+                            0, remaining_criterion_images - 1
+                        )
 
             criterion_user_content.append({
                 "type": "text",
@@ -1163,12 +1268,19 @@ def grade_submission(submission):
                 ),
             })
 
+            criterion_image_budget.log_summary()
+
+            criterion_messages = [
+                {"role": "system", "content": grading_system_prompt},
+                {"role": "user", "content": criterion_user_content},
+            ]
+            enforce_message_image_budget(
+                criterion_messages,
+                stage=f"criterion_grading_{criterion.criterion_code}",
+            )
             completion = client.beta.chat.completions.parse(
                 model=settings.OPENAI_API_MODEL,
-                messages=[
-                    {"role": "system", "content": grading_system_prompt},
-                    {"role": "user", "content": criterion_user_content},
-                ],
+                messages=criterion_messages,
                 response_format=GradingResponseSchema,
                 # temperature=0.0,
             )

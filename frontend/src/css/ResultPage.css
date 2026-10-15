@@ -152,3 +152,6 @@
     text-align: left;
   }
 }
+.result-icon--error {
+  background: #c83d3d;
+}

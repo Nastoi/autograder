@@ -25,6 +25,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.shortcuts import get_object_or_404
 from ..audit import record_submission_event
+from ..failures import mark_submission_failed
 from config.celery import app as celery_app
 import logging
 
@@ -211,7 +212,11 @@ class SubmissionCreateView(APIView):
             attempt_number=previous_attempts + 1,
             status=LearnerSubmission.Status.UPLOADED,
             maximum_score=assignment.maximum_score,
-            requires_faculty_approval=mapping.require_faculty_approval,
+            requires_faculty_approval=(
+                mapping.require_faculty_approval
+                if mapping is not None
+                else False
+            ),
         )
 
         if (
@@ -253,8 +258,14 @@ class SubmissionCreateView(APIView):
                 "Unable to queue grading for submission %s",
                 submission.id,
             )
-            submission.status = LearnerSubmission.Status.ERROR
-            submission.save(update_fields=["status"])
+            mark_submission_failed(
+                submission,
+                code="GRADING_QUEUE_FAILED",
+                technical_details={
+                    "error_type": type(exc).__name__,
+                    "error_message": str(exc),
+                },
+            )
             record_submission_event(
                 submission,
                 stage="queue",

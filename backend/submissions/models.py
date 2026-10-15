@@ -137,6 +137,26 @@ class LearnerSubmission(models.Model):
 
     feedback = models.TextField(blank=True)
 
+    # User-safe failure information. Technical exception details remain in
+    # SubmissionGradingAudit / SubmissionProcessLog.
+    failure_code = models.CharField(
+        max_length=64,
+        blank=True,
+        default="",
+    )
+    failure_message = models.TextField(
+        blank=True,
+        default="",
+    )
+    failure_mitigation = models.TextField(
+        blank=True,
+        default="",
+    )
+    failed_at = models.DateTimeField(
+        blank=True,
+        null=True,
+    )
+
     submitted_at = models.DateTimeField(auto_now_add=True)
 
     completed_at = models.DateTimeField(
