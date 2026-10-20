@@ -1,5 +1,20 @@
 import { getCsrfToken } from "./auth";
-import { extractResults, API_BASE_URL } from "./utils";
+import {
+    extractResults,
+    API_BASE_URL,
+    fetchAllPaginatedResults,
+} from "./utils";
+
+
+function sortNewestFirst<T extends { created_at: string }>(
+    items: T[],
+): T[] {
+    return [...items].sort(
+        (a, b) =>
+            new Date(b.created_at).getTime() -
+            new Date(a.created_at).getTime(),
+    );
+}
 
 export type Qualification = {
     id: string;
@@ -59,25 +74,12 @@ export type QualificationDeleteImpact = {
 
 
 export async function getQualifications(): Promise<Qualification[]> {
-    const response = await fetch(
+    const items = await fetchAllPaginatedResults<Qualification>(
         `${API_BASE_URL}/courses/qualifications/`,
-        {
-            method: "GET",
-            credentials: "include",
-        },
+        "Unable to load qualifications.",
     );
 
-    const data = await response.json();
-
-    if (!response.ok) {
-        throw new Error(
-            typeof data?.detail === "string"
-                ? data.detail
-                : "Unable to load qualifications.",
-        );
-    }
-
-    return extractResults<Qualification>(data);
+    return sortNewestFirst(items);
 }
 
 export async function createQualification(
@@ -288,25 +290,12 @@ export async function getModules(
         ? `?qualification_id=${encodeURIComponent(qualificationId)}`
         : "";
 
-    const response = await fetch(
+    const items = await fetchAllPaginatedResults<Module>(
         `${API_BASE_URL}/courses/modules/${query}`,
-        {
-            method: "GET",
-            credentials: "include",
-        },
+        "Unable to load modules.",
     );
 
-    const data = await response.json();
-
-    if (!response.ok) {
-        throw new Error(
-            typeof data?.detail === "string"
-                ? data.detail
-                : "Unable to load modules.",
-        );
-    }
-
-    return extractResults<Module>(data);
+    return sortNewestFirst(items);
 }
 
 export async function createModule(
@@ -510,25 +499,12 @@ export async function getCohorts(
         ? `?module_id=${encodeURIComponent(moduleId)}`
         : "";
 
-    const response = await fetch(
+    const items = await fetchAllPaginatedResults<Cohort>(
         `${API_BASE_URL}/courses/cohorts/${query}`,
-        {
-            method: "GET",
-            credentials: "include",
-        },
+        "Unable to load cohorts.",
     );
 
-    const data = await response.json();
-
-    if (!response.ok) {
-        throw new Error(
-            typeof data?.detail === "string"
-                ? data.detail
-                : "Unable to load cohorts.",
-        );
-    }
-
-    return extractResults<Cohort>(data);
+    return sortNewestFirst(items);
 }
 
 export async function createCohort(
@@ -716,25 +692,12 @@ export async function getModuleAssignments(
         ? `?module_id=${encodeURIComponent(moduleId)}`
         : "";
 
-    const response = await fetch(
+    const items = await fetchAllPaginatedResults<ModuleAssignment>(
         `${API_BASE_URL}/courses/assignments/${query}`,
-        {
-            method: "GET",
-            credentials: "include",
-        },
+        "Unable to load assignments.",
     );
 
-    const data = await response.json();
-
-    if (!response.ok) {
-        throw new Error(
-            typeof data?.detail === "string"
-                ? data.detail
-                : "Unable to load assignments.",
-        );
-    }
-
-    return extractResults<ModuleAssignment>(data);
+    return sortNewestFirst(items);
 }
 
 export async function createModuleAssignment(
@@ -1002,51 +965,27 @@ export type AssignmentConfigurationLock = {
 };
 
 export async function getAssignmentLevels(
-  moduleId?: string,
-  assignmentId?: string,
+    moduleId?: string,
+    assignmentId?: string,
 ): Promise<AssignmentLevel[]> {
-  const params = new URLSearchParams();
+    const params = new URLSearchParams();
 
-  if (moduleId) {
-    params.set("module_id", moduleId);
-  }
-
-  if (assignmentId) {
-    params.set("assignment_id", assignmentId);
-  }
-
-  let nextUrl =
-    `${API_BASE_URL}/courses/assignment-levels/` +
-    (params.toString() ? `?${params.toString()}` : "");
-
-  const allLevels: AssignmentLevel[] = [];
-
-  while (nextUrl) {
-    const response = await fetch(nextUrl, {
-      method: "GET",
-      credentials: "include",
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(
-        typeof data?.detail === "string"
-          ? data.detail
-          : "Unable to load assignment levels.",
-      );
+    if (moduleId) {
+        params.set("module_id", moduleId);
     }
 
-    if (Array.isArray(data)) {
-      allLevels.push(...data);
-      break;
+    if (assignmentId) {
+        params.set("assignment_id", assignmentId);
     }
 
-    allLevels.push(...(data.results ?? []));
-    nextUrl = data.next ?? "";
-  }
+    const query = params.toString()
+        ? `?${params.toString()}`
+        : "";
 
-  return allLevels;
+    return fetchAllPaginatedResults<AssignmentLevel>(
+        `${API_BASE_URL}/courses/assignment-levels/${query}`,
+        "Unable to load assignment levels.",
+    );
 }
 
 
