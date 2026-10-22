@@ -66,7 +66,37 @@ def grade_submission_task(
             update_fields=["status"]
         )
 
-        submission = run_ai_grading(submission)
+        try:
+            submission = run_ai_grading(submission)
+
+        except ValueError as exc:
+            if "AI returned incorrect evaluation pairs" not in str(exc):
+                raise
+
+            logger.warning(
+                "Restarting full grading pipeline for submission %s "
+                "after invalid AI evaluation pairs.",
+                submission_id,
+            )
+
+            record_submission_event(
+                submission,
+                stage="background_grading",
+                status="warning",
+                event_code="GRADING_RETRY_INVALID_AI_PAIRS",
+                message=(
+                    "The grading pipeline is being restarted because "
+                    "the AI returned an invalid evaluation structure."
+                ),
+                details={
+                    "error_message": str(exc),
+                },
+            )
+
+            submission.status = LearnerSubmission.Status.PROCESSING
+            submission.save(update_fields=["status"])
+
+            submission = run_ai_grading(submission)
 
         logger.info(
             "Background grading finished for submission %s with status %s.",
