@@ -1,6 +1,6 @@
 import csv
 import io
-from decimal import Decimal
+from decimal import Decimal, ROUND_DOWN
 
 from rest_framework import serializers, status
 from rest_framework.permissions import IsAuthenticated
@@ -408,6 +408,46 @@ class AssignmentLevelConfigurationCsvImportView(APIView):
             errors.append(
                 "CSV contains duplicate task-to-criterion mappings."
             )
+
+
+        # Match the manual task-mapping behaviour:
+        # all tasks mapped to the same criterion share 100% evenly.
+        mappings_by_criterion = {}
+
+        for row in mapping_rows:
+            criterion_code = row["criterion_code"].upper()
+
+            mappings_by_criterion.setdefault(
+                criterion_code,
+                [],
+            ).append(row)
+
+        for criterion_mappings in mappings_by_criterion.values():
+            mapping_count = len(criterion_mappings)
+
+            if mapping_count == 0:
+                continue
+
+            base_weight = (
+                Decimal("100") / Decimal(mapping_count)
+            ).quantize(
+                Decimal("0.01"),
+                rounding=ROUND_DOWN,
+            )
+
+            for index, row in enumerate(criterion_mappings):
+                if index == mapping_count - 1:
+                    previous_total = (
+                        base_weight
+                        * Decimal(mapping_count - 1)
+                    )
+
+                    row["inferred_weight"] = (
+                        Decimal("100") - previous_total
+                    )
+                else:
+                    row["inferred_weight"] = base_weight
+
 
         track_band_definitions = assignment_level.band_definitions or []
 
