@@ -28,6 +28,49 @@ from ..serializers import (
 )
 
 
+def _sync_level_band_definitions(criterion):
+    level = criterion.assignment_level
+
+    criterion_bands = (
+        RubricBand.objects
+        .filter(rubric_criterion=criterion)
+        .order_by("sequence")
+    )
+
+    existing_definitions = {
+        str(band.get("band_code", "")).lower(): band
+        for band in (level.band_definitions or [])
+    }
+        
+    level.band_definitions = [
+        {
+            "band_code": band.band_code,
+            "display_name": band.display_name,
+            "minimum_percentage": float(
+                band.minimum_percentage
+            ),
+            "maximum_percentage": float(
+                band.maximum_percentage
+            ),
+            "csv_band_code": (
+                existing_definitions
+                .get(
+                    band.band_code.lower(),
+                    {},
+                )
+                .get("csv_band_code")
+            ),
+        }
+        for band in criterion_bands
+    ]
+    
+    level.save(
+        update_fields=[
+            "band_definitions",
+            "updated_at",
+        ]
+    )
+
 class RubricCriterionListCreateView(
     generics.ListCreateAPIView
 ):
@@ -154,6 +197,10 @@ class RubricBandListCreateView(
 
         serializer.save()
 
+        _sync_level_band_definitions(
+            criterion
+        )
+
         refresh_assignment_level_configuration_status(
             criterion.assignment_level
         )
@@ -207,6 +254,10 @@ class RubricBandDetailView(
 
         updated_band = serializer.save()
 
+        _sync_level_band_definitions(
+            updated_band.rubric_criterion
+        )
+
         refresh_assignment_level_configuration_status(
             updated_band.rubric_criterion.assignment_level
         )
@@ -223,7 +274,13 @@ class RubricBandDetailView(
             .assignment_level
         )
 
+        criterion = instance.rubric_criterion
+
         instance.delete()
+
+        _sync_level_band_definitions(
+            criterion
+        )
 
         refresh_assignment_level_configuration_status(
             level

@@ -832,6 +832,43 @@ class AssignmentLevelSerializer(serializers.ModelSerializer):
         return super().create(validated_data)
 
 
+
+    def validate_band_definitions(self, value):
+        if not isinstance(value, list):
+            raise serializers.ValidationError(
+                "Band definitions must be a list."
+            )
+
+        seen_codes = set()
+
+        for band in value:
+            if not isinstance(band, dict):
+                raise serializers.ValidationError(
+                    "Each band definition must be an object."
+                )
+
+            band_code = str(
+                band.get("band_code", "")
+            ).strip().lower()
+
+            if band_code in {"fail", "failed"}:
+                band_code = "failed"
+
+            if not band_code:
+                raise serializers.ValidationError(
+                    "Each band must have a band code."
+                )
+
+            if band_code in seen_codes:
+                raise serializers.ValidationError(
+                    "Duplicate achievement bands are not allowed."
+                )
+
+            seen_codes.add(band_code)
+
+        return value
+
+    
     def validate_level_code(self, value):
         normalized = value.strip().lower().replace(" ", "_")
 

@@ -1328,7 +1328,7 @@ export function AssignmentsPage() {
         "",
         "",
         "",
-        `band${index + 1}`,
+        band.csv_band_code || `band${index + 1}`,
         `Enter descriptor for ${band.display_name}`,
         "",
         "",
@@ -1376,7 +1376,7 @@ export function AssignmentsPage() {
         "",
         "",
         "",
-        `band${index + 1}`,
+        band.csv_band_code || `band${index + 1}`,
         `Enter descriptor for ${band.display_name}`,
         "",
         "",
@@ -1653,7 +1653,17 @@ export function AssignmentsPage() {
           (band) =>
             band.band_code.toLowerCase() !== "failed",
         );
+      
+      const trackBandDefinition = (
+          bandCode: string,
+        ) =>
+          (level.band_definitions || []).find(
+            (definition) =>
+              definition.band_code.toLowerCase() ===
+              bandCode.toLowerCase(),
+          );
 
+          
       nonFailedCriterionBands.forEach(
         (band, index) => {
           rows.push([
@@ -1673,7 +1683,8 @@ export function AssignmentsPage() {
             "",
             "",
             "",
-            `band${index + 1}`,
+            trackBandDefinition(band.band_code)
+              ?.csv_band_code || `band${index + 1}`,
             (band.descriptor || "").replace(
               new RegExp(
                 `^${criterion.criterion_code}\\s*:\\s*`,
@@ -1766,9 +1777,6 @@ export function AssignmentsPage() {
         level.id,
         file,
       );
-
-      await loadData();
-      setExpandedLevelIds([level.id]);
     } catch (caughtError) {
       const message =
         caughtError instanceof Error
@@ -1779,6 +1787,20 @@ export function AssignmentsPage() {
         ...current,
         [level.id]: message,
       }));
+
+      setImportingLevelId("");
+      return;
+    }
+
+    try {
+      await loadData();
+      setExpandedLevelIds([level.id]);
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof Error
+          ? `Configuration imported, but refresh failed: ${caughtError.message}`
+          : "Configuration imported, but the page could not refresh.",
+      );
     } finally {
       setImportingLevelId("");
     }
@@ -1946,12 +1968,103 @@ export function AssignmentsPage() {
       return;
     }
 
-    const makeBandCode = (name: string) =>
+        const makeBandCode = (name: string) =>
       name
         .toLowerCase()
         .trim()
         .replace(/[^a-z0-9]+/g, "_")
         .replace(/^_+|_+$/g, "");
+
+    const normalizeBandCode = (name: string) => {
+      const code = makeBandCode(name);
+
+      if (code === "fail" || code === "failed") {
+        return "failed";
+      }
+
+      return code;
+    };
+
+    const requestedBands = [
+      {
+        band_code: normalizeBandCode(band1Name),
+        display_name: band1Name,
+        csv_band_code: "band1",
+      },
+      {
+        band_code: normalizeBandCode(band2Name),
+        display_name: band2Name,
+        csv_band_code: "band2",
+      },
+    ];
+
+    const failedRequestedBand = requestedBands.find(
+      (band) => band.band_code === "failed",
+    );
+
+    const nonFailedBands = requestedBands.filter(
+      (band) => band.band_code !== "failed",
+    );
+
+    if (nonFailedBands.length === 0) {
+      setError(
+        "At least one achievement band must be different from Failed.",
+      );
+      return;
+    }
+
+    const uniqueNonFailedCodes = new Set(
+      nonFailedBands.map((band) => band.band_code),
+    );
+
+    if (uniqueNonFailedCodes.size !== nonFailedBands.length) {
+      setError("Achievement band names must be different.");
+      return;
+    }
+
+    const bandDefinitions =
+      nonFailedBands.length === 1
+        ? [
+            {
+              band_code: "failed",
+              display_name: "Failed",
+              csv_band_code:
+                failedRequestedBand?.csv_band_code ?? "failed",
+              minimum_percentage: 0,
+              maximum_percentage: 49.99,
+            },
+            {
+              band_code: nonFailedBands[0].band_code,
+              display_name: nonFailedBands[0].display_name,
+              csv_band_code: nonFailedBands[0].csv_band_code,
+              minimum_percentage: 50,
+              maximum_percentage: 100,
+            },
+          ]
+        : [
+            {
+              band_code: "failed",
+              display_name: "Failed",
+              csv_band_code:
+                failedRequestedBand?.csv_band_code ?? "failed",
+              minimum_percentage: 0,
+              maximum_percentage: 69.99,
+            },
+            {
+              band_code: nonFailedBands[0].band_code,
+              display_name: nonFailedBands[0].display_name,
+              csv_band_code: nonFailedBands[0].csv_band_code,
+              minimum_percentage: 70,
+              maximum_percentage: 79.99,
+            },
+            {
+              band_code: nonFailedBands[1].band_code,
+              display_name: nonFailedBands[1].display_name,
+              csv_band_code: nonFailedBands[1].csv_band_code,
+              minimum_percentage: 80,
+              maximum_percentage: 100,
+            },
+          ];
 
     setIsCreatingTrack(true);
 
@@ -1977,26 +2090,7 @@ export function AssignmentsPage() {
         configuration_status: "draft",
         is_active: true,
 
-        band_definitions: [
-          {
-            band_code: "failed",
-            display_name: "Failed",
-            minimum_percentage: 0,
-            maximum_percentage: 69.99,
-          },
-          {
-            band_code: makeBandCode(band1Name),
-            display_name: band1Name,
-            minimum_percentage: 70,
-            maximum_percentage: 79.99,
-          },
-          {
-            band_code: makeBandCode(band2Name),
-            display_name: band2Name,
-            minimum_percentage: 80,
-            maximum_percentage: 100,
-          },
-        ],
+        band_definitions: bandDefinitions,
       });
 
       await loadData();

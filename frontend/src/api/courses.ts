@@ -823,6 +823,7 @@ export type TrackBandDefinition = {
     display_name: string;
     minimum_percentage: number;
     maximum_percentage: number;
+    csv_band_code?: string;
 };
 
 export type AssignmentLevel = {

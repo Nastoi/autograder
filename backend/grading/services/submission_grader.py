@@ -87,6 +87,49 @@ def _sum_usage_snapshots(items):
     }
 
 
+MAPPING_MAX_PAGES_PER_CHUNK = 20
+MAPPING_MAX_IMAGE_BYTES_PER_CHUNK = 25 * 1024 * 1024
+
+
+def _build_mapping_chunks(pages):
+    chunks = []
+    current_chunk = []
+    current_image_bytes = 0
+
+    for page in pages:
+        image_bytes = 0
+
+        if getattr(page, "image_data", None):
+            image_bytes = len(page.image_data)
+
+        exceeds_page_limit = (
+            len(current_chunk)
+            >= MAPPING_MAX_PAGES_PER_CHUNK
+        )
+
+        exceeds_image_limit = (
+            current_chunk
+            and (
+                current_image_bytes + image_bytes
+                > MAPPING_MAX_IMAGE_BYTES_PER_CHUNK
+            )
+        )
+
+        if exceeds_page_limit or exceeds_image_limit:
+            chunks.append(current_chunk)
+            current_chunk = []
+            current_image_bytes = 0
+
+        current_chunk.append(page)
+        current_image_bytes += image_bytes
+
+    if current_chunk:
+        chunks.append(current_chunk)
+
+    return chunks
+
+
+
 class AuthenticityFinding(BaseModel):
     scope: str = Field(
         description=(
@@ -323,11 +366,13 @@ def map_submission_tasks(submission):
         "expected_outcome": assignment_level.expected_outcome or "",
     }
         
-    tasks = Task.objects.filter(
-        assignment_level=assignment_level
-    ).order_by("sequence")
+    tasks = list(
+        Task.objects.filter(
+            assignment_level=assignment_level
+        ).order_by("sequence")
+    )
 
-    if not tasks.exists():
+    if not tasks:
         raise ValueError(
             f"No tasks found for AssignmentLevel {assignment_level.id}"
         )
@@ -341,11 +386,13 @@ def map_submission_tasks(submission):
         for task in tasks
     ]
 
-    submission_pages = SubmissionPage.objects.filter(
-        submission=submission
-    ).order_by("page_number")
+    submission_pages = list(
+        SubmissionPage.objects.filter(
+            submission=submission
+        ).order_by("page_number")
+    )
 
-    total_pages = submission_pages.count()
+    total_pages = len(submission_pages)
 
     if total_pages == 0:
         raise ValueError(
@@ -368,90 +415,191 @@ def map_submission_tasks(submission):
         authenticity_result["analysis"]
     )
 
-    user_content = [
-        {
-            "type": "text",
-            "text": (
-                f"CRITICAL DOCUMENT METADATA:\n"
-                f"- THIS DOCUMENT HAS EXACTLY {total_pages} PAGES "
-                f"(Pages 1 to {total_pages}).\n"
-                f"- DO NOT MAP ANY PAGE NUMBER GREATER THAN "
-                f"{total_pages}.\n"
-                f"- A SINGLE PAGE CAN CONTAIN EVIDENCE FOR "
-                f"MULTIPLE TASKS.\n\n"
-                f"Assignment Context:\n"
-                f"{json.dumps(assignment_context, indent=2)}\n\n"
-                f"Document Authenticity Analysis:\n"
-                f"{json.dumps(document_authenticity, indent=2)}\n\n"
-                f"Target Assignment Tasks to Map:\n"
-                f"{json.dumps(task_definitions, indent=2)}\n\n"
-                "Examine the page text and images below and map "
-                "relevant task_codes to exact page numbers."
-            ),
-        }
-    ]
+    # user_content = [
+    #     {
+    #         "type": "text",
+    #         "text": (
+    #             f"CRITICAL DOCUMENT METADATA:\n"
+    #             f"- THIS DOCUMENT HAS EXACTLY {total_pages} PAGES "
+    #             f"(Pages 1 to {total_pages}).\n"
+    #             f"- DO NOT MAP ANY PAGE NUMBER GREATER THAN "
+    #             f"{total_pages}.\n"
+    #             f"- A SINGLE PAGE CAN CONTAIN EVIDENCE FOR "
+    #             f"MULTIPLE TASKS.\n\n"
+    #             f"Assignment Context:\n"
+    #             f"{json.dumps(assignment_context, indent=2)}\n\n"
+    #             f"Document Authenticity Analysis:\n"
+    #             f"{json.dumps(document_authenticity, indent=2)}\n\n"
+    #             f"Target Assignment Tasks to Map:\n"
+    #             f"{json.dumps(task_definitions, indent=2)}\n\n"
+    #             "Examine the page text and images below and map "
+    #             "relevant task_codes to exact page numbers."
+    #         ),
+    #     }
+    # ]
 
-    for page in submission_pages:
-        page_num = page.page_number
+    # for page in submission_pages:
+    #     page_num = page.page_number
 
-        user_content.append(
-            {
-                "type": "text",
-                "text": (
-                    f"=== START OF PAGE {page_num} "
-                    f"OF {total_pages} ==="
-                ),
-            }
-        )
+    #     user_content.append(
+    #         {
+    #             "type": "text",
+    #             "text": (
+    #                 f"=== START OF PAGE {page_num} "
+    #                 f"OF {total_pages} ==="
+    #             ),
+    #         }
+    #     )
 
-        page_text = (
-            evidence_text_map.get(page_num)
-            or getattr(page, "extracted_text", None)
-        )
+    #     page_text = (
+    #         evidence_text_map.get(page_num)
+    #         or getattr(page, "extracted_text", None)
+    #     )
 
-        if page_text:
-            user_content.append(
-                {
-                    "type": "text",
-                    "text": (
-                        f"Page {page_num} Extracted Text:\n"
-                        f"{page_text}"
-                    ),
-                }
-            )
+    #     if page_text:
+    #         user_content.append(
+    #             {
+    #                 "type": "text",
+    #                 "text": (
+    #                     f"Page {page_num} Extracted Text:\n"
+    #                     f"{page_text}"
+    #                 ),
+    #             }
+    #         )
 
-        if getattr(page, "image_data", None):
-            b64_image = base64.b64encode(
-                page.image_data
-            ).decode("utf-8")
+    #     if getattr(page, "image_data", None):
+    #         b64_image = base64.b64encode(
+    #             page.image_data
+    #         ).decode("utf-8")
 
-            mime_type = getattr(
-                page,
-                "image_mime_type",
-                "image/webp",
-            )
+    #         mime_type = getattr(
+    #             page,
+    #             "image_mime_type",
+    #             "image/webp",
+    #         )
 
-            user_content.append(
-                {
-                    "type": "image_url",
-                    "image_url": {
-                        "url": (
-                            f"data:{mime_type};base64,"
-                            f"{b64_image}"
-                        )
-                    },
-                }
-            )
+    #         user_content.append(
+    #             {
+    #                 "type": "image_url",
+    #                 "image_url": {
+    #                     "url": (
+    #                         f"data:{mime_type};base64,"
+    #                         f"{b64_image}"
+    #                     )
+    #                 },
+    #             }
+    #         )
 
-        elif getattr(page, "image_url", None):
-            user_content.append(
-                {
-                    "type": "image_url",
-                    "image_url": {
-                        "url": page.image_url
-                    },
-                }
-            )
+    #     elif getattr(page, "image_url", None):
+    #         user_content.append(
+    #             {
+    #                 "type": "image_url",
+    #                 "image_url": {
+    #                     "url": page.image_url
+    #                 },
+    #             }
+    #         )
+
+    # system_prompt = (
+    #     "You map learner submission evidence to assignment tasks.\n\n"
+    #     "For each task, identify only pages materially relevant to evaluating the required evidence.\n\n"
+    #     "RULES:\n"
+    #     "1. Never return a page outside the supplied document range.\n"
+    #     "2. A page may support multiple tasks.\n"
+    #     "3. Map direct evidence and materially relevant negative or contradictory evidence.\n"
+    #     "4. Do not infer implementation from assignment instructions, captions, claims, filenames, or expected workflow.\n"
+    #     "5. For observable requirements, distinguish written claims from what is visibly demonstrated in the rendered page.\n"
+    #     "6. Written evidence is valid for genuinely written or reflective requirements when the task permits it.\n"
+    #     "7. Evidence explicitly identified as placeholder, synthetic, mock, sample, test-only, fabricated, not genuine, or not evidence of completed work may still be relevant, but it does not verify completion. State this clearly in justification.\n"
+    #     "8. Apply document-wide warnings according to their stated scope. "
+    #     "A warning on an earlier page may invalidate evidence on later pages.\n"
+    #     "9. If no materially relevant evidence exists, return "
+    #     "is_relevant=false and no mapped pages.\n"
+    #     "10. Keep mapped pages selective and explain what each mapped page "
+    #     "actually demonstrates or fails to demonstrate.\n"
+    #     "11. Never infer missing task requirements from the surrounding "
+    #     "submission, assignment context, template structure, section names, "
+    #     "screenshots, or the apparent purpose of the document. The configured "
+    #     "task title and Required Evidence are authoritative.\n"
+    #     "12. If the configured task is too vague, generic, circular, or "
+    #     "non-specific to determine what must actually be demonstrated, do not "
+    #     "invent a requirement from the submission. Return is_relevant=false "
+    #     "with no mapped pages for that task.\n"
+    #     "13. Matching words, task names, headings, copied requirements, or "
+    #     "similar wording alone do not demonstrate task completion and are not "
+    #     "sufficient reason to map evidence.\n"
+        
+    # )
+
+    # http_client = httpx.Client()
+
+    # client = OpenAI(
+    #     api_key=settings.OPENAI_API_KEY,
+    #     http_client=http_client,
+    # )
+
+    # completion = client.beta.chat.completions.parse(
+    #     model=settings.OPENAI_API_MODEL,
+    #     messages=[
+    #         {
+    #             "role": "system",
+    #             "content": system_prompt,
+    #         },
+    #         {
+    #             "role": "user",
+    #             "content": user_content,
+    #         },
+    #     ],
+    #     response_format=PDFTaskMappingResponseSchema,
+    #     # temperature=0.0,
+    # )
+
+    # mapping_data = completion.choices[0].message.parsed
+    # mapping_usage = _completion_usage_snapshot(completion)
+
+    # saved_records = []
+
+    # for item in mapping_data.task_mappings:
+    #     valid_pages = [
+    #         page_num
+    #         for page_num in item.mapped_page_numbers
+    #         if 1 <= page_num <= total_pages
+    #     ]
+
+    #     is_valid = (
+    #         item.is_relevant
+    #         and len(valid_pages) > 0
+    #     )
+
+    #     record, _ = (
+    #         SubmissionTaskMapping.objects.update_or_create(
+    #             submission=submission,
+    #             task_id=item.task_id,
+    #             defaults={
+    #                 "task_description":
+    #                     item.task_description,
+    #                 "mapped_page_numbers":
+    #                     valid_pages if is_valid else [],
+    #                 "confidence_score":
+    #                     item.confidence_score
+    #                     if is_valid
+    #                     else 0.0,
+    #                 "justification":
+    #                     item.justification,
+    #             },
+    #         )
+    #     )
+
+    #     saved_records.append(record.id)
+
+    # return {
+    #     "total_pdf_pages": total_pages,
+    #     "tasks_processed": len(task_definitions),
+    #     "saved_mappings_count": len(saved_records),
+    #     "is_unrelated_document": mapping_data.is_unrelated_document,
+    #     "mapping_data": mapping_data.model_dump(),
+    #     "token_usage": mapping_usage,
+    # }
 
     system_prompt = (
         "You map learner submission evidence to assignment tasks.\n\n"
@@ -481,8 +629,23 @@ def map_submission_tasks(submission):
         "13. Matching words, task names, headings, copied requirements, or "
         "similar wording alone do not demonstrate task completion and are not "
         "sufficient reason to map evidence.\n"
-        
     )
+
+    chunks = _build_mapping_chunks(
+        submission_pages
+    )
+
+    merged_mappings = {
+        task.task_code: {
+            "task_description": task.title,
+            "mapped_page_numbers": set(),
+            "confidence_score": 0.0,
+            "justifications": [],
+        }
+        for task in tasks
+    }
+
+    mapping_usage_snapshots = []
 
     http_client = httpx.Client()
 
@@ -491,67 +654,273 @@ def map_submission_tasks(submission):
         http_client=http_client,
     )
 
-    completion = client.beta.chat.completions.parse(
-        model=settings.OPENAI_API_MODEL,
-        messages=[
-            {
-                "role": "system",
-                "content": system_prompt,
-            },
-            {
-                "role": "user",
-                "content": user_content,
-            },
-        ],
-        response_format=PDFTaskMappingResponseSchema,
-        # temperature=0.0,
-    )
+    try:
+        for chunk in chunks:
+            chunk_start = chunk[0].page_number
+            chunk_end = chunk[-1].page_number
 
-    mapping_data = completion.choices[0].message.parsed
-    mapping_usage = _completion_usage_snapshot(completion)
+            user_content = [
+                {
+                    "type": "text",
+                    "text": (
+                        f"CRITICAL DOCUMENT METADATA:\n"
+                        f"- THIS DOCUMENT HAS EXACTLY {total_pages} PAGES "
+                        f"(Pages 1 to {total_pages}).\n"
+                        f"- THIS REQUEST CONTAINS ONLY PAGES "
+                        f"{chunk_start} TO {chunk_end}.\n"
+                        f"- ONLY RETURN PAGE NUMBERS BETWEEN "
+                        f"{chunk_start} AND {chunk_end}.\n"
+                        f"- A SINGLE PAGE CAN CONTAIN EVIDENCE FOR "
+                        f"MULTIPLE TASKS.\n\n"
+                        f"Assignment Context:\n"
+                        f"{json.dumps(assignment_context, indent=2)}\n\n"
+                        f"Document Authenticity Analysis:\n"
+                        f"{json.dumps(document_authenticity, indent=2)}\n\n"
+                        f"Target Assignment Tasks to Map:\n"
+                        f"{json.dumps(task_definitions, indent=2)}\n\n"
+                        "Examine the supplied pages and map relevant "
+                        "task_codes to exact original document page numbers."
+                    ),
+                }
+            ]
+
+            for page in chunk:
+                page_num = page.page_number
+
+                user_content.append(
+                    {
+                        "type": "text",
+                        "text": (
+                            f"=== START OF PAGE {page_num} "
+                            f"OF {total_pages} ==="
+                        ),
+                    }
+                )
+
+                page_text = (
+                    evidence_text_map.get(page_num)
+                    or getattr(
+                        page,
+                        "extracted_text",
+                        None,
+                    )
+                )
+
+                if page_text:
+                    user_content.append(
+                        {
+                            "type": "text",
+                            "text": (
+                                f"Page {page_num} Extracted Text:\n"
+                                f"{page_text}"
+                            ),
+                        }
+                    )
+
+                if getattr(page, "image_data", None):
+                    b64_image = base64.b64encode(
+                        page.image_data
+                    ).decode("utf-8")
+
+                    mime_type = getattr(
+                        page,
+                        "image_mime_type",
+                        "image/webp",
+                    )
+
+                    user_content.append(
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": (
+                                    f"data:{mime_type};base64,"
+                                    f"{b64_image}"
+                                )
+                            },
+                        }
+                    )
+
+                elif getattr(page, "image_url", None):
+                    user_content.append(
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": page.image_url
+                            },
+                        }
+                    )
+
+            completion = client.beta.chat.completions.parse(
+                model=settings.OPENAI_API_MODEL,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": system_prompt,
+                    },
+                    {
+                        "role": "user",
+                        "content": user_content,
+                    },
+                ],
+                response_format=PDFTaskMappingResponseSchema,
+                # temperature=0.0,
+            )
+
+            mapping_data = (
+                completion
+                .choices[0]
+                .message
+                .parsed
+            )
+
+            mapping_usage_snapshots.append(
+                _completion_usage_snapshot(
+                    completion
+                )
+            )
+
+            for item in mapping_data.task_mappings:
+                if item.task_id not in merged_mappings:
+                    continue
+
+                valid_pages = [
+                    page_num
+                    for page_num
+                    in item.mapped_page_numbers
+                    if (
+                        chunk_start
+                        <= page_num
+                        <= chunk_end
+                    )
+                ]
+
+                if (
+                    not item.is_relevant
+                    or not valid_pages
+                ):
+                    continue
+
+                merged = merged_mappings[
+                    item.task_id
+                ]
+
+                merged[
+                    "mapped_page_numbers"
+                ].update(valid_pages)
+
+                merged[
+                    "confidence_score"
+                ] = max(
+                    merged["confidence_score"],
+                    float(
+                        item.confidence_score
+                        or 0
+                    ),
+                )
+
+                if item.task_description:
+                    merged[
+                        "task_description"
+                    ] = item.task_description
+
+                justification = (
+                    item.justification
+                    or ""
+                ).strip()
+
+                if justification:
+                    merged[
+                        "justifications"
+                    ].append(
+                        justification
+                    )
+
+    finally:
+        http_client.close()
 
     saved_records = []
+    combined_task_mappings = []
 
-    for item in mapping_data.task_mappings:
-        valid_pages = [
-            page_num
-            for page_num in item.mapped_page_numbers
-            if 1 <= page_num <= total_pages
+    for task in tasks:
+        merged = merged_mappings[
+            task.task_code
         ]
 
-        is_valid = (
-            item.is_relevant
-            and len(valid_pages) > 0
+        mapped_pages = sorted(
+            merged["mapped_page_numbers"]
+        )
+
+        is_relevant = bool(mapped_pages)
+
+        justification = "\n".join(
+            dict.fromkeys(
+                merged["justifications"]
+            )
         )
 
         record, _ = (
             SubmissionTaskMapping.objects.update_or_create(
                 submission=submission,
-                task_id=item.task_id,
+                task_id=task.task_code,
                 defaults={
                     "task_description":
-                        item.task_description,
+                        merged["task_description"],
                     "mapped_page_numbers":
-                        valid_pages if is_valid else [],
+                        mapped_pages,
                     "confidence_score":
-                        item.confidence_score
-                        if is_valid
+                        merged["confidence_score"]
+                        if is_relevant
                         else 0.0,
                     "justification":
-                        item.justification,
+                        justification,
                 },
             )
         )
 
-        saved_records.append(record.id)
+        saved_records.append(
+            record.id
+        )
+
+        combined_task_mappings.append(
+            {
+                "task_id": task.task_code,
+                "task_description":
+                    merged["task_description"],
+                "mapped_page_numbers":
+                    mapped_pages,
+                "confidence_score":
+                    merged["confidence_score"]
+                    if is_relevant
+                    else 0.0,
+                "justification":
+                    justification,
+                "is_relevant":
+                    is_relevant,
+            }
+        )
+
+    is_unrelated_document = not any(
+        item["mapped_page_numbers"]
+        for item in combined_task_mappings
+    )
 
     return {
         "total_pdf_pages": total_pages,
         "tasks_processed": len(task_definitions),
         "saved_mappings_count": len(saved_records),
-        "is_unrelated_document": mapping_data.is_unrelated_document,
-        "mapping_data": mapping_data.model_dump(),
-        "token_usage": mapping_usage,
+        "is_unrelated_document": is_unrelated_document,
+        "mapping_data": {
+            "is_unrelated_document":
+                is_unrelated_document,
+            "task_mappings":
+                combined_task_mappings,
+            "chunks_processed":
+                len(chunks),
+        },
+        "token_usage":
+            _sum_usage_snapshots(
+                mapping_usage_snapshots
+            ),
     }
 
 
@@ -752,6 +1121,9 @@ def verify_task_evidence(
                 }
             ]
 
+            VERIFICATION_MAX_IMAGE_BYTES = 20 * 1024 * 1024
+            verification_image_bytes = 0
+
             for page_num in mapping.mapped_page_numbers:
                 page = submission_pages.get(page_num)
 
@@ -779,59 +1151,49 @@ def verify_task_evidence(
                     )
 
                 if getattr(page, "image_data", None):
-                    b64_image = base64.b64encode(
-                        page.image_data
-                    ).decode("utf-8")
+                    image_bytes = len(page.image_data)
 
-                    mime_type = getattr(
-                        page,
-                        "image_mime_type",
-                        "image/webp",
-                    )
+                    if (
+                        verification_image_bytes + image_bytes
+                        <= VERIFICATION_MAX_IMAGE_BYTES
+                    ):
+                        b64_image = base64.b64encode(
+                            page.image_data
+                        ).decode("utf-8")
 
-                    user_content.append(
-                        {
-                            "type": "text",
-                            "text": (
-                                f"--- PAGE {page_num} RENDERED IMAGE ---\n"
-                                "Inspect this image independently. "
-                                "Do not infer its contents from the "
-                                "surrounding extracted text."
-                            ),
-                        }
-                    )
+                        mime_type = getattr(
+                            page,
+                            "image_mime_type",
+                            "image/webp",
+                        )
 
-                    user_content.append(
-                        {
-                            "type": "image_url",
-                            "image_url": {
-                                "url": (
-                                    f"data:{mime_type};base64,"
-                                    f"{b64_image}"
-                                )
-                            },
-                        }
-                    )
+                        user_content.append(
+                            {
+                                "type": "text",
+                                "text": (
+                                    f"--- PAGE {page_num} RENDERED IMAGE ---\n"
+                                    "Inspect this image independently. "
+                                    "Do not infer its contents from the "
+                                    "surrounding extracted text."
+                                ),
+                            }
+                        )
 
-                elif getattr(page, "image_url", None):
-                    user_content.append(
-                        {
-                            "type": "text",
-                            "text": (
-                                f"--- PAGE {page_num} RENDERED IMAGE ---\n"
-                                "Inspect this image independently."
-                            ),
-                        }
-                    )
+                        user_content.append(
+                            {
+                                "type": "image_url",
+                                "image_url": {
+                                    "url": (
+                                        f"data:{mime_type};base64,"
+                                        f"{b64_image}"
+                                    )
+                                },
+                            }
+                        )
 
-                    user_content.append(
-                        {
-                            "type": "image_url",
-                            "image_url": {
-                                "url": page.image_url
-                            },
-                        }
-                    )
+                        verification_image_bytes += image_bytes
+
+                
 
             completion = client.beta.chat.completions.parse(
                 model=settings.OPENAI_API_MODEL,
@@ -1094,6 +1456,13 @@ def grade_submission(submission):
 
             required_pairs = []
             pages_already_added = set()
+
+            GRADING_MAX_IMAGE_BYTES = 15 * 1024 * 1024
+            GRADING_MAX_IMAGES = 20
+
+            grading_image_bytes = 0
+            grading_image_count = 0
+
             for mapping in group_mappings:
                 task_code = mapping.task.task_code
 
@@ -1138,21 +1507,43 @@ def grade_submission(submission):
                             "text": f"--- PAGE {page_num} TEXT ---\n{page_obj.extracted_text}",
                         })
                     if getattr(page_obj, "image_data", None):
-                        b64_image = base64.b64encode(page_obj.image_data).decode("utf-8")
-                        mime_type = getattr(page_obj, "image_mime_type", "image/webp")
-                        criterion_user_content.append({
-                            "type": "text",
-                            "text": f"--- PAGE {page_num} RENDERED IMAGE ---",
-                        })
-                        criterion_user_content.append({
-                            "type": "image_url",
-                            "image_url": {"url": f"data:{mime_type};base64,{b64_image}"},
-                        })
-                    elif getattr(page_obj, "image_url", None):
-                        criterion_user_content.append({
-                            "type": "image_url",
-                            "image_url": {"url": page_obj.image_url},
-                        })
+                        image_bytes = len(page_obj.image_data)
+
+                        if (
+                            grading_image_count < GRADING_MAX_IMAGES
+                            and grading_image_bytes + image_bytes
+                            <= GRADING_MAX_IMAGE_BYTES
+                        ):
+                            b64_image = base64.b64encode(
+                                page_obj.image_data
+                            ).decode("utf-8")
+
+                            mime_type = getattr(
+                                page_obj,
+                                "image_mime_type",
+                                "image/webp",
+                            )
+
+                            criterion_user_content.append({
+                                "type": "text",
+                                "text": (
+                                    f"--- PAGE {page_num} RENDERED IMAGE ---"
+                                ),
+                            })
+
+                            criterion_user_content.append({
+                                "type": "image_url",
+                                "image_url": {
+                                    "url": (
+                                        f"data:{mime_type};base64,"
+                                        f"{b64_image}"
+                                    )
+                                },
+                            })
+
+                            grading_image_bytes += image_bytes
+                            grading_image_count += 1
+                    
 
             criterion_user_content.append({
                 "type": "text",

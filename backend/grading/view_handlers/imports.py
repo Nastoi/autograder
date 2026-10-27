@@ -457,9 +457,10 @@ class AssignmentLevelConfigurationCsvImportView(APIView):
             if str(band.get("band_code", "")).strip().lower() != "failed"
         ]
 
-        expected_csv_band_codes = ["failed"] + [
-            f"band{index}"
-            for index in range(1, len(non_failed_bands) + 1)
+        expected_csv_band_codes = [
+            "failed",
+            "band1",
+            "band2",
         ]
 
         expected_csv_band_code_set = set(expected_csv_band_codes)
@@ -602,31 +603,43 @@ class AssignmentLevelConfigurationCsvImportView(APIView):
                         )
 
                     elif csv_band_code.startswith("band"):
-                        try:
-                            band_number = int(
-                                csv_band_code[4:]
-                            )
-                        except ValueError:
-                            band_number = 0
+                        configured_band = next(
+                            (
+                                item
+                                for item in track_band_definitions
+                                if str(
+                                    item.get(
+                                        "csv_band_code",
+                                        "",
+                                    )
+                                ).strip().lower()
+                                == csv_band_code
+                            ),
+                            None,
+                        )
 
-                        non_failed_criterion_bands = [
-                            item
-                            for item in criterion_bands
-                            if item.band_code.lower()
-                            != "failed"
-                        ]
+                        if configured_band:
+                            configured_band_code = str(
+                                configured_band.get(
+                                    "band_code",
+                                    "",
+                                )
+                            ).strip().lower()
 
-                        if (
-                            1
-                            <= band_number
-                            <= len(
-                                non_failed_criterion_bands
-                            )
-                        ):
-                            band = (
-                                non_failed_criterion_bands[
-                                    band_number - 1
-                                ]
+                            if configured_band_code in {
+                                "fail",
+                                "failed",
+                            }:
+                                configured_band_code = "failed"
+
+                            band = next(
+                                (
+                                    item
+                                    for item in criterion_bands
+                                    if item.band_code.lower()
+                                    == configured_band_code
+                                ),
+                                None,
                             )
                         else:
                             band = None
