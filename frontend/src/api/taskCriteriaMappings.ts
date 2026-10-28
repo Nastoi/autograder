@@ -40,7 +40,13 @@ async function fetchAllPaginatedResults<T>(
       Array.isArray(data.results)
     ) {
       results.push(...data.results);
-      nextUrl = data.next;
+      if (data.next) {
+        const next = new URL(data.next);
+
+        nextUrl = `${API_BASE_URL}${next.pathname.replace(/^\/api/, "")}${next.search}`;
+      } else {
+        nextUrl = null;
+      }
       continue;
     }
 

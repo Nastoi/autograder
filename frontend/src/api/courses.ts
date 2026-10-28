@@ -1,6 +1,5 @@
 import { getCsrfToken } from "./auth";
 import {
-    extractResults,
     API_BASE_URL,
     fetchAllPaginatedResults,
 } from "./utils";
@@ -25,6 +24,7 @@ export type Qualification = {
     can_delete: boolean;
     created_at: string;
     updated_at: string;
+    module_count: number;
 };
 
 export type CreateQualificationInput = {
@@ -71,6 +71,86 @@ export type QualificationDeleteImpact = {
         submission_contexts: number;
     };
 };
+
+export type GetModulesPageParams = {
+  page?: number;
+  search?: string;
+  qualificationId?: string;
+};
+
+export async function getModulesPage(
+  params: GetModulesPageParams = {},
+): Promise<PaginatedResponse<Module>> {
+  const query = new URLSearchParams();
+
+  query.set("page", String(params.page ?? 1));
+
+  if (params.search?.trim()) {
+    query.set("search", params.search.trim());
+  }
+
+  if (params.qualificationId) {
+    query.set("qualification_id", params.qualificationId);
+  }
+
+  const response = await fetch(
+    `${API_BASE_URL}/courses/modules/?${query.toString()}`,
+    {
+      method: "GET",
+      credentials: "include",
+    },
+  );
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(
+      typeof data?.detail === "string"
+        ? data.detail
+        : "Unable to load modules.",
+    );
+  }
+
+  return data as PaginatedResponse<Module>;
+}
+
+
+export type GetQualificationsPageParams = {
+  page?: number;
+  search?: string;
+};
+
+export async function getQualificationsPage(
+  params: GetQualificationsPageParams = {},
+): Promise<PaginatedResponse<Qualification>> {
+  const query = new URLSearchParams();
+
+  query.set("page", String(params.page ?? 1));
+
+  if (params.search?.trim()) {
+    query.set("search", params.search.trim());
+  }
+
+  const response = await fetch(
+    `${API_BASE_URL}/courses/qualifications/?${query.toString()}`,
+    {
+      method: "GET",
+      credentials: "include",
+    },
+  );
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(
+      typeof data?.detail === "string"
+        ? data.detail
+        : "Unable to load qualifications.",
+    );
+  }
+
+  return data as PaginatedResponse<Qualification>;
+}
 
 
 export async function getQualifications(): Promise<Qualification[]> {
@@ -491,6 +571,59 @@ export type CohortDeleteImpact = {
     };
 };
 
+export type PaginatedResponse<T> = {
+    count: number;
+    next: string | null;
+    previous: string | null;
+    results: T[];
+};
+
+export type GetCohortsPageParams = {
+    page?: number;
+    search?: string;
+    moduleId?: string;
+    qualificationId?: string;
+};
+
+export async function getCohortsPage(
+    params: GetCohortsPageParams = {},
+): Promise<PaginatedResponse<Cohort>> {
+    const query = new URLSearchParams();
+
+    query.set("page", String(params.page ?? 1));
+
+    if (params.search?.trim()) {
+        query.set("search", params.search.trim());
+    }
+
+    if (params.moduleId) {
+        query.set("module_id", params.moduleId);
+    }
+
+    if (params.qualificationId) {
+        query.set("qualification_id", params.qualificationId);
+    }
+
+    const response = await fetch(
+        `${API_BASE_URL}/courses/cohorts/?${query.toString()}`,
+        {
+            method: "GET",
+            credentials: "include",
+        },
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+        throw new Error(
+            typeof data?.detail === "string"
+                ? data.detail
+                : "Unable to load cohorts.",
+        );
+    }
+
+    return data as PaginatedResponse<Cohort>;
+}
 
 export async function getCohorts(
     moduleId?: string,
@@ -683,7 +816,52 @@ export type UpdateModuleAssignmentInput =
     Partial<CreateModuleAssignmentInput>;
 
 
+export type GetModuleAssignmentsPageParams = {
+  page?: number;
+  search?: string;
+  moduleId?: string;
+  qualificationId?: string;
+};
 
+export async function getModuleAssignmentsPage(
+  params: GetModuleAssignmentsPageParams = {},
+): Promise<PaginatedResponse<ModuleAssignment>> {
+  const query = new URLSearchParams();
+
+  query.set("page", String(params.page ?? 1));
+
+  if (params.search?.trim()) {
+    query.set("search", params.search.trim());
+  }
+
+  if (params.moduleId) {
+    query.set("module_id", params.moduleId);
+  }
+
+  if (params.qualificationId) {
+    query.set("qualification_id", params.qualificationId);
+  }
+
+  const response = await fetch(
+    `${API_BASE_URL}/courses/assignments/?${query.toString()}`,
+    {
+      method: "GET",
+      credentials: "include",
+    },
+  );
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(
+      typeof data?.detail === "string"
+        ? data.detail
+        : "Unable to load assignments.",
+    );
+  }
+
+  return data as PaginatedResponse<ModuleAssignment>;
+}
 
 export async function getModuleAssignments(
     moduleId?: string,
@@ -845,7 +1023,7 @@ export type AssignmentLevel = {
 
     level_code: string;
     sequence: number;
-    
+
     display_name: string;
     title: string;
 
@@ -901,7 +1079,7 @@ export type CreateAssignmentLevelInput = {
     version?: number;
 
     configuration_status?:
-        AssignmentLevel["configuration_status"];
+    AssignmentLevel["configuration_status"];
 
     is_active?: boolean;
 };

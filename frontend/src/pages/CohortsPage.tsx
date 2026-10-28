@@ -19,7 +19,7 @@ import {
 
 import {
   createCohort,
-  getCohorts,
+  getCohortsPage,
   getModules,
   getQualifications,
   deleteCohort,
@@ -61,6 +61,12 @@ export function CohortsPage() {
   const [selectedCohortId, setSelectedCohortId] = useState<string | null>(null);
   const [showCreateCohort, setShowCreateCohort] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+
+  const [page, setPage] = useState(1);
+  const [totalCohorts, setTotalCohorts] = useState(0);
+  const [nextPage, setNextPage] = useState<string | null>(null);
+  const [previousPage, setPreviousPage] = useState<string | null>(null);
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -112,18 +118,24 @@ export function CohortsPage() {
   async function loadData() {
     try {
       const [
-        cohortData,
+        cohortPage,
         moduleData,
         qualificationData,
         mappingData,
       ] = await Promise.all([
-        getCohorts(),
+        getCohortsPage({
+          page,
+          search: debouncedSearchTerm,
+        }),
         getModules(),
         getQualifications(),
         getAssessmentMappings(),
       ]);
 
-      setCohorts(cohortData);
+      setCohorts(cohortPage.results);
+      setTotalCohorts(cohortPage.count);
+      setNextPage(cohortPage.next);
+      setPreviousPage(cohortPage.previous);
       setModules(moduleData);
       setQualifications(qualificationData);
       setMappings(mappingData);
@@ -139,9 +151,17 @@ export function CohortsPage() {
   }
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+    const timeout = window.setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+      setPage(1);
+    }, 400);
+
+    return () => window.clearTimeout(timeout);
+  }, [searchTerm]);
+
+  useEffect(() => {
     void loadData();
-  }, []);
+  }, [page, debouncedSearchTerm]);
 
   const filteredModules = modules.filter(
     (module) =>
@@ -154,15 +174,7 @@ export function CohortsPage() {
       String(cohort.id) === String(selectedCohortId),
   );
 
-  const filteredCohorts = cohorts.filter((cohort) => {
-    const term = searchTerm.toLowerCase();
-    return (
-      cohort.cohort_code.toLowerCase().includes(term) ||
-      cohort.cohort_name.toLowerCase().includes(term) ||
-      cohort.qualification_code.toLowerCase().includes(term) ||
-      cohort.module_code.toLowerCase().includes(term)
-    );
-  });
+  
 
   const selectedCohortMappings = mappings.filter(
     (mapping) =>
@@ -855,7 +867,7 @@ export function CohortsPage() {
               </tr>
             </thead>
             <tbody>
-              {filteredCohorts.map((cohort) => {
+              {cohorts.map((cohort) => {
                 const mappingCount = mappings.filter(
                   (mapping) => mapping.cohort === cohort.id,
                 ).length;
@@ -1010,6 +1022,29 @@ export function CohortsPage() {
           </table>
         )}
       </div>
+        {totalCohorts > 0 && (
+          <div className="pagination-controls">
+            <button
+              type="button"
+              disabled={!previousPage}
+              onClick={() => setPage((current) => Math.max(current - 1, 1))}
+            >
+              Previous
+            </button>
+
+            <span>
+              Page {page} · {totalCohorts} cohorts
+            </span>
+
+            <button
+              type="button"
+              disabled={!nextPage}
+              onClick={() => setPage((current) => current + 1)}
+            >
+              Next
+            </button>
+          </div>
+        )}
 
       {selectedCohort && (
         <div

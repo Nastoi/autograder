@@ -29,7 +29,64 @@ export function extractResults<T>(
     throw new Error("Invalid API response.");
 }
 
+export async function fetchPaginatedPage<T>(
+    url: string,
+    errorMessage: string,
+): Promise<PaginatedResponse<T>> {
+    const response = await fetch(url, {
+        method: "GET",
+        credentials: "include",
+    });
 
+    const text = await response.text();
+
+    let data: unknown;
+
+    try {
+        data = text ? JSON.parse(text) : null;
+    } catch {
+        throw new Error(
+            response.ok
+                ? "The server returned an incomplete response."
+                : errorMessage,
+        );
+    }
+
+    if (!response.ok) {
+        const detail =
+            data &&
+                typeof data === "object" &&
+                "detail" in data &&
+                typeof data.detail === "string"
+                ? data.detail
+                : null;
+
+        throw new Error(detail || errorMessage);
+    }
+
+    // Support older endpoints that may still return a plain array.
+    if (Array.isArray(data)) {
+        return {
+            count: data.length,
+            next: null,
+            previous: null,
+            results: data as T[],
+        };
+    }
+
+    if (
+        data &&
+        typeof data === "object" &&
+        "results" in data &&
+        Array.isArray(data.results) &&
+        "count" in data &&
+        typeof data.count === "number"
+    ) {
+        return data as PaginatedResponse<T>;
+    }
+
+    throw new Error("Invalid paginated API response.");
+}
 
 export async function fetchAllPaginatedResults<T>(
     initialUrl: string,
@@ -71,9 +128,9 @@ export async function fetchAllPaginatedResults<T>(
 
                 nextUrl =
                     `${apiBase.origin}${parsedNext.pathname}${parsedNext.search}`;
-                } else {
+            } else {
                 nextUrl = null;
-                }
+            }
             continue;
         }
 

@@ -1,5 +1,8 @@
 import { getCsrfToken } from "./auth";
-import { extractResults, API_BASE_URL, fetchAllPaginatedResults, } from "./utils";
+import {
+  API_BASE_URL,
+  fetchAllPaginatedResults,
+} from "./utils";
 
 
 
@@ -44,6 +47,39 @@ export async function getAssessmentMappings(): Promise<
         `${API_BASE_URL}/lms/assessment-mappings/`,
         "Unable to load assessment mappings.",
     );
+}
+
+
+export async function getAssessmentMappingsCount(): Promise<number> {
+    const response = await fetch(
+        `${API_BASE_URL}/lms/assessment-mappings/?page=1`,
+        {
+            method: "GET",
+            credentials: "include",
+        },
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+        throw new Error(
+            typeof data?.detail === "string"
+                ? data.detail
+                : "Unable to load assessment mapping count.",
+        );
+    }
+
+    if (typeof data?.count === "number") {
+        return data.count;
+    }
+
+    if (Array.isArray(data)) {
+        return data.length;
+    }
+
+    return Array.isArray(data?.results)
+        ? data.results.length
+        : 0;
 }
 
 

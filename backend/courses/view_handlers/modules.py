@@ -37,17 +37,36 @@ class ModuleListCreateView(
     def get_queryset(self):
         queryset = Module.objects.select_related(
             "qualification",
-        )
+        ).order_by("-created_at")
 
         qualification_id = self.request.query_params.get(
             "qualification_id",
         )
+
+        search = self.request.query_params.get(
+            "search",
+            "",
+        ).strip()
 
         if qualification_id:
             queryset = queryset.filter(
                 qualification_id=qualification_id,
             )
 
+        if search:
+            queryset = queryset.filter(
+                Q(module_code__icontains=search)
+                | Q(module_name__icontains=search)
+                | Q(description__icontains=search)
+                | Q(
+                    qualification__qualification_code__icontains=search
+                )
+                | Q(
+                    qualification__qualification_name__icontains=search
+                )
+            )
+
+        
         return queryset
 
     def perform_create(self, serializer):

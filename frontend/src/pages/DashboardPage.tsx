@@ -12,14 +12,14 @@ import "../css/AssessmentMappings.css";
 import "../css/QualificationsPage.css"; // Import for modern layout classes
 
 import {
-  getAssessmentMappings,
+  getAssessmentMappingsCount,
 } from "../api/assessmentMappings";
 
 import {
-  getCohorts,
-  getModuleAssignments,
-  getModules,
-  getQualifications,
+  getCohortsPage,
+  getModuleAssignmentsPage,
+  getModulesPage,
+  getQualificationsPage,
 } from "../api/courses";
 
 export function DashboardPage() {
@@ -37,25 +37,25 @@ export function DashboardPage() {
     async function loadData() {
       try {
         const [
-          qualificationsData,
-          modulesData,
-          cohortsData,
-          assignmentsData,
-          mappingsData,
+          qualificationsPage,
+          modulesPage,
+          cohortsPage,
+          assignmentsPage,
+          mappingsCount,
         ] = await Promise.all([
-          getQualifications(),
-          getModules(),
-          getCohorts(),
-          getModuleAssignments(),
-          getAssessmentMappings(),
+          getQualificationsPage({ page: 1 }),
+          getModulesPage({ page: 1 }),
+          getCohortsPage({ page: 1 }),
+          getModuleAssignmentsPage({ page: 1 }),
+          getAssessmentMappingsCount(),
         ]);
 
         setMetrics({
-          qualifications: qualificationsData.length,
-          modules: modulesData.length,
-          cohorts: cohortsData.length,
-          assignments: assignmentsData.length,
-          mappings: mappingsData.length,
+          qualifications: qualificationsPage.count,
+          modules: modulesPage.count,
+          cohorts: cohortsPage.count,
+          assignments: assignmentsPage.count,
+          mappings: mappingsCount,
         });
       } catch (error) {
         console.error(
@@ -134,7 +134,7 @@ export function DashboardPage() {
                 </div>
               </Link>
 
-              
+
             </div>
           )}
         </section>
@@ -208,9 +208,9 @@ export function DashboardPage() {
             </Link> */}
 
             <Link to="/admin/submission-records" className="btn-secondary" style={{ textDecoration: 'none' }}>
-              
-                View Submission Records
-              
+
+              View Submission Records
+
             </Link>
           </div>
         </section>

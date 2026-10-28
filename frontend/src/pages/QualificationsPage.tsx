@@ -30,7 +30,8 @@ import {
   deleteQualification,
   getQualificationDeleteImpact,
   getModules,
-  getQualifications,
+  getModulesPage,
+  getQualificationsPage,
   updateQualification,
   getModuleDeleteImpact,
   updateModule,
@@ -46,7 +47,18 @@ import { RecentDeletedAuditButton } from "../components/RecentDeletedAuditButton
 export function QualificationsPage() {
   const [searchParams] = useSearchParams();
   const [qualifications, setQualifications] = useState<Qualification[]>([]);
+  const [qualificationPage, setQualificationPage] = useState(1);
+  const [qualificationTotal, setQualificationTotal] = useState(0);
+  const [qualificationNext, setQualificationNext] = useState<string | null>(null);
+  const [qualificationPrevious, setQualificationPrevious] = useState<string | null>(null);
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const [modules, setModules] = useState<Module[]>([]);
+
+  const [selectedQualificationModules, setSelectedQualificationModules] =
+    useState<Module[]>([]);
+
+  const [isLoadingQualificationModules, setIsLoadingQualificationModules] =
+    useState(false);
 
   const [activeTab, setActiveTab] = useState<'setup' | 'qualifications' | 'modules'>(() => {
     const requestedTab = searchParams.get('tab');
@@ -95,6 +107,34 @@ export function QualificationsPage() {
   const [isCreatingModule, setIsCreatingModule] = useState(false);
   const [error, setError] = useState("");
 
+  const [modulePage, setModulePage] = useState(1);
+  const [moduleTotal, setModuleTotal] = useState(0);
+  const [moduleNext, setModuleNext] = useState<string | null>(null);
+  const [modulePrevious, setModulePrevious] = useState<string | null>(null);
+  const [debouncedModuleSearchQuery, setDebouncedModuleSearchQuery] =
+    useState("");
+
+
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      setDebouncedModuleSearchQuery(moduleSearchQuery);
+      setModulePage(1);
+    }, 400);
+
+    return () => window.clearTimeout(timeout);
+  }, [moduleSearchQuery]);
+
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+      setQualificationPage(1);
+    }, 400);
+
+    return () => window.clearTimeout(timeout);
+  }, [searchQuery]);
+
   useEffect(() => {
     const requestedTab = searchParams.get("tab");
     if (requestedTab === "qualifications" || requestedTab === "modules") {
@@ -123,21 +163,41 @@ export function QualificationsPage() {
   const [isSavingModule, setIsSavingModule] =
     useState(false);
 
-  const [isCheckingModuleDelete, setIsCheckingModuleDelete] =
+  const [, setIsCheckingModuleDelete] =
     useState(false);
 
   const [isDeletingModule, setIsDeletingModule] =
     useState(false);
 
+
+  async function loadModulePage() {
+    const modulePageData = await getModulesPage({
+      page: modulePage,
+      search: debouncedModuleSearchQuery,
+    });
+
+    setModules(modulePageData.results);
+    setModuleTotal(modulePageData.count);
+    setModuleNext(modulePageData.next);
+    setModulePrevious(modulePageData.previous);
+  }
+
+
+  async function loadQualificationPage() {
+    const qualificationPageData = await getQualificationsPage({
+      page: qualificationPage,
+      search: debouncedSearchQuery,
+    });
+
+    setQualifications(qualificationPageData.results);
+    setQualificationTotal(qualificationPageData.count);
+    setQualificationNext(qualificationPageData.next);
+    setQualificationPrevious(qualificationPageData.previous);
+  }
+
+
   async function loadData() {
     try {
-      const [qualificationData, moduleData] = await Promise.all([
-        getQualifications(),
-        getModules(),
-      ]);
-
-      setQualifications(qualificationData);
-      setModules(moduleData);
     } catch (caughtError) {
       setError(
         caughtError instanceof Error
@@ -150,14 +210,83 @@ export function QualificationsPage() {
   }
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    void loadData();
+    if (
+      modulePage === 1 &&
+      debouncedModuleSearchQuery === ""
+    ) {
+      return;
+    }
+
+    async function refreshModulePage() {
+      try {
+        await loadModulePage();
+      } catch (caughtError) {
+        setError(
+          caughtError instanceof Error
+            ? caughtError.message
+            : "Unable to load modules.",
+        );
+      }
+    }
+
+    void refreshModulePage();
+  }, [modulePage, debouncedModuleSearchQuery]);
+
+  useEffect(() => {
+    async function initialise() {
+      setIsLoading(true);
+
+      try {
+        await Promise.all([
+          loadData(),
+          loadQualificationPage(),
+          loadModulePage(),
+        ]);
+      } catch (caughtError) {
+        setError(
+          caughtError instanceof Error
+            ? caughtError.message
+            : "Unable to load academic setup.",
+        );
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    void initialise();
 
     // Close dropdown on outside click
     const handleClickOutside = () => setOpenDropdownId(null);
     document.addEventListener("click", handleClickOutside);
-    return () => document.removeEventListener("click", handleClickOutside);
+
+    return () =>
+      document.removeEventListener("click", handleClickOutside);
   }, []);
+
+
+  useEffect(() => {
+    if (
+      qualificationPage === 1 &&
+      debouncedSearchQuery === ""
+    ) {
+      return;
+    }
+
+    async function refreshQualificationPage() {
+      try {
+        await loadQualificationPage();
+      } catch (caughtError) {
+        setError(
+          caughtError instanceof Error
+            ? caughtError.message
+            : "Unable to load qualifications.",
+        );
+      }
+    }
+
+    void refreshQualificationPage();
+  }, [qualificationPage, debouncedSearchQuery]);
+
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -178,7 +307,10 @@ export function QualificationsPage() {
       setIsActive(true);
       setShowCreateQualification(false);
 
-      await loadData();
+      await Promise.all([
+        loadData(),
+        loadQualificationPage(),
+      ]);
     } catch (caughtError) {
       setError(
         caughtError instanceof Error
@@ -218,7 +350,10 @@ export function QualificationsPage() {
       });
 
       cancelEditing();
-      await loadData();
+      await Promise.all([
+        loadData(),
+        loadQualificationPage(),
+      ]);
     } catch (caughtError) {
       setError(
         caughtError instanceof Error
@@ -239,7 +374,10 @@ export function QualificationsPage() {
         is_active: !qualification.is_active,
       });
 
-      await loadData();
+      await Promise.all([
+        loadData(),
+        loadQualificationPage(),
+      ]);
     } catch (caughtError) {
       setError(
         caughtError instanceof Error
@@ -301,7 +439,10 @@ export function QualificationsPage() {
       setQualificationToDelete(null);
       setQualificationDeleteImpact(null);
 
-      await loadData();
+      await Promise.all([
+        loadData(),
+        loadQualificationPage(),
+      ]);
     } catch (caughtError) {
       setError(
         caughtError instanceof Error
@@ -343,7 +484,10 @@ export function QualificationsPage() {
       setModuleDescription("");
       setShowCreateModule(false);
 
-      await loadData();
+      await Promise.all([
+        loadData(),
+        loadQualificationPage(),
+      ]);
     } catch (caughtError) {
       setError(
         caughtError instanceof Error
@@ -393,7 +537,10 @@ export function QualificationsPage() {
       });
 
       cancelEditingModule();
-      await loadData();
+      await Promise.all([
+        loadData(),
+        loadQualificationPage(),
+      ]);
     } catch (caughtError) {
       setError(
         caughtError instanceof Error
@@ -413,7 +560,10 @@ export function QualificationsPage() {
         is_active: !module.is_active,
       });
 
-      await loadData();
+      await Promise.all([
+        loadData(),
+        loadQualificationPage(),
+      ]);
     } catch (caughtError) {
       setError(
         caughtError instanceof Error
@@ -459,7 +609,10 @@ export function QualificationsPage() {
       setModuleToDelete(null);
       setModuleDeleteImpact(null);
 
-      await loadData();
+      await Promise.all([
+        loadData(),
+        loadQualificationPage(),
+      ]);
     } catch (caughtError) {
       setError(
         caughtError instanceof Error
@@ -483,22 +636,13 @@ export function QualificationsPage() {
     (qualification) => qualification.id === selectedQualificationId,
   );
 
-  const selectedModules = modules.filter(
-    (module) => module.qualification === selectedQualificationId,
-  );
+  const selectedModules = selectedQualificationModules;
 
   const activeQualificationsCount = qualifications.filter(q => q.is_active).length;
   const inactiveQualificationsCount = qualifications.length - activeQualificationsCount;
 
-  const filteredQualifications = qualifications.filter(q =>
-    q.qualification_code.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    q.qualification_name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
 
-  const filteredAllModules = modules.filter(m =>
-    m.module_code.toLowerCase().includes(moduleSearchQuery.toLowerCase()) ||
-    m.module_name.toLowerCase().includes(moduleSearchQuery.toLowerCase())
-  );
+
 
   return (
     <div className="academic-layout">
@@ -587,7 +731,7 @@ export function QualificationsPage() {
               </div>
               <div className="metric-content">
                 <span className="metric-label">Total Qualifications</span>
-                <span className="metric-value">{qualifications.length}</span>
+                <span className="metric-value">{qualificationTotal}</span>
                 <span className="metric-sub">Active qualifications</span>
               </div>
             </div>
@@ -597,7 +741,7 @@ export function QualificationsPage() {
               </div>
               <div className="metric-content">
                 <span className="metric-label">Total Modules</span>
-                <span className="metric-value">{modules.length}</span>
+                <span className="metric-value">{moduleTotal}</span>
                 <span className="metric-sub">Across all qualifications</span>
               </div>
             </div>
@@ -682,597 +826,680 @@ export function QualificationsPage() {
 
         {/* Qualifications Table Card */}
         {(activeTab === 'setup' || activeTab === 'qualifications') && (
-          <div className="content-card">
-            <div className="content-card-header">
-              <div className="content-title-section">
-                <div className="content-icon">
-                  <Package size={20} />
+          <>
+            <div className="content-card">
+              <div className="content-card-header">
+                <div className="content-title-section">
+                  <div className="content-icon">
+                    <Package size={20} />
+                  </div>
+                  <div className="content-title">
+                    <h2>Qualifications</h2>
+                    <p>Select a qualification to manage its modules.</p>
+                  </div>
                 </div>
-                <div className="content-title">
-                  <h2>Qualifications</h2>
-                  <p>Select a qualification to manage its modules.</p>
+                <div className="search-box">
+                  <Search className="search-icon" />
+                  <input
+                    type="text"
+                    placeholder="Search qualifications..."
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                  />
                 </div>
               </div>
-              <div className="search-box">
-                <Search className="search-icon" />
-                <input
-                  type="text"
-                  placeholder="Search qualifications..."
-                  value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
-                />
-              </div>
+
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Code</th>
+                    <th>Qualification</th>
+                    <th>Description</th>
+                    <th>Modules</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {qualifications.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} style={{ textAlign: 'center', padding: '40px' }}>No qualifications found.</td>
+                    </tr>
+                  ) : (
+                    qualifications.map((qualification) => {
+                      const isEditing = editingId === qualification.id;
+                      const isDropdownOpen = openDropdownId === qualification.id;
+
+                      return (
+                        <tr
+                          key={qualification.id}
+                          onClick={() => {
+                            setSelectedQualificationId(qualification.id);
+                            setShowCreateModule(false);
+
+                            setIsLoadingQualificationModules(true);
+
+                            void getModules(qualification.id)
+                              .then((items) => {
+                                setSelectedQualificationModules(items);
+                              })
+                              .catch((caughtError) => {
+                                setError(
+                                  caughtError instanceof Error
+                                    ? caughtError.message
+                                    : "Unable to load qualification modules.",
+                                );
+                              })
+                              .finally(() => {
+                                setIsLoadingQualificationModules(false);
+                              });
+                          }}
+                          style={{ cursor: "pointer", backgroundColor: selectedQualificationId === qualification.id ? 'rgba(238, 242, 255, 0.5)' : undefined }}
+                        >
+                          <td>
+                            {isEditing ? (
+                              <input
+                                value={editQualificationCode}
+                                onClick={(e) => e.stopPropagation()}
+                                onChange={(e) => setEditQualificationCode(e.target.value)}
+                                style={{ width: '80px', padding: '4px' }}
+                              />
+                            ) : (
+                              <span className="tag-pill">{qualification.qualification_code}</span>
+                            )}
+                          </td>
+                          <td style={{ fontWeight: 500, color: 'var(--text-h)' }}>
+                            {isEditing ? (
+                              <input
+                                value={editQualificationName}
+                                onClick={(e) => e.stopPropagation()}
+                                onChange={(e) => setEditQualificationName(e.target.value)}
+                                style={{ width: '100%', padding: '4px' }}
+                              />
+                            ) : (
+                              qualification.qualification_name
+                            )}
+                          </td>
+                          <td style={{ maxWidth: '250px' }}>
+                            {isEditing ? (
+                              <textarea
+                                value={editDescription}
+                                onClick={(e) => e.stopPropagation()}
+                                onChange={(e) => setEditDescription(e.target.value)}
+                                style={{ width: '100%', padding: '4px', minHeight: '40px' }}
+                              />
+                            ) : (
+                              qualification.description || "—"
+                            )}
+                          </td>
+                          <td style={{ fontWeight: 500 }}>
+                            {qualification.module_count}
+                          </td>
+                          <td>
+                            <span className={`status-badge ${!qualification.is_active ? 'inactive' : ''}`}>
+                              <span className="status-dot"></span>
+                              {qualification.is_active ? "Active" : "Inactive"}
+                            </span>
+                          </td>
+                          <td onClick={(e) => e.stopPropagation()}>
+                            {isEditing ? (
+                              <div className="actions-cell">
+                                <button type="button" className="btn-action" style={{ color: 'var(--success)' }} disabled={isSaving} onClick={() => void saveQualification(qualification.id)}>
+                                  {isSaving ? "Saving..." : "Save"}
+                                </button>
+                                <button type="button" className="btn-action" disabled={isSaving} onClick={cancelEditing}>
+                                  Cancel
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="actions-cell">
+                                <AuditTrailButton
+                                  objectType="qualification"
+                                  objectId={qualification.id}
+                                  label={`${qualification.qualification_code} — ${qualification.qualification_name}`}
+                                />
+                                <button type="button" className="btn-action" onClick={() => beginEditing(qualification)}>
+                                  <Pencil className="btn-action-icon" /> Edit
+                                </button>
+                                <div className="action-dropdown-wrapper">
+                                  <button
+                                    type="button"
+                                    className="btn-icon-only"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setOpenDropdownId(isDropdownOpen ? null : qualification.id);
+                                    }}
+                                  >
+                                    <MoreHorizontal size={16} />
+                                  </button>
+                                  {isDropdownOpen && (
+                                    <div className="action-dropdown-menu">
+                                      <button type="button" className="dropdown-item warning" onClick={() => void toggleQualificationStatus(qualification)}>
+                                        {qualification.is_active ? <><PauseCircle size={14} /> Deactivate</> : <><PlayCircle size={14} /> Activate</>}
+                                      </button>
+
+                                      <button
+                                        type="button"
+                                        className="dropdown-item danger"
+                                        disabled={isCheckingDelete}
+                                        onClick={() => void removeQualification(qualification)}
+                                      >
+                                        <Trash2 size={14} />
+                                        {isCheckingDelete ? "Checking..." : "Delete"}
+                                      </button>
+
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
             </div>
 
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Code</th>
-                  <th>Qualification</th>
-                  <th>Description</th>
-                  <th>Modules</th>
-                  <th>Status</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredQualifications.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} style={{ textAlign: 'center', padding: '40px' }}>No qualifications found.</td>
-                  </tr>
-                ) : (
-                  filteredQualifications.map((qualification) => {
-                    const isEditing = editingId === qualification.id;
-                    const moduleCount = modules.filter(
-                      (m) => m.qualification === qualification.id,
-                    ).length;
-                    const isDropdownOpen = openDropdownId === qualification.id;
+            {qualificationTotal > 0 && (
+              <div className="pagination-controls">
+                <button
+                  type="button"
+                  disabled={!qualificationPrevious}
+                  onClick={() =>
+                    setQualificationPage((current) =>
+                      Math.max(current - 1, 1)
+                    )
+                  }
+                >
+                  Previous
+                </button>
 
-                    return (
-                      <tr
-                        key={qualification.id}
-                        onClick={() => {
-                          setSelectedQualificationId(qualification.id);
-                          setShowCreateModule(false);
-                        }}
-                        style={{ cursor: "pointer", backgroundColor: selectedQualificationId === qualification.id ? 'rgba(238, 242, 255, 0.5)' : undefined }}
-                      >
-                        <td>
-                          {isEditing ? (
-                            <input
-                              value={editQualificationCode}
-                              onClick={(e) => e.stopPropagation()}
-                              onChange={(e) => setEditQualificationCode(e.target.value)}
-                              style={{ width: '80px', padding: '4px' }}
-                            />
-                          ) : (
-                            <span className="tag-pill">{qualification.qualification_code}</span>
-                          )}
-                        </td>
-                        <td style={{ fontWeight: 500, color: 'var(--text-h)' }}>
-                          {isEditing ? (
-                            <input
-                              value={editQualificationName}
-                              onClick={(e) => e.stopPropagation()}
-                              onChange={(e) => setEditQualificationName(e.target.value)}
-                              style={{ width: '100%', padding: '4px' }}
-                            />
-                          ) : (
-                            qualification.qualification_name
-                          )}
-                        </td>
-                        <td style={{ maxWidth: '250px' }}>
-                          {isEditing ? (
-                            <textarea
-                              value={editDescription}
-                              onClick={(e) => e.stopPropagation()}
-                              onChange={(e) => setEditDescription(e.target.value)}
-                              style={{ width: '100%', padding: '4px', minHeight: '40px' }}
-                            />
-                          ) : (
-                            qualification.description || "—"
-                          )}
-                        </td>
-                        <td style={{ fontWeight: 500 }}>{moduleCount}</td>
-                        <td>
-                          <span className={`status-badge ${!qualification.is_active ? 'inactive' : ''}`}>
-                            <span className="status-dot"></span>
-                            {qualification.is_active ? "Active" : "Inactive"}
-                          </span>
-                        </td>
-                        <td onClick={(e) => e.stopPropagation()}>
-                          {isEditing ? (
-                            <div className="actions-cell">
-                              <button type="button" className="btn-action" style={{ color: 'var(--success)' }} disabled={isSaving} onClick={() => void saveQualification(qualification.id)}>
-                                {isSaving ? "Saving..." : "Save"}
-                              </button>
-                              <button type="button" className="btn-action" disabled={isSaving} onClick={cancelEditing}>
-                                Cancel
-                              </button>
-                            </div>
-                          ) : (
-                            <div className="actions-cell">
-                              <AuditTrailButton
-                                objectType="qualification"
-                                objectId={qualification.id}
-                                label={`${qualification.qualification_code} — ${qualification.qualification_name}`}
-                              />
-                              <button type="button" className="btn-action" onClick={() => beginEditing(qualification)}>
-                                <Pencil className="btn-action-icon" /> Edit
-                              </button>
-                              <div className="action-dropdown-wrapper">
-                                <button
-                                  type="button"
-                                  className="btn-icon-only"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setOpenDropdownId(isDropdownOpen ? null : qualification.id);
-                                  }}
-                                >
-                                  <MoreHorizontal size={16} />
-                                </button>
-                                {isDropdownOpen && (
-                                  <div className="action-dropdown-menu">
-                                    <button type="button" className="dropdown-item warning" onClick={() => void toggleQualificationStatus(qualification)}>
-                                      {qualification.is_active ? <><PauseCircle size={14} /> Deactivate</> : <><PlayCircle size={14} /> Activate</>}
-                                    </button>
+                <span>
+                  Page {qualificationPage} · {qualificationTotal} qualifications
+                </span>
 
-                                    <button
-                                      type="button"
-                                      className="dropdown-item danger"
-                                      disabled={isCheckingDelete}
-                                      onClick={() => void removeQualification(qualification)}
-                                    >
-                                      <Trash2 size={14} />
-                                      {isCheckingDelete ? "Checking..." : "Delete"}
-                                    </button>
-
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
+                <button
+                  type="button"
+                  disabled={!qualificationNext}
+                  onClick={() =>
+                    setQualificationPage((current) => current + 1)
+                  }
+                >
+                  Next
+                </button>
+              </div>
+            )}
+          </>
         )}
 
-        
+
+
 
         {/* Global Modules Table */}
         {activeTab === 'modules' && (
-          <div className="content-card">
-            <div className="content-card-header">
-              <div className="content-title-section">
-                <div className="content-icon">
-                  <Package size={20} />
+          <>
+            <div className="content-card">
+              <div className="content-card-header">
+                <div className="content-title-section">
+                  <div className="content-icon">
+                    <Package size={20} />
+                  </div>
+                  <div className="content-title">
+                    <h2>All Modules</h2>
+                    <p>Overview of all modules across qualifications.</p>
+                  </div>
                 </div>
-                <div className="content-title">
-                  <h2>All Modules</h2>
-                  <p>Overview of all modules across qualifications.</p>
+                <div className="search-box">
+                  <Search className="search-icon" />
+                  <input
+                    type="text"
+                    placeholder="Search modules..."
+                    value={moduleSearchQuery}
+                    onChange={e => setModuleSearchQuery(e.target.value)}
+                  />
                 </div>
               </div>
-              <div className="search-box">
-                <Search className="search-icon" />
-                <input
-                  type="text"
-                  placeholder="Search modules..."
-                  value={moduleSearchQuery}
-                  onChange={e => setModuleSearchQuery(e.target.value)}
-                />
-              </div>
+
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Qualification</th>
+                    <th>Code</th>
+                    <th>Module</th>
+                    <th>Description</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {modules.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} style={{ textAlign: 'center', padding: '40px' }}>No modules found.</td>
+                    </tr>
+                  ) : (
+                    modules.map((module) => {
+                      const qName = module.qualification_code || "—";
+                      return (
+                        <tr key={module.id}>
+                          <td>{qName}</td>
+                          <td><span className="tag-pill">{module.module_code}</span></td>
+                          <td style={{ fontWeight: 500, color: 'var(--text-h)' }}>{module.module_name}</td>
+                          <td>{module.description || "—"}</td>
+                          <td>
+                            <span className={`status-badge ${!module.is_active ? 'inactive' : ''}`}>
+                              <span className="status-dot"></span>
+                              {module.is_active ? "Active" : "Inactive"}
+                            </span>
+                          </td>
+                          <td>
+                            <div className="actions-cell">
+                              <AuditTrailButton
+                                objectType="module"
+                                objectId={module.id}
+                                label={`${module.module_code} — ${module.module_name}`}
+                              />
+
+                              {module.can_delete ? (
+                                <button type="button" className="btn-action" style={{ color: 'var(--danger)' }} onClick={() => void removeModule(module)}>
+                                  <Trash2 size={14} /> Delete
+                                </button>
+                              ) : (
+                                <span style={{ color: 'var(--text-muted)', fontSize: '13px' }}>In use</span>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
             </div>
 
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Qualification</th>
-                  <th>Code</th>
-                  <th>Module</th>
-                  <th>Description</th>
-                  <th>Status</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredAllModules.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} style={{ textAlign: 'center', padding: '40px' }}>No modules found.</td>
-                  </tr>
-                ) : (
-                  filteredAllModules.map((module) => {
-                    const qName = qualifications.find(q => q.id === module.qualification)?.qualification_code || "—";
-                    return (
-                      <tr key={module.id}>
-                        <td>{qName}</td>
-                        <td><span className="tag-pill">{module.module_code}</span></td>
-                        <td style={{ fontWeight: 500, color: 'var(--text-h)' }}>{module.module_name}</td>
-                        <td>{module.description || "—"}</td>
-                        <td>
-                          <span className={`status-badge ${!module.is_active ? 'inactive' : ''}`}>
-                            <span className="status-dot"></span>
-                            {module.is_active ? "Active" : "Inactive"}
-                          </span>
-                        </td>
-                        <td>
-                          <div className="actions-cell">
-                            <AuditTrailButton
-                              objectType="module"
-                              objectId={module.id}
-                              label={`${module.module_code} — ${module.module_name}`}
-                            />
+            {moduleTotal > 0 && (
+              <div className="pagination-controls">
+                <button
+                  type="button"
+                  disabled={!modulePrevious}
+                  onClick={() =>
+                    setModulePage((current) =>
+                      Math.max(current - 1, 1)
+                    )
+                  }
+                >
+                  Previous
+                </button>
 
-                            {module.can_delete ? (
-                              <button type="button" className="btn-action" style={{ color: 'var(--danger)' }} onClick={() => void removeModule(module)}>
-                                <Trash2 size={14} /> Delete
-                              </button>
-                            ) : (
-                              <span style={{ color: 'var(--text-muted)', fontSize: '13px' }}>In use</span>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
+                <span>
+                  Page {modulePage} · {moduleTotal} modules
+                </span>
+
+                <button
+                  type="button"
+                  disabled={!moduleNext}
+                  onClick={() =>
+                    setModulePage((current) => current + 1)
+                  }
+                >
+                  Next
+                </button>
+              </div>
+            )}
+          </>
         )}
 
       </main>
 
-        {selectedQualification &&
-  (activeTab === "setup" || activeTab === "qualifications") && (
-    <div
-      className="qualification-workspace-backdrop"
-      onClick={() => {
-        setSelectedQualificationId("");
-        setShowCreateModule(false);
-        cancelEditingModule();
-      }}
-    >
-      <section
-        className="qualification-workspace-modal"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="qualification-workspace-header">
-          <div>
-            <span className="qualification-workspace-eyebrow">
-              Qualification
-            </span>
-
-            <div className="qualification-workspace-title-row">
-              <h2>
-                {selectedQualification.qualification_code} —{" "}
-                {selectedQualification.qualification_name}
-              </h2>
-
-              <span
-                className={`status-badge ${
-                  !selectedQualification.is_active ? "inactive" : ""
-                }`}
-              >
-                <span className="status-dot" />
-                {selectedQualification.is_active
-                  ? "Active"
-                  : "Inactive"}
-              </span>
-            </div>
-
-            {selectedQualification.description && (
-              <p>{selectedQualification.description}</p>
-            )}
-          </div>
-
-          <button
-            type="button"
-            className="qualification-workspace-close"
+      {selectedQualification &&
+        (activeTab === "setup" || activeTab === "qualifications") && (
+          <div
+            className="qualification-workspace-backdrop"
             onClick={() => {
               setSelectedQualificationId("");
               setShowCreateModule(false);
               cancelEditingModule();
             }}
-            aria-label="Close qualification"
           >
-            ×
-          </button>
-        </div>
+            <section
+              className="qualification-workspace-modal"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="qualification-workspace-header">
+                <div>
+                  <span className="qualification-workspace-eyebrow">
+                    Qualification
+                  </span>
 
-        <div className="qualification-workspace-summary">
-          <div>
-            <span>Qualification code</span>
-            <strong>
-              {selectedQualification.qualification_code}
-            </strong>
-          </div>
+                  <div className="qualification-workspace-title-row">
+                    <h2>
+                      {selectedQualification.qualification_code} —{" "}
+                      {selectedQualification.qualification_name}
+                    </h2>
 
-          <div>
-            <span>Total modules</span>
-            <strong>{selectedModules.length}</strong>
-          </div>
+                    <span
+                      className={`status-badge ${!selectedQualification.is_active ? "inactive" : ""
+                        }`}
+                    >
+                      <span className="status-dot" />
+                      {selectedQualification.is_active
+                        ? "Active"
+                        : "Inactive"}
+                    </span>
+                  </div>
 
-          <div>
-            <span>Status</span>
-            <strong>
-              {selectedQualification.is_active
-                ? "Active"
-                : "Inactive"}
-            </strong>
-          </div>
-        </div>
+                  {selectedQualification.description && (
+                    <p>{selectedQualification.description}</p>
+                  )}
+                </div>
 
-        <div className="qualification-modules-header">
-          <div>
-            <h3>Modules</h3>
-            <p>
-              Manage modules under this qualification.
-            </p>
-          </div>
-
-          <button
-            type="button"
-            className="btn-accent"
-            onClick={() =>
-              setShowCreateModule((current) => !current)
-            }
-          >
-            <Plus size={16} />
-            {showCreateModule ? "Close Form" : "Add Module"}
-          </button>
-        </div>
-
-        {showCreateModule && (
-          <form
-            onSubmit={handleCreateModule}
-            className="modern-form qualification-module-form"
-          >
-            <div className="form-grid form-grid-2">
-              <div className="form-group">
-                <label htmlFor="module-code">
-                  Module code
-                </label>
-
-                <input
-                  id="module-code"
-                  value={moduleCode}
-                  onChange={(event) =>
-                    setModuleCode(event.target.value)
-                  }
-                  required
-                />
+                <button
+                  type="button"
+                  className="qualification-workspace-close"
+                  onClick={() => {
+                    setSelectedQualificationId("");
+                    setShowCreateModule(false);
+                    cancelEditingModule();
+                  }}
+                  aria-label="Close qualification"
+                >
+                  ×
+                </button>
               </div>
 
-              <div className="form-group">
-                <label htmlFor="module-name">
-                  Module name
-                </label>
+              <div className="qualification-workspace-summary">
+                <div>
+                  <span>Qualification code</span>
+                  <strong>
+                    {selectedQualification.qualification_code}
+                  </strong>
+                </div>
 
-                <input
-                  id="module-name"
-                  value={moduleName}
-                  onChange={(event) =>
-                    setModuleName(event.target.value)
-                  }
-                  required
-                />
+                <div>
+                  <span>Total modules</span>
+                  <strong>{selectedModules.length}</strong>
+                </div>
+
+                <div>
+                  <span>Status</span>
+                  <strong>
+                    {selectedQualification.is_active
+                      ? "Active"
+                      : "Inactive"}
+                  </strong>
+                </div>
               </div>
-            </div>
 
-            <div className="form-group">
-              <label htmlFor="module-description">
-                Description
-              </label>
+              <div className="qualification-modules-header">
+                <div>
+                  <h3>Modules</h3>
+                  <p>
+                    Manage modules under this qualification.
+                  </p>
+                </div>
 
-              <textarea
-                id="module-description"
-                value={moduleDescription}
-                onChange={(event) =>
-                  setModuleDescription(event.target.value)
-                }
-              />
-            </div>
+                <button
+                  type="button"
+                  className="btn-accent"
+                  onClick={() =>
+                    setShowCreateModule((current) => !current)
+                  }
+                >
+                  <Plus size={16} />
+                  {showCreateModule ? "Close Form" : "Add Module"}
+                </button>
+              </div>
 
-            <div className="form-actions form-actions-compact">
-              <button
-                type="submit"
-                className="btn-accent"
-                disabled={isCreatingModule}
-              >
-                {isCreatingModule
-                  ? "Creating..."
-                  : "Add Module"}
-              </button>
+              {showCreateModule && (
+                <form
+                  onSubmit={handleCreateModule}
+                  className="modern-form qualification-module-form"
+                >
+                  <div className="form-grid form-grid-2">
+                    <div className="form-group">
+                      <label htmlFor="module-code">
+                        Module code
+                      </label>
 
-              <button
-                type="button"
-                className="btn-secondary"
-                disabled={isCreatingModule}
-                onClick={() => setShowCreateModule(false)}
-              >
-                Cancel
-              </button>
-            </div>
-          </form>
+                      <input
+                        id="module-code"
+                        value={moduleCode}
+                        onChange={(event) =>
+                          setModuleCode(event.target.value)
+                        }
+                        required
+                      />
+                    </div>
+
+                    <div className="form-group">
+                      <label htmlFor="module-name">
+                        Module name
+                      </label>
+
+                      <input
+                        id="module-name"
+                        value={moduleName}
+                        onChange={(event) =>
+                          setModuleName(event.target.value)
+                        }
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="form-group">
+                    <label htmlFor="module-description">
+                      Description
+                    </label>
+
+                    <textarea
+                      id="module-description"
+                      value={moduleDescription}
+                      onChange={(event) =>
+                        setModuleDescription(event.target.value)
+                      }
+                    />
+                  </div>
+
+                  <div className="form-actions form-actions-compact">
+                    <button
+                      type="submit"
+                      className="btn-accent"
+                      disabled={isCreatingModule}
+                    >
+                      {isCreatingModule
+                        ? "Creating..."
+                        : "Add Module"}
+                    </button>
+
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      disabled={isCreatingModule}
+                      onClick={() => setShowCreateModule(false)}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              <div className="qualification-modules-content">
+                {isLoadingQualificationModules ? (
+                  <div className="qualification-modules-empty">
+                    Loading modules...
+                  </div>
+                ) : selectedModules.length === 0 ? (
+                  <div className="qualification-modules-empty">
+                    <Package size={26} />
+
+                    <strong>No modules yet</strong>
+
+                    <p>
+                      Add the first module for this qualification.
+                    </p>
+                  </div>
+                ) : (
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th>Code</th>
+                        <th>Module</th>
+                        <th>Description</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                      </tr>
+                    </thead>
+
+                    <tbody>
+                      {selectedModules.map((module) => (
+                        <tr key={module.id}>
+                          <td>
+                            {editingModuleId === module.id ? (
+                              <input
+                                value={editModuleCode}
+                                onChange={(event) =>
+                                  setEditModuleCode(
+                                    event.target.value,
+                                  )
+                                }
+                              />
+                            ) : (
+                              <span className="tag-pill">
+                                {module.module_code}
+                              </span>
+                            )}
+                          </td>
+
+                          <td>
+                            {editingModuleId === module.id ? (
+                              <input
+                                value={editModuleName}
+                                onChange={(event) =>
+                                  setEditModuleName(
+                                    event.target.value,
+                                  )
+                                }
+                              />
+                            ) : (
+                              <strong>{module.module_name}</strong>
+                            )}
+                          </td>
+
+                          <td>
+                            {editingModuleId === module.id ? (
+                              <textarea
+                                value={editModuleDescription}
+                                onChange={(event) =>
+                                  setEditModuleDescription(
+                                    event.target.value,
+                                  )
+                                }
+                              />
+                            ) : (
+                              module.description || "—"
+                            )}
+                          </td>
+
+                          <td>
+                            <span
+                              className={`status-badge ${!module.is_active
+                                ? "inactive"
+                                : ""
+                                }`}
+                            >
+                              <span className="status-dot" />
+                              {module.is_active
+                                ? "Active"
+                                : "Inactive"}
+                            </span>
+                          </td>
+
+                          <td>
+                            {editingModuleId === module.id ? (
+                              <div className="actions-cell">
+                                <button
+                                  type="button"
+                                  className="btn-action"
+                                  disabled={isSavingModule}
+                                  onClick={() =>
+                                    void saveModule(module.id)
+                                  }
+                                >
+                                  {isSavingModule
+                                    ? "Saving..."
+                                    : "Save"}
+                                </button>
+
+                                <button
+                                  type="button"
+                                  className="btn-action"
+                                  disabled={isSavingModule}
+                                  onClick={cancelEditingModule}
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="actions-cell">
+                                <button
+                                  type="button"
+                                  className="btn-action"
+                                  onClick={() =>
+                                    beginEditingModule(module)
+                                  }
+                                >
+                                  <Pencil size={14} />
+                                  Edit
+                                </button>
+
+                                <button
+                                  type="button"
+                                  className="btn-action"
+                                  onClick={() =>
+                                    void toggleModuleStatus(module)
+                                  }
+                                >
+                                  {module.is_active ? (
+                                    <>
+                                      <PauseCircle size={14} />
+                                      Deactivate
+                                    </>
+                                  ) : (
+                                    <>
+                                      <PlayCircle size={14} />
+                                      Activate
+                                    </>
+                                  )}
+                                </button>
+
+                                <button
+                                  type="button"
+                                  className="btn-action"
+                                  style={{
+                                    color: "var(--danger)",
+                                  }}
+                                  onClick={() =>
+                                    void removeModule(module)
+                                  }
+                                >
+                                  <Trash2 size={14} />
+                                  Delete
+                                </button>
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            </section>
+          </div>
         )}
 
-        <div className="qualification-modules-content">
-          {selectedModules.length === 0 ? (
-            <div className="qualification-modules-empty">
-              <Package size={26} />
-
-              <strong>No modules yet</strong>
-
-              <p>
-                Add the first module for this qualification.
-              </p>
-            </div>
-          ) : (
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Code</th>
-                  <th>Module</th>
-                  <th>Description</th>
-                  <th>Status</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {selectedModules.map((module) => (
-                  <tr key={module.id}>
-                    <td>
-                      {editingModuleId === module.id ? (
-                        <input
-                          value={editModuleCode}
-                          onChange={(event) =>
-                            setEditModuleCode(
-                              event.target.value,
-                            )
-                          }
-                        />
-                      ) : (
-                        <span className="tag-pill">
-                          {module.module_code}
-                        </span>
-                      )}
-                    </td>
-
-                    <td>
-                      {editingModuleId === module.id ? (
-                        <input
-                          value={editModuleName}
-                          onChange={(event) =>
-                            setEditModuleName(
-                              event.target.value,
-                            )
-                          }
-                        />
-                      ) : (
-                        <strong>{module.module_name}</strong>
-                      )}
-                    </td>
-
-                    <td>
-                      {editingModuleId === module.id ? (
-                        <textarea
-                          value={editModuleDescription}
-                          onChange={(event) =>
-                            setEditModuleDescription(
-                              event.target.value,
-                            )
-                          }
-                        />
-                      ) : (
-                        module.description || "—"
-                      )}
-                    </td>
-
-                    <td>
-                      <span
-                        className={`status-badge ${
-                          !module.is_active
-                            ? "inactive"
-                            : ""
-                        }`}
-                      >
-                        <span className="status-dot" />
-                        {module.is_active
-                          ? "Active"
-                          : "Inactive"}
-                      </span>
-                    </td>
-
-                    <td>
-                      {editingModuleId === module.id ? (
-                        <div className="actions-cell">
-                          <button
-                            type="button"
-                            className="btn-action"
-                            disabled={isSavingModule}
-                            onClick={() =>
-                              void saveModule(module.id)
-                            }
-                          >
-                            {isSavingModule
-                              ? "Saving..."
-                              : "Save"}
-                          </button>
-
-                          <button
-                            type="button"
-                            className="btn-action"
-                            disabled={isSavingModule}
-                            onClick={cancelEditingModule}
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="actions-cell">
-                          <button
-                            type="button"
-                            className="btn-action"
-                            onClick={() =>
-                              beginEditingModule(module)
-                            }
-                          >
-                            <Pencil size={14} />
-                            Edit
-                          </button>
-
-                          <button
-                            type="button"
-                            className="btn-action"
-                            onClick={() =>
-                              void toggleModuleStatus(module)
-                            }
-                          >
-                            {module.is_active ? (
-                              <>
-                                <PauseCircle size={14} />
-                                Deactivate
-                              </>
-                            ) : (
-                              <>
-                                <PlayCircle size={14} />
-                                Activate
-                              </>
-                            )}
-                          </button>
-
-                          <button
-                            type="button"
-                            className="btn-action"
-                            style={{
-                              color: "var(--danger)",
-                            }}
-                            onClick={() =>
-                              void removeModule(module)
-                            }
-                          >
-                            <Trash2 size={14} />
-                            Delete
-                          </button>
-                        </div>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-      </section>
-    </div>
-  )}
-  
       {qualificationToDelete && qualificationDeleteImpact && (
         <div className="delete-modal-backdrop">
           <div className="delete-modal">

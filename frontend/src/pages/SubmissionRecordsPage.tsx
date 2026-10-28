@@ -19,7 +19,13 @@ import {
 } from "../api/assessmentMappings";
 
 import {
+  getAdminGradebook,
+  getAdminSubmissionRecordDetail,
   getAdminSubmissionRecords,
+  getAdminSubmissionRecordCohortDetail,
+  type AdminSubmissionCohortDetail,
+  type AdminGradebookResponse,
+  type AdminSubmissionRecordDetail,
   type AdminSubmissionRecordsResponse,
 } from "../api/adminSubmissionRecords";
 
@@ -95,10 +101,10 @@ function getLatestResultCounts(assignment: {
   }>;
 }) {
   const counts = {
-      failed: 0,
-      foundation: 0,
-      proficient: 0,
-      expert: 0,
+    failed: 0,
+    foundation: 0,
+    proficient: 0,
+    expert: 0,
   };
 
   assignment.learners.forEach((learner) => {
@@ -127,9 +133,6 @@ function getLatestResultCounts(assignment: {
       latestAttempt.achieved_band || ""
     ).trim().toLowerCase();
 
-    const level = (
-      latestAttempt.level_code || ""
-    ).trim().toLowerCase();
 
     if (band === "failed") {
       counts.failed += 1;
@@ -137,7 +140,7 @@ function getLatestResultCounts(assignment: {
       counts.foundation += 1;
     } else if (band === "proficient") {
       counts.proficient += 1;
-    }else if (band === "expert") {
+    } else if (band === "expert") {
       counts.expert += 1;
     }
   });
@@ -240,9 +243,9 @@ function getEstimatedApiCost(
   return (
     (uncachedInputTokens / 1_000_000) * modelPricing.input +
     (safeCachedInputTokens / 1_000_000) *
-      modelPricing.cachedInput +
+    modelPricing.cachedInput +
     (safeOutputTokens / 1_000_000) *
-      modelPricing.output
+    modelPricing.output
   );
 }
 
@@ -250,6 +253,8 @@ function getEstimatedApiCost(
 export function SubmissionRecordsPage() {
   const [data, setData] =
     useState<AdminSubmissionRecordsResponse | null>(null);
+  const [gradebookData, setGradebookData] =
+    useState<AdminGradebookResponse | null>(null);
   const [mappings, setMappings] =
     useState<AssessmentMapping[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -259,8 +264,10 @@ export function SubmissionRecordsPage() {
     useState<RecordsTab>("records");
 
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [cohortFilter, setCohortFilter] = useState("");
   const [assignmentFilter, setAssignmentFilter] = useState("");
+  const [page, setPage] = useState(1);
 
   const [expandedCohorts, setExpandedCohorts] =
     useState<string[]>([]);
@@ -271,25 +278,68 @@ export function SubmissionRecordsPage() {
   const [expandedLearners, setExpandedLearners] =
     useState<string[]>([]);
 
+  const [submissionDetails, setSubmissionDetails] =
+    useState<Record<string, AdminSubmissionRecordDetail>>({});
+
+  const [loadingSubmissionDetails, setLoadingSubmissionDetails] =
+    useState<Record<string, boolean>>({});
+
+  const [cohortDetails, setCohortDetails] =
+    useState<Record<string, AdminSubmissionCohortDetail>>({});
+
+  const [loadingCohortDetails, setLoadingCohortDetails] =
+    useState<Record<string, boolean>>({});
+    
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 400);
+
+    return () => {
+      window.clearTimeout(timeout);
+    };
+  }, [search]);
+
+
+  useEffect(() => {
+    async function loadMappings() {
+      try {
+        const mappingResponse =
+          await getAssessmentMappings();
+
+        setMappings(mappingResponse);
+      } catch (caughtError) {
+        setError(
+          caughtError instanceof Error
+            ? caughtError.message
+            : "Unable to load assessment mappings.",
+        );
+      }
+    }
+
+    void loadMappings();
+  }, []);
+
+
   useEffect(() => {
     async function loadRecords() {
       setIsLoading(true);
       setError("");
 
       try {
-        const [recordsResponse, mappingResponse] =
-          await Promise.all([
-            getAdminSubmissionRecords(),
-            getAssessmentMappings(),
-          ]);
+        const recordsResponse =
+          await getAdminSubmissionRecords({
+            page,
+            search: debouncedSearch,
+            cohortId: cohortFilter,
+            assignmentId: assignmentFilter,
+          });
 
         setData(recordsResponse);
-        setMappings(mappingResponse);
-        setExpandedCohorts(
-          recordsResponse.cohorts.map(
-            (cohort) => cohort.id,
-          ),
-        );
+        setExpandedCohorts([]);
+        setExpandedAssignments([]);
+        setExpandedLearners([]);
+        setCohortDetails({});
       } catch (caughtError) {
         setError(
           caughtError instanceof Error
@@ -302,79 +352,48 @@ export function SubmissionRecordsPage() {
     }
 
     void loadRecords();
-  }, []);
+  }, [
+    page,
+    debouncedSearch,
+    cohortFilter,
+    assignmentFilter,
+  ]);
 
-  const assignmentOptions = useMemo(() => {
-    if (!data) return [];
 
-    const seen = new Map<
-      string,
-      { id: string; label: string }
-    >();
+  useEffect(() => {
+    if (activeTab !== "gradebook") {
+      return;
+    }
 
-    data.cohorts.forEach((cohort) => {
-      cohort.assignments.forEach((assignment) => {
-        if (!seen.has(assignment.id)) {
-          seen.set(assignment.id, {
-            id: assignment.id,
-            label: `${assignment.code} — ${assignment.title}`,
-          });
-        }
-      });
-    });
+    async function loadGradebook() {
+      try {
+        const response = await getAdminGradebook(
+          cohortFilter || undefined,
+        );
 
-    return Array.from(seen.values()).sort((a, b) =>
-      a.label.localeCompare(b.label),
-    );
-  }, [data]);
+        setGradebookData(response);
+      } catch (caughtError) {
+        setError(
+          caughtError instanceof Error
+            ? caughtError.message
+            : "Unable to load final gradebook.",
+        );
+      }
+    }
+
+    void loadGradebook();
+  }, [
+    activeTab,
+    cohortFilter,
+  ]);
+
 
   const filteredCohorts = useMemo(() => {
-    if (!data) return [];
-
-    const query = search.trim().toLowerCase();
-
-    return data.cohorts
-      .filter(
-        (cohort) =>
-          !cohortFilter || cohort.id === cohortFilter,
-      )
-      .map((cohort) => ({
-        ...cohort,
-        assignments: cohort.assignments
-          .filter(
-            (assignment) =>
-              !assignmentFilter ||
-              assignment.id === assignmentFilter,
-          )
-          .map((assignment) => ({
-            ...assignment,
-            learners: assignment.learners.filter((learner) => {
-              if (!query) return true;
-
-              return [
-                cohort.code,
-                cohort.name,
-                assignment.code,
-                assignment.title,
-                learner.learner_id,
-                learner.name,
-                learner.email,
-              ]
-                .join(" ")
-                .toLowerCase()
-                .includes(query);
-            }),
-          }))
-          .filter(
-            (assignment) =>
-              assignment.learners.length > 0 || !query,
-          ),
-      }))
-      .filter((cohort) => cohort.assignments.length > 0);
-  }, [data, search, cohortFilter, assignmentFilter]);
+    return data?.cohorts ?? [];
+  }, [data]);
 
   const gradebookCohorts = useMemo(() => {
-    if (!data) return [];
+    if (!gradebookData) return [];
 
     const query = search.trim().toLowerCase();
 
@@ -429,12 +448,10 @@ export function SubmissionRecordsPage() {
 
     return Array.from(cohortMap.values())
       .map((cohort) => {
-        const submissionCohort = data.cohorts.find(
-          (item) => item.id === cohort.id,
-        );
-        const gradebookCohort = data.gradebook_cohorts.find(
-          (item) => item.id === cohort.id,
-        );
+        const gradebookCohort =
+          gradebookData.cohorts.find(
+            (item) => item.id === cohort.id,
+          );
 
         const learnerMap = new Map<
           string,
@@ -455,46 +472,24 @@ export function SubmissionRecordsPage() {
           });
         });
 
-        // Submission learners are retained as a fallback for older data
-        // where a submission exists but its active context is unavailable.
-        submissionCohort?.assignments.forEach((assignment) => {
-          assignment.learners.forEach((learner) => {
-            if (!learnerMap.has(learner.id)) {
-              learnerMap.set(learner.id, {
-                id: learner.id,
-                learner_id: learner.learner_id,
-                name: learner.name,
-                email: learner.email,
-              });
-            }
-          });
-        });
+
 
         const learners = Array.from(learnerMap.values())
           .map((learner) => {
             const assignmentScores = cohort.mappedAssignments.map(
               (mappedAssignment) => {
-                const submissionAssignment =
-                  submissionCohort?.assignments.find(
-                    (item) => item.id === mappedAssignment.id,
-                  );
-                const assignmentLearner =
-                  submissionAssignment?.learners.find(
-                    (item) => item.id === learner.id,
-                  );
 
-                const latestAttempt = assignmentLearner?.attempts
-                  .slice()
-                  .sort((a, b) => {
-                    if (a.attempt_number !== b.attempt_number) {
-                      return b.attempt_number - a.attempt_number;
-                    }
-
-                    return (
-                      new Date(b.submitted_at).getTime() -
-                      new Date(a.submitted_at).getTime()
+                const latestAttempt =
+                  gradebookCohort
+                    ?.learners
+                    .find(
+                      (item) => item.id === learner.id,
+                    )
+                    ?.assignment_scores
+                    .find(
+                      (item) =>
+                        item.assignment_id === mappedAssignment.id,
                     );
-                  })[0];
 
                 const percentage = latestAttempt
                   ? percentageFromAttempt(latestAttempt) ?? 0
@@ -576,8 +571,89 @@ export function SubmissionRecordsPage() {
         return cohortOrAssignmentMatch || cohort.learners.length > 0;
       })
       .sort((a, b) => a.code.localeCompare(b.code));
-  }, [data, mappings, search, cohortFilter]);
+  }, [
+    gradebookData,
+    mappings,
+    search,
+    cohortFilter,
+  ]);
 
+
+  async function loadCohortDetail(cohortId: string) {
+    if (
+      cohortDetails[cohortId] ||
+      loadingCohortDetails[cohortId]
+    ) {
+      return;
+    }
+
+    setLoadingCohortDetails((current) => ({
+      ...current,
+      [cohortId]: true,
+    }));
+
+    try {
+      const detail =
+        await getAdminSubmissionRecordCohortDetail(
+          cohortId,
+          {
+            search: debouncedSearch || undefined,
+            assignmentId: assignmentFilter || undefined,
+          },
+        );
+
+      setCohortDetails((current) => ({
+        ...current,
+        [cohortId]: detail,
+      }));
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Unable to load cohort submission records.",
+      );
+    } finally {
+      setLoadingCohortDetails((current) => ({
+        ...current,
+        [cohortId]: false,
+      }));
+    }
+  }
+
+  async function loadSubmissionDetail(submissionId: string) {
+    if (
+      submissionDetails[submissionId] ||
+      loadingSubmissionDetails[submissionId]
+    ) {
+      return;
+    }
+
+    setLoadingSubmissionDetails((current) => ({
+      ...current,
+      [submissionId]: true,
+    }));
+
+    try {
+      const detail =
+        await getAdminSubmissionRecordDetail(submissionId);
+
+      setSubmissionDetails((current) => ({
+        ...current,
+        [submissionId]: detail,
+      }));
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Unable to load submission details.",
+      );
+    } finally {
+      setLoadingSubmissionDetails((current) => ({
+        ...current,
+        [submissionId]: false,
+      }));
+    }
+  }
   function toggleItem(
     id: string,
     setter: React.Dispatch<
@@ -677,9 +753,10 @@ export function SubmissionRecordsPage() {
               <input
                 type="search"
                 value={search}
-                onChange={(event) =>
-                  setSearch(event.target.value)
-                }
+                onChange={(event) => {
+                  setSearch(event.target.value);
+                  setPage(1);
+                }}
                 placeholder="Search learner or cohort..."
               />
             </div>
@@ -689,10 +766,11 @@ export function SubmissionRecordsPage() {
               onChange={(event) => {
                 setCohortFilter(event.target.value);
                 setAssignmentFilter("");
+                setPage(1);
               }}
             >
               <option value="">All cohorts</option>
-              {data.cohorts.map((cohort) => (
+              {data.filter_options.cohorts.map((cohort) => (
                 <option key={cohort.id} value={cohort.id}>
                   {cohort.code} — {cohort.name}
                 </option>
@@ -702,17 +780,18 @@ export function SubmissionRecordsPage() {
             {activeTab === "records" && (
               <select
                 value={assignmentFilter}
-                onChange={(event) =>
-                  setAssignmentFilter(event.target.value)
-                }
+                onChange={(event) => {
+                  setAssignmentFilter(event.target.value);
+                  setPage(1);
+                }}
               >
                 <option value="">All assignments</option>
-                {assignmentOptions.map((assignment) => (
+                {data.filter_options.assignments.map((assignment) => (
                   <option
                     key={assignment.id}
                     value={assignment.id}
                   >
-                    {assignment.label}
+                    {assignment.code} — {assignment.title}
                   </option>
                 ))}
               </select>
@@ -720,528 +799,606 @@ export function SubmissionRecordsPage() {
           </section>
 
           {activeTab === "records" ? (
-            <section className="submission-record-list">
-              {filteredCohorts.length === 0 ? (
-                <div className="empty-state">
-                  No submission records match the current filters.
-                </div>
-              ) : (
-                filteredCohorts.map((cohort) => {
-                  const cohortOpen =
-                    expandedCohorts.includes(cohort.id);
+            <>
+              <section className="submission-record-list">
+                {filteredCohorts.length === 0 ? (
+                  <div className="empty-state">
+                    No submission records match the current filters.
+                  </div>
+                ) : (
+                  filteredCohorts.map((cohort) => {
+                    const cohortOpen =
+                      expandedCohorts.includes(cohort.id);
 
-                  return (
-                    <article
-                      key={cohort.id}
-                      className="submission-cohort-card content-card"
-                    >
-                      <button
-                        type="button"
-                        className="submission-group-heading"
-                        onClick={() =>
-                          toggleItem(
-                            cohort.id,
-                            setExpandedCohorts,
-                          )
-                        }
+                    const cohortDetail =
+                      cohortDetails[cohort.id];
+
+                    const cohortDetailLoading =
+                      loadingCohortDetails[cohort.id];
+                      
+                    return (
+                      <article
+                        key={cohort.id}
+                        className="submission-cohort-card content-card"
                       >
-                        <span className="submission-heading-icon">
-                          {cohortOpen ? (
-                            <ChevronDown size={18} />
-                          ) : (
-                            <ChevronRight size={18} />
-                          )}
-                        </span>
+                        <button
+                          type="button"
+                          className="submission-group-heading"
+                          onClick={() => {
+                            const isOpening =
+                              !expandedCohorts.includes(cohort.id);
 
-                        <span>
-                          <small>Cohort</small>
-                          <strong>
-                            {cohort.code} — {cohort.name}
-                          </strong>
-                        </span>
-
-                        <span className="submission-heading-count">
-                          {cohort.assignments.length} assignment
-                          {cohort.assignments.length === 1
-                            ? ""
-                            : "s"}
-                        </span>
-                      </button>
-
-                      {cohortOpen && (
-                        <div className="submission-assignment-list">
-                          {cohort.assignments.map((assignment) => {
-                            const assignmentKey =
-                              `${cohort.id}:${assignment.id}`;
-                            const assignmentOpen =
-                              expandedAssignments.includes(
-                                assignmentKey,
-                              );
-                            const latestResultCounts =
-                              getLatestResultCounts(assignment);
-
-                            return (
-                              <div
-                                key={assignmentKey}
-                                className="submission-assignment-card"
-                              >
-                                <button
-                                  type="button"
-                                  className="submission-assignment-heading"
-                                  onClick={() =>
-                                    toggleItem(
-                                      assignmentKey,
-                                      setExpandedAssignments,
-                                    )
-                                  }
-                                >
-                                  <span className="submission-heading-icon">
-                                    {assignmentOpen ? (
-                                      <ChevronDown size={17} />
-                                    ) : (
-                                      <ChevronRight size={17} />
-                                    )}
-                                  </span>
-
-                                  <span className="submission-assignment-title">
-                                    <small>Assignment</small>
-                                    <strong>
-                                      {assignment.code} —{" "}
-                                      {assignment.title}
-                                    </strong>
-                                  </span>
-
-                                  <span className="submission-assignment-summary">
-                                    <span className="submission-assignment-stats">
-                                      <span>
-                                        <strong>{assignment.unique_learners}</strong>
-                                        learners
-                                      </span>
-                                      <span>
-                                        <strong>{assignment.total_attempts}</strong>
-                                        attempts
-                                      </span>
-                                    </span>
-
-                                    <span className="submission-latest-band-counts">
-                                      <span className="latest-band-pill">
-                                        Proficient{" "}
-                                        <strong>
-                                          {latestResultCounts.proficient}
-                                        </strong>
-                                      </span>
-                                    </span>
-                                  </span>
-                                </button>
-
-                                {assignmentOpen && (
-                                  <div className="submission-learner-list">
-                                    {assignment.learners.map(
-                                      (learner) => {
-                                        const learnerKey =
-                                          `${assignmentKey}:${learner.id}`;
-                                        const learnerOpen =
-                                          expandedLearners.includes(
-                                            learnerKey,
-                                          );
-
-                                        const latestLearnerAttempt =
-                                          learner.attempts
-                                            .slice()
-                                            .sort((a, b) => {
-                                              if (a.attempt_number !== b.attempt_number) {
-                                                return b.attempt_number - a.attempt_number;
-                                              }
-                                              return (
-                                                new Date(b.submitted_at).getTime() -
-                                                new Date(a.submitted_at).getTime()
-                                              );
-                                            })[0];
-
-                                        return (
-                                          <div
-                                            key={learnerKey}
-                                            className="submission-learner-card"
-                                          >
-                                            <button
-                                              type="button"
-                                              className="submission-learner-heading"
-                                              onClick={() =>
-                                                toggleItem(
-                                                  learnerKey,
-                                                  setExpandedLearners,
-                                                )
-                                              }
-                                            >
-                                              <span className="submission-heading-icon">
-                                                {learnerOpen ? (
-                                                  <ChevronDown
-                                                    size={16}
-                                                  />
-                                                ) : (
-                                                  <ChevronRight
-                                                    size={16}
-                                                  />
-                                                )}
-                                              </span>
-
-                                              <span className="submission-learner-identity">
-                                                <strong>
-                                                  {learner.learner_id}
-                                                </strong>
-                                                <span>
-                                                  {learner.name}
-                                                </span>
-                                                {learner.email && (
-                                                  <small>
-                                                    {learner.email}
-                                                  </small>
-                                                )}
-                                              </span>
-
-                                              <span className="submission-attempt-count">
-                                                {learner.attempts.length}{" "}
-                                                attempt
-                                                {learner.attempts
-                                                  .length === 1
-                                                  ? ""
-                                                  : "s"}
-                                              </span>
-                                            </button>
-
-                                            {learnerOpen && (
-                                              <div className="submission-attempt-table-wrap">
-                                                <table className="submission-attempt-table">
-                                                  <thead>
-                                                    <tr>
-                                                      <th>Attempt</th>
-                                                      <th>Path</th>
-                                                      <th>Status</th>
-                                                      <th>Result</th>
-                                                      <th>Band</th>
-                                                      <th>Submitted</th>
-                                                    </tr>
-                                                  </thead>
-                                                  <tbody>
-                                                    {learner.attempts.map(
-                                                      (attempt) => (
-                                                        <Fragment key={attempt.id}>
-                                                          <tr>
-                                                            <td>
-                                                              #{attempt.attempt_number}
-                                                            </td>
-                                                            <td>
-                                                              <span className="submission-level-pill">
-                                                                {attempt.level_name ||
-                                                                  attempt.level_code}
-                                                              </span>
-                                                              {attempt.is_manual_review && (
-                                                                <span className="manual-review-pill">
-                                                                  Manual Review
-                                                                  {attempt.manual_reviewer
-                                                                    ? ` by ${attempt.manual_reviewer}`
-                                                                    : ""}
-                                                                </span>
-                                                              )}
-                                                            </td>
-                                                            <td>
-                                                              {displayStatus(attempt.status, attempt.status_display)}
-                                                            </td>
-                                                            <td>
-                                                              <strong>
-                                                                {formatResult(
-                                                                  attempt.final_score,
-                                                                  attempt.maximum_score,
-                                                                )}
-                                                              </strong>
-                                                            </td>
-                                                            <td>
-                                                              {attempt.achieved_band ||
-                                                                "—"}
-                                                            </td>
-                                                            <td>
-                                                              {formatDate(
-                                                                attempt.submitted_at,
-                                                              )}
-                                                            </td>
-                                                          </tr>
-
-                                                          <tr className="submission-feedback-row">
-                                                            <td colSpan={6}>
-                                                              <div className="submission-feedback">
-                                                                <span>Feedback</span>
-                                                                <p>
-                                                                  {attempt.feedback ||
-                                                                    "No feedback available."}
-                                                                </p>
-
-                                                                {(attempt.criterion_results?.length ?? 0) > 0 && (
-                                                                  <details className="submission-detail-section">
-                                                                    <summary>Criterion Results</summary>
-                                                                    <div className="submission-criterion-results">
-                                                                      {(attempt.criterion_results ?? []).map(
-                                                                        (criterion) => (
-                                                                          <div
-                                                                            key={criterion.id}
-                                                                            className="submission-criterion-result"
-                                                                          >
-                                                                            <div className="submission-criterion-result-header">
-                                                                              <strong>
-                                                                                {criterion.criterion_code
-                                                                                  ? `${criterion.criterion_code} — `
-                                                                                  : ""}
-                                                                                {criterion.criterion_title || "Criterion"}
-                                                                              </strong>
-                                                                              <span>
-                                                                                {criterion.awarded_marks} / {criterion.maximum_score}
-                                                                              </span>
-                                                                            </div>
-                                                                            <div className="submission-criterion-meta">
-                                                                              Band: <strong>{criterion.achievement_band || "—"}</strong>
-                                                                            </div>
-                                                                            <p>
-                                                                              {criterion.feedback || "No criterion feedback available."}
-                                                                            </p>
-                                                                          </div>
-                                                                        ),
-                                                                      )}
-                                                                    </div>
-                                                                  </details>
-                                                                )}
-
-                                                                {attempt.grading_audit && !attempt.is_manual_review && (
-                                                                  <details>
-                                                                    <summary>AI Grading Details</summary>
-                                                                    <div style={{ marginTop: "12px" }}>
-                                                                      <p>
-                                                                        <strong>Status:</strong>{" "}
-                                                                        {attempt.grading_audit.status}
-                                                                      </p>
-                                                                      <p>
-                                                                        <strong>Model:</strong>{" "}
-                                                                        {attempt.grading_audit.model_name || "—"}
-                                                                      </p>
-
-                                                                      {attempt.grading_audit.error_message && (
-                                                                        <p className="error-message">
-                                                                          {attempt.grading_audit.error_code
-                                                                            ? `${attempt.grading_audit.error_code}: `
-                                                                            : ""}
-                                                                          {attempt.grading_audit.error_message}
-                                                                        </p>
-                                                                      )}
-
-                                                                      {attempt.grading_audit.criterion_evaluations.map(
-                                                                        (evaluation) => (
-                                                                          <div
-                                                                            key={`${evaluation.task_code}:${evaluation.rubric_criterion_id}`}
-                                                                            style={{ marginBottom: "16px" }}
-                                                                          >
-                                                                            <strong>
-                                                                              {evaluation.task_code}
-                                                                            </strong>
-                                                                            <div>
-                                                                              AI evaluation:{" "}
-                                                                              {Number(
-                                                                                evaluation.score_percentage,
-                                                                              ).toFixed(2)}%
-                                                                            </div>
-                                                                            <div>
-                                                                              Weight:{" "}
-                                                                              {Number(
-                                                                                evaluation.inferred_weight,
-                                                                              ).toFixed(2)}%
-                                                                            </div>
-                                                                            <div>
-                                                                              Earned contribution:{" "}
-                                                                              {Number(
-                                                                                evaluation.earned_points,
-                                                                              ).toFixed(2)}
-                                                                            </div>
-                                                                            <div>
-                                                                              Evidence pages:{" "}
-                                                                              {evaluation.mapped_page_numbers.length
-                                                                                ? evaluation.mapped_page_numbers.join(
-                                                                                  ", ",
-                                                                                )
-                                                                                : "No mapped pages"}
-                                                                            </div>
-                                                                            {evaluation.mapping_justification && (
-                                                                              <p>
-                                                                                <strong>
-                                                                                  Evidence mapping:
-                                                                                </strong>{" "}
-                                                                                {evaluation.mapping_justification}
-                                                                              </p>
-                                                                            )}
-                                                                            <p>{evaluation.feedback}</p>
-                                                                          </div>
-                                                                        ),
-                                                                      )}
-
-                                                                      <p>
-                                                                        <strong>Calculated total:</strong>{" "}
-                                                                        {attempt.grading_audit.scoring_snapshot
-                                                                          .total_earned_points ?? "—"}{" "}
-                                                                        /{" "}
-                                                                        {attempt.grading_audit.scoring_snapshot
-                                                                          .total_max_possible_points ?? "—"}
-                                                                        {" "}
-                                                                        {attempt.grading_audit.scoring_snapshot
-                                                                          .overall_percentage !== undefined
-                                                                          ? `(${Number(
-                                                                            attempt.grading_audit.scoring_snapshot
-                                                                              .overall_percentage,
-                                                                          ).toFixed(2)}%)`
-                                                                          : ""}
-                                                                      </p>
-                                                                    </div>
-                                                                  </details>
-                                                                )}
-
-                                                                {attempt.id === latestLearnerAttempt?.id &&
-                                                                  attempt.grading_audit &&
-                                                                  !attempt.is_manual_review &&
-                                                                  attempt.grading_audit.scoring_snapshot.token_usage?.total && (
-                                                                  <details className="submission-detail-section">
-                                                                    <summary>AI Token Usage</summary>
-                                                                    <div className="submission-token-usage">
-                                                                      <div className="submission-token-usage-summary">
-                                                                        <div>
-                                                                          <span>Model</span>
-                                                                          <strong>
-                                                                            {attempt.grading_audit.model_name || "—"}
-                                                                          </strong>
-                                                                        </div>
-                                                                        <div>
-                                                                          <span>Input tokens</span>
-                                                                          <strong>
-                                                                            {formatTokenCount(
-                                                                              attempt.grading_audit.scoring_snapshot.token_usage?.total?.input_tokens,
-                                                                            )}
-                                                                          </strong>
-                                                                        </div>
-                                                                        <div>
-                                                                          <span>Cached input</span>
-                                                                          <strong>
-                                                                            {formatTokenCount(
-                                                                              attempt.grading_audit.scoring_snapshot.token_usage?.total?.cached_input_tokens,
-                                                                            )}
-                                                                          </strong>
-                                                                        </div>
-                                                                        <div>
-                                                                          <span>Output tokens</span>
-                                                                          <strong>
-                                                                            {formatTokenCount(
-                                                                              attempt.grading_audit.scoring_snapshot.token_usage?.total?.output_tokens,
-                                                                            )}
-                                                                          </strong>
-                                                                        </div>
-                                                                        <div>
-                                                                          <span>Reasoning tokens</span>
-                                                                          <strong>
-                                                                            {formatTokenCount(
-                                                                              attempt.grading_audit.scoring_snapshot.token_usage?.total?.reasoning_tokens,
-                                                                            )}
-                                                                          </strong>
-                                                                        </div>
-                                                                        <div>
-                                                                          <span>Total tokens</span>
-                                                                          <strong>
-                                                                            {formatTokenCount(
-                                                                              attempt.grading_audit.scoring_snapshot.token_usage?.total?.total_tokens,
-                                                                            )}
-                                                                          </strong>
-                                                                        </div>
-                                                                        <div>
-                                                                          <span>Estimated Cost (USD)</span>
-                                                                          <strong>
-                                                                            {(() => {
-                                                                              const usage =
-                                                                                attempt.grading_audit
-                                                                                  .scoring_snapshot
-                                                                                  .token_usage
-                                                                                  ?.total;
-
-                                                                              if (!usage) {
-                                                                                return "—";
-                                                                              }
-
-                                                                              const estimatedCost =
-                                                                                getEstimatedApiCost(
-                                                                                  attempt.grading_audit.model_name,
-                                                                                  usage.input_tokens,
-                                                                                  usage.cached_input_tokens,
-                                                                                  usage.output_tokens,
-                                                                                );
-
-                                                                              return estimatedCost !== null
-                                                                                ? `$${estimatedCost.toFixed(4)} USD`
-                                                                                : "Pricing unavailable";
-                                                                            })()}
-                                                                          </strong>
-                                                                        </div>
-                                                                      </div>
-
-
-                                                                    </div>
-                                                                  </details>
-                                                                )}
-
-                                                                {(attempt.process_logs?.length ?? 0) > 0 && (
-                                                                  <details>
-                                                                    <summary>Processing Log</summary>
-                                                                    <div style={{ marginTop: "12px" }}>
-                                                                      {(attempt.process_logs ?? []).map(
-                                                                        (entry) => (
-                                                                          <div
-                                                                            key={entry.id}
-                                                                            style={{ marginBottom: "10px" }}
-                                                                          >
-                                                                            <strong>
-                                                                              {entry.stage} · {entry.status}
-                                                                            </strong>
-                                                                            <div>
-                                                                              {formatDate(entry.created_at)}
-                                                                            </div>
-                                                                            {entry.event_code && (
-                                                                              <div>{entry.event_code}</div>
-                                                                            )}
-                                                                            {entry.message && (
-                                                                              <div>{entry.message}</div>
-                                                                            )}
-                                                                          </div>
-                                                                        ),
-                                                                      )}
-                                                                    </div>
-                                                                  </details>
-                                                                )}
-                                                              </div>
-                                                            </td>
-                                                          </tr>
-                                                        </Fragment>
-                                                      ),
-                                                    )}
-                                                  </tbody>
-                                                </table>
-                                              </div>
-                                            )}
-                                          </div>
-                                        );
-                                      },
-                                    )}
-                                  </div>
-                                )}
-                              </div>
+                            toggleItem(
+                              cohort.id,
+                              setExpandedCohorts,
                             );
-                          })}
-                        </div>
-                      )}
-                    </article>
-                  );
-                })
+
+                            if (isOpening) {
+                              void loadCohortDetail(cohort.id);
+                            }
+                          }}
+                        >
+                          <span className="submission-heading-icon">
+                            {cohortOpen ? (
+                              <ChevronDown size={18} />
+                            ) : (
+                              <ChevronRight size={18} />
+                            )}
+                          </span>
+
+                          <span>
+                            <small>Cohort</small>
+                            <strong>
+                              {cohort.code} — {cohort.name}
+                            </strong>
+                          </span>
+
+                          <span className="submission-heading-count">
+                            {cohort.assignment_count} assignment
+                            {cohort.assignment_count === 1 ? "" : "s"}
+                          </span>
+                        </button>
+
+                        {cohortOpen && (
+  <div className="submission-assignment-list">
+    {cohortDetailLoading ? (
+      <div className="empty-state">
+        Loading cohort records...
+      </div>
+    ) : !cohortDetail ? (
+      <div className="empty-state">
+        No cohort records loaded.
+      </div>
+    ) : cohortDetail.assignments.length === 0 ? (
+      <div className="empty-state">
+        No submissions found for this cohort.
+      </div>
+    ) : (
+      cohortDetail.assignments.map((assignment) => {
+                              const assignmentKey =
+                                `${cohort.id}:${assignment.id}`;
+                              const assignmentOpen =
+                                expandedAssignments.includes(
+                                  assignmentKey,
+                                );
+                              const latestResultCounts =
+                                getLatestResultCounts(assignment);
+
+                              return (
+                                <div
+                                  key={assignmentKey}
+                                  className="submission-assignment-card"
+                                >
+                                  <button
+                                    type="button"
+                                    className="submission-assignment-heading"
+                                    onClick={() =>
+                                      toggleItem(
+                                        assignmentKey,
+                                        setExpandedAssignments,
+                                      )
+                                    }
+                                  >
+                                    <span className="submission-heading-icon">
+                                      {assignmentOpen ? (
+                                        <ChevronDown size={17} />
+                                      ) : (
+                                        <ChevronRight size={17} />
+                                      )}
+                                    </span>
+
+                                    <span className="submission-assignment-title">
+                                      <small>Assignment</small>
+                                      <strong>
+                                        {assignment.code} —{" "}
+                                        {assignment.title}
+                                      </strong>
+                                    </span>
+
+                                    <span className="submission-assignment-summary">
+                                      <span className="submission-assignment-stats">
+                                        <span>
+                                          <strong>{assignment.unique_learners}</strong>
+                                          learners
+                                        </span>
+                                        <span>
+                                          <strong>{assignment.total_attempts}</strong>
+                                          attempts
+                                        </span>
+                                      </span>
+
+                                      <span className="submission-latest-band-counts">
+                                        <span className="latest-band-pill">
+                                          Proficient{" "}
+                                          <strong>
+                                            {latestResultCounts.proficient}
+                                          </strong>
+                                        </span>
+                                      </span>
+                                    </span>
+                                  </button>
+
+                                  {assignmentOpen && (
+                                    <div className="submission-learner-list">
+                                      {assignment.learners.map(
+                                        (learner) => {
+                                          const learnerKey =
+                                            `${assignmentKey}:${learner.id}`;
+                                          const learnerOpen =
+                                            expandedLearners.includes(
+                                              learnerKey,
+                                            );
+
+                                          const latestLearnerAttempt =
+                                            learner.attempts
+                                              .slice()
+                                              .sort((a, b) => {
+                                                if (a.attempt_number !== b.attempt_number) {
+                                                  return b.attempt_number - a.attempt_number;
+                                                }
+                                                return (
+                                                  new Date(b.submitted_at).getTime() -
+                                                  new Date(a.submitted_at).getTime()
+                                                );
+                                              })[0];
+
+                                          return (
+                                            <div
+                                              key={learnerKey}
+                                              className="submission-learner-card"
+                                            >
+                                              <button
+                                                type="button"
+                                                className="submission-learner-heading"
+                                                onClick={() => {
+                                                  const isOpening =
+                                                    !expandedLearners.includes(learnerKey);
+
+                                                  toggleItem(
+                                                    learnerKey,
+                                                    setExpandedLearners,
+                                                  );
+
+                                                  if (isOpening) {
+                                                    learner.attempts.forEach((attempt) => {
+                                                      void loadSubmissionDetail(attempt.id);
+                                                    });
+                                                  }
+                                                }}
+                                              >
+                                                <span className="submission-heading-icon">
+                                                  {learnerOpen ? (
+                                                    <ChevronDown
+                                                      size={16}
+                                                    />
+                                                  ) : (
+                                                    <ChevronRight
+                                                      size={16}
+                                                    />
+                                                  )}
+                                                </span>
+
+                                                <span className="submission-learner-identity">
+                                                  <strong>
+                                                    {learner.learner_id}
+                                                  </strong>
+                                                  <span>
+                                                    {learner.name}
+                                                  </span>
+                                                  {learner.email && (
+                                                    <small>
+                                                      {learner.email}
+                                                    </small>
+                                                  )}
+                                                </span>
+
+                                                <span className="submission-attempt-count">
+                                                  {learner.attempts.length}{" "}
+                                                  attempt
+                                                  {learner.attempts
+                                                    .length === 1
+                                                    ? ""
+                                                    : "s"}
+                                                </span>
+                                              </button>
+
+                                              {learnerOpen && (
+                                                <div className="submission-attempt-table-wrap">
+                                                  <table className="submission-attempt-table">
+                                                    <thead>
+                                                      <tr>
+                                                        <th>Attempt</th>
+                                                        <th>Path</th>
+                                                        <th>Status</th>
+                                                        <th>Result</th>
+                                                        <th>Band</th>
+                                                        <th>Submitted</th>
+                                                      </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                      {learner.attempts.map((attempt) => {
+                                                        const detail = submissionDetails[attempt.id];
+
+                                                        const isDetailLoading =
+                                                          loadingSubmissionDetails[attempt.id] ?? false;
+
+                                                        return (
+                                                          <Fragment key={attempt.id}>
+                                                            <tr>
+                                                              <td>
+                                                                #{attempt.attempt_number}
+                                                              </td>
+                                                              <td>
+                                                                <span className="submission-level-pill">
+                                                                  {attempt.level_name ||
+                                                                    attempt.level_code}
+                                                                </span>
+                                                                {attempt.is_manual_review && (
+                                                                  <span className="manual-review-pill">
+                                                                    Manual Review
+                                                                    {attempt.manual_reviewer
+                                                                      ? ` by ${attempt.manual_reviewer}`
+                                                                      : ""}
+                                                                  </span>
+                                                                )}
+                                                              </td>
+                                                              <td>
+                                                                {displayStatus(attempt.status, attempt.status_display)}
+                                                              </td>
+                                                              <td>
+                                                                <strong>
+                                                                  {formatResult(
+                                                                    attempt.final_score,
+                                                                    attempt.maximum_score,
+                                                                  )}
+                                                                </strong>
+                                                              </td>
+                                                              <td>
+                                                                {attempt.achieved_band ||
+                                                                  "—"}
+                                                              </td>
+                                                              <td>
+                                                                {formatDate(
+                                                                  attempt.submitted_at,
+                                                                )}
+                                                              </td>
+                                                            </tr>
+
+                                                            <tr className="submission-feedback-row">
+                                                              <td colSpan={6}>
+                                                                <div className="submission-feedback">
+                                                                  <span>Feedback</span>
+                                                                  <p>
+                                                                    {isDetailLoading
+                                                                      ? "Loading details..."
+                                                                      : detail?.feedback ||
+                                                                      attempt.feedback ||
+                                                                      "No feedback available."}
+                                                                  </p>
+
+                                                                  {(attempt.criterion_results?.length ?? 0) > 0 && (
+                                                                    <details className="submission-detail-section">
+                                                                      <summary>Criterion Results</summary>
+                                                                      <div className="submission-criterion-results">
+                                                                        {(attempt.criterion_results ?? []).map(
+                                                                          (criterion) => (
+                                                                            <div
+                                                                              key={criterion.id}
+                                                                              className="submission-criterion-result"
+                                                                            >
+                                                                              <div className="submission-criterion-result-header">
+                                                                                <strong>
+                                                                                  {criterion.criterion_code
+                                                                                    ? `${criterion.criterion_code} — `
+                                                                                    : ""}
+                                                                                  {criterion.criterion_title || "Criterion"}
+                                                                                </strong>
+                                                                                <span>
+                                                                                  {criterion.awarded_marks} / {criterion.maximum_score}
+                                                                                </span>
+                                                                              </div>
+                                                                              <div className="submission-criterion-meta">
+                                                                                Band: <strong>{criterion.achievement_band || "—"}</strong>
+                                                                              </div>
+                                                                              <p>
+                                                                                {criterion.feedback || "No criterion feedback available."}
+                                                                              </p>
+                                                                            </div>
+                                                                          ),
+                                                                        )}
+                                                                      </div>
+                                                                    </details>
+                                                                  )}
+
+                                                                  {attempt.grading_audit && !attempt.is_manual_review && (
+                                                                    <details>
+                                                                      <summary>AI Grading Details</summary>
+                                                                      <div style={{ marginTop: "12px" }}>
+                                                                        <p>
+                                                                          <strong>Status:</strong>{" "}
+                                                                          {attempt.grading_audit.status}
+                                                                        </p>
+                                                                        <p>
+                                                                          <strong>Model:</strong>{" "}
+                                                                          {attempt.grading_audit.model_name || "—"}
+                                                                        </p>
+
+                                                                        {attempt.grading_audit.error_message && (
+                                                                          <p className="error-message">
+                                                                            {attempt.grading_audit.error_code
+                                                                              ? `${attempt.grading_audit.error_code}: `
+                                                                              : ""}
+                                                                            {attempt.grading_audit.error_message}
+                                                                          </p>
+                                                                        )}
+
+                                                                        {attempt.grading_audit.criterion_evaluations.map(
+                                                                          (evaluation) => (
+                                                                            <div
+                                                                              key={`${evaluation.task_code}:${evaluation.rubric_criterion_id}`}
+                                                                              style={{ marginBottom: "16px" }}
+                                                                            >
+                                                                              <strong>
+                                                                                {evaluation.task_code}
+                                                                              </strong>
+                                                                              <div>
+                                                                                AI evaluation:{" "}
+                                                                                {Number(
+                                                                                  evaluation.score_percentage,
+                                                                                ).toFixed(2)}%
+                                                                              </div>
+                                                                              <div>
+                                                                                Weight:{" "}
+                                                                                {Number(
+                                                                                  evaluation.inferred_weight,
+                                                                                ).toFixed(2)}%
+                                                                              </div>
+                                                                              <div>
+                                                                                Earned contribution:{" "}
+                                                                                {Number(
+                                                                                  evaluation.earned_points,
+                                                                                ).toFixed(2)}
+                                                                              </div>
+                                                                              <div>
+                                                                                Evidence pages:{" "}
+                                                                                {evaluation.mapped_page_numbers.length
+                                                                                  ? evaluation.mapped_page_numbers.join(
+                                                                                    ", ",
+                                                                                  )
+                                                                                  : "No mapped pages"}
+                                                                              </div>
+                                                                              {evaluation.mapping_justification && (
+                                                                                <p>
+                                                                                  <strong>
+                                                                                    Evidence mapping:
+                                                                                  </strong>{" "}
+                                                                                  {evaluation.mapping_justification}
+                                                                                </p>
+                                                                              )}
+                                                                              <p>{evaluation.feedback}</p>
+                                                                            </div>
+                                                                          ),
+                                                                        )}
+
+                                                                        <p>
+                                                                          <strong>Calculated total:</strong>{" "}
+                                                                          {attempt.grading_audit.scoring_snapshot
+                                                                            .total_earned_points ?? "—"}{" "}
+                                                                          /{" "}
+                                                                          {attempt.grading_audit.scoring_snapshot
+                                                                            .total_max_possible_points ?? "—"}
+                                                                          {" "}
+                                                                          {attempt.grading_audit.scoring_snapshot
+                                                                            .overall_percentage !== undefined
+                                                                            ? `(${Number(
+                                                                              attempt.grading_audit.scoring_snapshot
+                                                                                .overall_percentage,
+                                                                            ).toFixed(2)}%)`
+                                                                            : ""}
+                                                                        </p>
+                                                                      </div>
+                                                                    </details>
+                                                                  )}
+
+                                                                  {attempt.id === latestLearnerAttempt?.id &&
+                                                                    attempt.grading_audit &&
+                                                                    !attempt.is_manual_review &&
+                                                                    attempt.grading_audit.scoring_snapshot.token_usage?.total && (
+                                                                      <details className="submission-detail-section">
+                                                                        <summary>AI Token Usage</summary>
+                                                                        <div className="submission-token-usage">
+                                                                          <div className="submission-token-usage-summary">
+                                                                            <div>
+                                                                              <span>Model</span>
+                                                                              <strong>
+                                                                                {attempt.grading_audit.model_name || "—"}
+                                                                              </strong>
+                                                                            </div>
+                                                                            <div>
+                                                                              <span>Input tokens</span>
+                                                                              <strong>
+                                                                                {formatTokenCount(
+                                                                                  attempt.grading_audit.scoring_snapshot.token_usage?.total?.input_tokens,
+                                                                                )}
+                                                                              </strong>
+                                                                            </div>
+                                                                            <div>
+                                                                              <span>Cached input</span>
+                                                                              <strong>
+                                                                                {formatTokenCount(
+                                                                                  attempt.grading_audit.scoring_snapshot.token_usage?.total?.cached_input_tokens,
+                                                                                )}
+                                                                              </strong>
+                                                                            </div>
+                                                                            <div>
+                                                                              <span>Output tokens</span>
+                                                                              <strong>
+                                                                                {formatTokenCount(
+                                                                                  attempt.grading_audit.scoring_snapshot.token_usage?.total?.output_tokens,
+                                                                                )}
+                                                                              </strong>
+                                                                            </div>
+                                                                            <div>
+                                                                              <span>Reasoning tokens</span>
+                                                                              <strong>
+                                                                                {formatTokenCount(
+                                                                                  attempt.grading_audit.scoring_snapshot.token_usage?.total?.reasoning_tokens,
+                                                                                )}
+                                                                              </strong>
+                                                                            </div>
+                                                                            <div>
+                                                                              <span>Total tokens</span>
+                                                                              <strong>
+                                                                                {formatTokenCount(
+                                                                                  attempt.grading_audit.scoring_snapshot.token_usage?.total?.total_tokens,
+                                                                                )}
+                                                                              </strong>
+                                                                            </div>
+                                                                            <div>
+                                                                              <span>Estimated Cost (USD)</span>
+                                                                              <strong>
+                                                                                {(() => {
+                                                                                  const usage =
+                                                                                    attempt.grading_audit
+                                                                                      .scoring_snapshot
+                                                                                      .token_usage
+                                                                                      ?.total;
+
+                                                                                  if (!usage) {
+                                                                                    return "—";
+                                                                                  }
+
+                                                                                  const estimatedCost =
+                                                                                    getEstimatedApiCost(
+                                                                                      attempt.grading_audit.model_name,
+                                                                                      usage.input_tokens,
+                                                                                      usage.cached_input_tokens,
+                                                                                      usage.output_tokens,
+                                                                                    );
+
+                                                                                  return estimatedCost !== null
+                                                                                    ? `$${estimatedCost.toFixed(4)} USD`
+                                                                                    : "Pricing unavailable";
+                                                                                })()}
+                                                                              </strong>
+                                                                            </div>
+                                                                          </div>
+
+
+                                                                        </div>
+                                                                      </details>
+                                                                    )}
+
+                                                                  {(attempt.process_logs?.length ?? 0) > 0 && (
+                                                                    <details>
+                                                                      <summary>Processing Log</summary>
+                                                                      <div style={{ marginTop: "12px" }}>
+                                                                        {(attempt.process_logs ?? []).map(
+                                                                          (entry) => (
+                                                                            <div
+                                                                              key={entry.id}
+                                                                              style={{ marginBottom: "10px" }}
+                                                                            >
+                                                                              <strong>
+                                                                                {entry.stage} · {entry.status}
+                                                                              </strong>
+                                                                              <div>
+                                                                                {formatDate(entry.created_at)}
+                                                                              </div>
+                                                                              {entry.event_code && (
+                                                                                <div>{entry.event_code}</div>
+                                                                              )}
+                                                                              {entry.message && (
+                                                                                <div>{entry.message}</div>
+                                                                              )}
+                                                                            </div>
+                                                                          ),
+                                                                        )}
+                                                                      </div>
+                                                                    </details>
+                                                                  )}
+                                                                </div>
+                                                              </td>
+                                                            </tr>
+                                                          </Fragment>
+                                                        );
+                                                      })}
+                                                    </tbody>
+                                                  </table>
+                                                </div>
+                                              )}
+                                            </div>
+                                          );
+                                        },
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                                  })
+    )}
+  </div>
+)}
+                      </article>
+                    );
+                  })
+                )}
+              </section>
+
+              {data.total_pages > 1 && (
+                <div className="pagination-controls">
+                  <button
+                    type="button"
+                    disabled={!data.previous}
+                    onClick={() =>
+                      setPage((current) =>
+                        Math.max(current - 1, 1)
+                      )
+                    }
+                  >
+                    Previous
+                  </button>
+
+                  <span>
+                    Page {data.page} of {data.total_pages}
+                    {" · "}
+                    {data.count} matching attempts
+                  </span>
+
+                  <button
+                    type="button"
+                    disabled={!data.next}
+                    onClick={() =>
+                      setPage((current) =>
+                        Math.min(current + 1, data.total_pages)
+                      )
+                    }
+                  >
+                    Next
+                  </button>
+                </div>
               )}
-            </section>
+            </>
           ) : (
             <section className="submission-record-list">
               {gradebookCohorts.length === 0 ? (

@@ -17,6 +17,10 @@ from .configuration_status import get_assignment_level_configuration_errors
 class QualificationSerializer(serializers.ModelSerializer):
     can_delete = serializers.SerializerMethodField()
 
+    module_count = serializers.IntegerField(
+        read_only=True,
+    )
+        
     class Meta:
         model = Qualification
         fields = (
@@ -26,6 +30,7 @@ class QualificationSerializer(serializers.ModelSerializer):
             "description",
             "is_active",
             "can_delete",
+            "module_count",
             "created_at",
             "updated_at",
         )
@@ -33,6 +38,7 @@ class QualificationSerializer(serializers.ModelSerializer):
         read_only_fields = (
             "id",
             "can_delete",
+            "module_count",
             "created_at",
             "updated_at",
         )

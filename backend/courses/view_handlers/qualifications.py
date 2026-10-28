@@ -15,7 +15,7 @@ from ..models import (
 
 from ..serializers import QualificationSerializer
 
-from django.db.models import Q
+from django.db.models import Count, Q
 
 from lms.models import AssessmentMapping
 from submissions.models import (
@@ -38,7 +38,30 @@ class QualificationListCreateView(
     ]
 
     def get_queryset(self):
-        return Qualification.objects.order_by("qualification_code")
+        queryset = (
+            Qualification.objects
+            .annotate(
+                module_count=Count(
+                    "modules",
+                    distinct=True,
+                )
+            )
+            .order_by("-created_at")
+        )
+
+        search = self.request.query_params.get(
+            "search",
+            "",
+        ).strip()
+
+        if search:
+            queryset = queryset.filter(
+                Q(qualification_code__icontains=search)
+                | Q(qualification_name__icontains=search)
+                | Q(description__icontains=search)
+            )
+
+        return queryset
 
     def perform_create(self, serializer):
         qualification = serializer.save()

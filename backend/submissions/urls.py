@@ -1,7 +1,12 @@
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
-from .admin_records import AdminSubmissionRecordsView
+from .admin_records import (
+    AdminGradebookView,
+    AdminSubmissionRecordDetailView,
+    AdminSubmissionRecordsView,
+    AdminSubmissionCohortDetailView,
+)
 
 from .views import (
     LearnerSubmissionViewSet,
@@ -45,6 +50,21 @@ urlpatterns = [
         "admin-records/",
         AdminSubmissionRecordsView.as_view(),
         name="admin-submission-records",
+    ),
+    path(
+        "admin-records/cohorts/<uuid:cohort_id>/",
+        AdminSubmissionCohortDetailView.as_view(),
+        name="admin-submission-record-cohort-detail",
+    ),
+    path(
+        "admin-records/<uuid:submission_id>/",
+        AdminSubmissionRecordDetailView.as_view(),
+        name="admin-submission-record-detail",
+    ),
+    path(
+        "admin-gradebook/",
+        AdminGradebookView.as_view(),
+        name="admin-gradebook",
     ),
     path(
         "<uuid:submission_id>/",

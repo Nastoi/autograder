@@ -459,8 +459,10 @@ class AssignmentLevelConfigurationCsvImportView(APIView):
 
         expected_csv_band_codes = [
             "failed",
-            "band1",
-            "band2",
+            *[
+                f"band{index + 1}"
+                for index in range(len(non_failed_bands))
+            ],
         ]
 
         expected_csv_band_code_set = set(expected_csv_band_codes)
@@ -617,6 +619,21 @@ class AssignmentLevelConfigurationCsvImportView(APIView):
                             ),
                             None,
                         )
+
+                        # Backward compatibility for tracks created
+                        # before csv_band_code was stored.
+                        if configured_band is None:
+                            try:
+                                band_index = int(
+                                    csv_band_code.removeprefix("band")
+                                ) - 1
+                            except ValueError:
+                                band_index = -1
+
+                            if 0 <= band_index < len(non_failed_bands):
+                                configured_band = non_failed_bands[
+                                    band_index
+                                ]
 
                         if configured_band:
                             configured_band_code = str(

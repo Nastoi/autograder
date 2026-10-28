@@ -36,7 +36,7 @@ class CohortListCreateView(
         queryset = Cohort.objects.select_related(
             "module",
             "module__qualification",
-        ).order_by("cohort_code")
+        ).order_by("-created_at")
 
         module_id = self.request.query_params.get(
             "module_id",
@@ -56,6 +56,21 @@ class CohortListCreateView(
                 module__qualification_id=qualification_id,
             )
 
+        search = self.request.query_params.get(
+            "search",
+            "",
+        ).strip()
+
+        if search:
+            queryset = queryset.filter(
+                Q(cohort_code__icontains=search)
+                | Q(cohort_name__icontains=search)
+                | Q(module__module_code__icontains=search)
+                | Q(module__module_name__icontains=search)
+                | Q(module__qualification__qualification_code__icontains=search)
+                | Q(module__qualification__qualification_name__icontains=search)
+            )
+                
         return queryset
 
     def perform_create(self, serializer):

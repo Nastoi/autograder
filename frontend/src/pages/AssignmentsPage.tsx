@@ -14,7 +14,7 @@ import {
   createAssignmentLevel,
   deleteAssignmentLevel,
   getAssignmentLevels,
-  getModuleAssignments,
+  getModuleAssignmentsPage,
   getModules,
   getQualifications,
   updateAssignmentConfigurationLock,
@@ -106,6 +106,12 @@ export function AssignmentsPage() {
 
   const [showCreateAssignment, setShowCreateAssignment] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
+  const [page, setPage] = useState(1);
+  const [totalAssignments, setTotalAssignments] = useState(0);
+  const [nextPage, setNextPage] = useState<string | null>(null);
+  const [previousPage, setPreviousPage] = useState<string | null>(null);
+
   const [selectedAssignmentId, setSelectedAssignmentId] = useState("");
   const [activeWorkspaceTab, setActiveWorkspaceTab] =
     useState<WorkspaceTab>("overview");
@@ -202,42 +208,57 @@ export function AssignmentsPage() {
     setLevels(await getAssignmentLevels());
   }
 
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+      setPage(1);
+    }, 400);
+
+    return () => window.clearTimeout(timeout);
+  }, [searchTerm]);
+
+  async function loadAssignmentPage() {
+    const assignmentPage = await getModuleAssignmentsPage({
+      page,
+      search: debouncedSearchTerm,
+    });
+
+    setAssignments(assignmentPage.results);
+    setTotalAssignments(assignmentPage.count);
+    setNextPage(assignmentPage.next);
+    setPreviousPage(assignmentPage.previous);
+  }
+
   async function loadData() {
     const [
-      assignmentData,
       moduleData,
       qualificationData,
       levelData,
-      criteriaData,
-      bandData,
-      taskData,
-      mappingData,
     ] = await Promise.all([
-      getModuleAssignments(),
       getModules(),
       getQualifications(),
       getAssignmentLevels(),
-      getRubricCriteria(),
-      getRubricBands(),
-      getTasks(),
-      getTaskCriteriaMappings(),
     ]);
 
-    setTasks(taskData);
-    setTaskCriteriaMappings(mappingData);
-
-    setAssignments(assignmentData);
     setModules(moduleData);
     setQualifications(qualificationData);
     setLevels(levelData);
-    setCriteria(criteriaData);
-    setBands(bandData);
+
+    setCriteria([]);
+    setBands([]);
+    setTasks([]);
+    setTaskCriteriaMappings([]);
   }
 
   useEffect(() => {
     async function initialise() {
+      setIsLoading(true);
+
       try {
-        await loadData();
+        await Promise.all([
+          loadData(),
+          loadAssignmentPage(),
+        ]);
       } catch (caughtError) {
         setError(
           caughtError instanceof Error
@@ -251,6 +272,26 @@ export function AssignmentsPage() {
 
     void initialise();
   }, []);
+
+  useEffect(() => {
+    if (page === 1 && debouncedSearchTerm === "") {
+      return;
+    }
+
+    async function refreshAssignmentPage() {
+      try {
+        await loadAssignmentPage();
+      } catch (caughtError) {
+        setError(
+          caughtError instanceof Error
+            ? caughtError.message
+            : "Unable to load assignments.",
+        );
+      }
+    }
+
+    void refreshAssignmentPage();
+  }, [page, debouncedSearchTerm]);
 
   useEffect(() => {
     const levelId = expandedLevelIds[0];
@@ -285,15 +326,7 @@ export function AssignmentsPage() {
       !qualificationId || module.qualification === qualificationId,
   );
 
-  const filteredAssignments = assignments.filter((assignment) => {
-    const term = searchTerm.toLowerCase();
-    return (
-      assignment.assignment_code.toLowerCase().includes(term) ||
-      assignment.assignment_code.toLowerCase().includes(term) ||
-      assignment.qualification_code.toLowerCase().includes(term) ||
-      assignment.module_code.toLowerCase().includes(term)
-    );
-  });
+
 
   const selectedAssignment = assignments.find(
     (assignment) => assignment.id === selectedAssignmentId,
@@ -366,6 +399,15 @@ export function AssignmentsPage() {
       setShowCreateAssignment(false);
 
       await loadData();
+
+      setAssignments((current) => [
+        createdAssignment,
+        ...current.filter(
+          (item) => item.id !== createdAssignment.id,
+        ),
+      ]);
+
+      setTotalAssignments((current) => current + 1);
       setSelectedAssignmentId(createdAssignment.id);
       setActiveWorkspaceTab("overview");
     } catch (caughtError) {
@@ -445,7 +487,11 @@ export function AssignmentsPage() {
         is_active: editIsActive,
       });
 
-      await loadData();
+      await Promise.all([
+        loadData(),
+        loadAssignmentPage(),
+      ]);
+
       setEditingAssignmentId("");
     } catch (caughtError) {
       setError(
@@ -669,7 +715,11 @@ export function AssignmentsPage() {
 
     try {
       await deleteModuleAssignment(deleteAssignmentId);
-      await loadData();
+
+      await Promise.all([
+        loadData(),
+        loadAssignmentPage(),
+      ]);
 
       if (selectedAssignmentId === deleteAssignmentId) {
         setSelectedAssignmentId("");
@@ -742,13 +792,52 @@ export function AssignmentsPage() {
     }
   }
 
-  async function refreshLevelTasks(levelId: string) {
-    const levelTaskData = await getTasks(levelId);
+  async function loadLevelConfiguration(levelId: string) {
+    const [
+      criteriaData,
+      bandData,
+      taskData,
+      mappingData,
+    ] = await Promise.all([
+      getRubricCriteria(levelId),
+      getRubricBands(undefined, levelId),
+      getTasks(levelId),
+      getTaskCriteriaMappings(levelId),
+    ]);
+
+    setCriteria((current) => [
+      ...current.filter(
+        (criterion) =>
+          criterion.assignment_level !== levelId,
+      ),
+      ...criteriaData,
+    ]);
+
+    setBands((current) => [
+      ...current.filter(
+        (band) =>
+          band.assignment_level_id !== levelId,
+      ),
+      ...bandData,
+    ]);
+
     setTasks((current) => [
-      ...current.filter((task) => task.assignment_level !== levelId),
-      ...levelTaskData,
+      ...current.filter(
+        (task) =>
+          task.assignment_level !== levelId,
+      ),
+      ...taskData,
+    ]);
+
+    setTaskCriteriaMappings((current) => [
+      ...current.filter(
+        (mapping) =>
+          mapping.assignment_level !== levelId,
+      ),
+      ...mappingData,
     ]);
   }
+
 
   async function releaseLevelLock(levelId: string) {
     const currentLock = levelLocks[levelId];
@@ -804,7 +893,7 @@ export function AssignmentsPage() {
       }));
 
       setExpandedLevelIds([levelId]);
-      await refreshLevelTasks(levelId);
+      await loadLevelConfiguration(levelId);
     } catch (caughtError) {
       setError(
         caughtError instanceof Error
@@ -863,7 +952,7 @@ export function AssignmentsPage() {
         sequence: nextSequence,
       });
 
-      await refreshLevelTasks(level.id);
+      await loadLevelConfiguration(level.id);
       await refreshLevels();
       setTaskDrafts((current) => ({
         ...current,
@@ -917,7 +1006,9 @@ export function AssignmentsPage() {
         evidence_required: editTaskEvidenceRequired.trim(),
       });
 
-      await refreshLevelTasks(task.assignment_level);
+      await loadLevelConfiguration(
+        task.assignment_level,
+      );
       setEditingTaskId("");
       setEditTaskCode("");
       setEditTaskTitle("");
@@ -940,7 +1031,11 @@ export function AssignmentsPage() {
     setError("");
     try {
       await deleteTask(task.id);
-      await refreshLevelTasks(task.assignment_level);
+
+      await loadLevelConfiguration(
+        task.assignment_level,
+      );
+
       await refreshLevels();
     } catch (caughtError) {
       setError(
@@ -989,8 +1084,7 @@ export function AssignmentsPage() {
       setCriterionTitle("");
       setCriterionDescription("");
       setCriterionMaximumScore("10");
-      setCriteria(await getRubricCriteria());
-      setBands(await getRubricBands());
+      await loadLevelConfiguration(assignmentLevelId);
       setCriterionFormLevelId("");
       await refreshLevels();
     } catch (caughtError) {
@@ -1019,7 +1113,9 @@ export function AssignmentsPage() {
         description: editCriterionDescription,
         maximum_score: editCriterionMaximumScore,
       });
-      setCriteria(await getRubricCriteria());
+      await loadLevelConfiguration(
+        criterion.assignment_level,
+      );
       setEditingCriterionId("");
       await refreshLevels();
     } catch (caughtError) {
@@ -1032,13 +1128,27 @@ export function AssignmentsPage() {
   }
 
   async function removeCriterion(criterionId: string) {
-    if (!window.confirm("Delete this rubric criterion?")) return;
+    if (!window.confirm("Delete this rubric criterion?")) {
+      return;
+    }
+
+    const criterion = criteria.find(
+      (item) => item.id === criterionId,
+    );
+
+    if (!criterion) {
+      return;
+    }
 
     setError("");
+
     try {
       await deleteRubricCriterion(criterionId);
-      setCriteria(await getRubricCriteria());
-      setBands(await getRubricBands());
+
+      await loadLevelConfiguration(
+        criterion.assignment_level,
+      );
+
       await refreshLevels();
     } catch (caughtError) {
       setError(
@@ -1065,12 +1175,19 @@ export function AssignmentsPage() {
         sequence: Number(bandSequence),
       });
 
-      const updatedBands = await getRubricBands();
-      setBands(updatedBands);
+      const levelId = bandFormLevelId;
+
+      await loadLevelConfiguration(levelId);
       await refreshLevels();
 
+      const updatedBands = await getRubricBands(
+        bandCriterionId,
+        levelId,
+      );
+
       const criterionBands = updatedBands.filter(
-        (band) => band.rubric_criterion === bandCriterionId,
+        (band) =>
+          band.rubric_criterion === bandCriterionId,
       );
 
       setBandCode("foundation");
@@ -1106,7 +1223,10 @@ export function AssignmentsPage() {
         maximum_percentage: editBandMaximum,
         descriptor: editBandDescriptor,
       });
-      setBands(await getRubricBands());
+      await loadLevelConfiguration(
+        band.assignment_level_id,
+      );
+
       setEditingBandId("");
       await refreshLevels();
     } catch (caughtError) {
@@ -1119,12 +1239,27 @@ export function AssignmentsPage() {
   }
 
   async function removeBand(bandId: string) {
-    if (!window.confirm("Delete this rubric band?")) return;
+    if (!window.confirm("Delete this rubric band?")) {
+      return;
+    }
+
+    const band = bands.find(
+      (item) => item.id === bandId,
+    );
+
+    if (!band) {
+      return;
+    }
 
     setError("");
+
     try {
       await deleteRubricBand(bandId);
-      setBands(await getRubricBands());
+
+      await loadLevelConfiguration(
+        band.assignment_level_id,
+      );
+
       await refreshLevels();
     } catch (caughtError) {
       setError(
@@ -1653,17 +1788,17 @@ export function AssignmentsPage() {
           (band) =>
             band.band_code.toLowerCase() !== "failed",
         );
-      
-      const trackBandDefinition = (
-          bandCode: string,
-        ) =>
-          (level.band_definitions || []).find(
-            (definition) =>
-              definition.band_code.toLowerCase() ===
-              bandCode.toLowerCase(),
-          );
 
-          
+      const trackBandDefinition = (
+        bandCode: string,
+      ) =>
+        (level.band_definitions || []).find(
+          (definition) =>
+            definition.band_code.toLowerCase() ===
+            bandCode.toLowerCase(),
+        );
+
+
       nonFailedCriterionBands.forEach(
         (band, index) => {
           rows.push([
@@ -1793,7 +1928,8 @@ export function AssignmentsPage() {
     }
 
     try {
-      await loadData();
+      await refreshLevels();
+      await loadLevelConfiguration(level.id);
       setExpandedLevelIds([level.id]);
     } catch (caughtError) {
       setError(
@@ -1906,9 +2042,7 @@ export function AssignmentsPage() {
         }
       }
 
-      setTaskCriteriaMappings(
-        await getTaskCriteriaMappings(),
-      );
+      await loadLevelConfiguration(level.id);
 
       await refreshLevels();
       setMappingCriterionId("");
@@ -1968,7 +2102,7 @@ export function AssignmentsPage() {
       return;
     }
 
-        const makeBandCode = (name: string) =>
+    const makeBandCode = (name: string) =>
       name
         .toLowerCase()
         .trim()
@@ -2025,46 +2159,46 @@ export function AssignmentsPage() {
     const bandDefinitions =
       nonFailedBands.length === 1
         ? [
-            {
-              band_code: "failed",
-              display_name: "Failed",
-              csv_band_code:
-                failedRequestedBand?.csv_band_code ?? "failed",
-              minimum_percentage: 0,
-              maximum_percentage: 49.99,
-            },
-            {
-              band_code: nonFailedBands[0].band_code,
-              display_name: nonFailedBands[0].display_name,
-              csv_band_code: nonFailedBands[0].csv_band_code,
-              minimum_percentage: 50,
-              maximum_percentage: 100,
-            },
-          ]
+          {
+            band_code: "failed",
+            display_name: "Failed",
+            csv_band_code:
+              failedRequestedBand?.csv_band_code ?? "failed",
+            minimum_percentage: 0,
+            maximum_percentage: 49.99,
+          },
+          {
+            band_code: nonFailedBands[0].band_code,
+            display_name: nonFailedBands[0].display_name,
+            csv_band_code: nonFailedBands[0].csv_band_code,
+            minimum_percentage: 50,
+            maximum_percentage: 100,
+          },
+        ]
         : [
-            {
-              band_code: "failed",
-              display_name: "Failed",
-              csv_band_code:
-                failedRequestedBand?.csv_band_code ?? "failed",
-              minimum_percentage: 0,
-              maximum_percentage: 69.99,
-            },
-            {
-              band_code: nonFailedBands[0].band_code,
-              display_name: nonFailedBands[0].display_name,
-              csv_band_code: nonFailedBands[0].csv_band_code,
-              minimum_percentage: 70,
-              maximum_percentage: 79.99,
-            },
-            {
-              band_code: nonFailedBands[1].band_code,
-              display_name: nonFailedBands[1].display_name,
-              csv_band_code: nonFailedBands[1].csv_band_code,
-              minimum_percentage: 80,
-              maximum_percentage: 100,
-            },
-          ];
+          {
+            band_code: "failed",
+            display_name: "Failed",
+            csv_band_code:
+              failedRequestedBand?.csv_band_code ?? "failed",
+            minimum_percentage: 0,
+            maximum_percentage: 69.99,
+          },
+          {
+            band_code: nonFailedBands[0].band_code,
+            display_name: nonFailedBands[0].display_name,
+            csv_band_code: nonFailedBands[0].csv_band_code,
+            minimum_percentage: 70,
+            maximum_percentage: 79.99,
+          },
+          {
+            band_code: nonFailedBands[1].band_code,
+            display_name: nonFailedBands[1].display_name,
+            csv_band_code: nonFailedBands[1].csv_band_code,
+            minimum_percentage: 80,
+            maximum_percentage: 100,
+          },
+        ];
 
     setIsCreatingTrack(true);
 
@@ -2134,13 +2268,13 @@ export function AssignmentsPage() {
       <AssignmentSummaryCards
         qualificationCount={qualifications.length}
         moduleCount={modules.length}
-        assignmentCount={assignments.length}
+        assignmentCount={totalAssignments}
       />
 
       <section className="page-section">
 
         <AssignmentListContent
-          filteredAssignments={filteredAssignments}
+          filteredAssignments={assignments}
           qualifications={qualifications}
           filteredModules={filteredModules}
           selectedAssignmentId={selectedAssignmentId}
@@ -2187,6 +2321,35 @@ export function AssignmentsPage() {
             openAssignmentDelete
           }
         />
+
+
+        {totalAssignments > 0 && (
+          <div className="pagination-controls">
+            <button
+              type="button"
+              disabled={!previousPage}
+              onClick={() =>
+                setPage((current) => Math.max(current - 1, 1))
+              }
+            >
+              Previous
+            </button>
+
+            <span>
+              Page {page} · {totalAssignments} assignments
+            </span>
+
+            <button
+              type="button"
+              disabled={!nextPage}
+              onClick={() =>
+                setPage((current) => current + 1)
+              }
+            >
+              Next
+            </button>
+          </div>
+        )}
 
 
         {selectedAssignment && (

@@ -3,6 +3,13 @@ const API_BASE_URL =
   "http://localhost:8000/api";
 
 
+export type AdminSubmissionCohortDetail = {
+  id: string;
+  code: string;
+  name: string;
+  assignments: AdminSubmissionAssignment[];
+};
+
 export type SubmissionProcessLogEntry = {
   id: string;
   stage: string;
@@ -96,11 +103,20 @@ export type AdminSubmissionAttempt = {
   original_filename: string;
   submitted_at: string;
   completed_at: string | null;
-  grading_audit: SubmissionGradingAudit | null;
-  process_logs: SubmissionProcessLogEntry[];
+  grading_audit?: SubmissionGradingAudit | null;
+  process_logs?: SubmissionProcessLogEntry[];
   is_manual_review?: boolean;
   manual_reviewer?: string | null;
   criterion_results?: AdminCriterionResult[];
+};
+
+
+export type AdminSubmissionRecordDetail = {
+  id: string;
+  feedback: string;
+  grading_audit: SubmissionGradingAudit | null;
+  process_logs: SubmissionProcessLogEntry[];
+  criterion_results: AdminCriterionResult[];
 };
 
 export type AdminSubmissionLearner = {
@@ -125,8 +141,49 @@ export type AdminSubmissionCohort = {
   id: string;
   code: string;
   name: string;
+  assignment_count: number;
+  unique_learners: number;
+  total_attempts: number;
   assignments: AdminSubmissionAssignment[];
 };
+
+export async function getAdminSubmissionRecordCohortDetail(
+  cohortId: string,
+  params: {
+    search?: string;
+    assignmentId?: string;
+  } = {},
+): Promise<AdminSubmissionCohortDetail> {
+  const query = new URLSearchParams();
+
+  if (params.search?.trim()) {
+    query.set("search", params.search.trim());
+  }
+
+  if (params.assignmentId) {
+    query.set("assignment_id", params.assignmentId);
+  }
+
+  const response = await fetch(
+    `${API_BASE_URL}/submissions/admin-records/cohorts/${cohortId}/?${query.toString()}`,
+    {
+      method: "GET",
+      credentials: "include",
+    },
+  );
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(
+      typeof data?.detail === "string"
+        ? data.detail
+        : "Unable to load cohort submission records.",
+    );
+  }
+
+  return data as AdminSubmissionCohortDetail;
+}
 
 export type AdminGradebookLearner = {
   id: string;
@@ -143,7 +200,44 @@ export type AdminGradebookCohort = {
   learners: AdminGradebookLearner[];
 };
 
+export type AdminGradebookAssignmentScore = {
+  assignment_id: string;
+  submission_id: string;
+  attempt_number: number;
+  final_score: string | null;
+  maximum_score: string | null;
+  achieved_band: string;
+  status: string;
+  submitted_at: string;
+};
+
+export type AdminGradebookResultLearner = {
+  id: string;
+  learner_id: string;
+  username: string;
+  name: string;
+  email: string;
+  assignment_scores: AdminGradebookAssignmentScore[];
+};
+
+export type AdminGradebookResultCohort = {
+  id: string;
+  code: string;
+  name: string;
+  learners: AdminGradebookResultLearner[];
+};
+
+export type AdminGradebookResponse = {
+  cohorts: AdminGradebookResultCohort[];
+};
+
 export type AdminSubmissionRecordsResponse = {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  page: number;
+  page_size: number;
+  total_pages: number;
   cohorts: AdminSubmissionCohort[];
   gradebook_cohorts: AdminGradebookCohort[];
   summary: {
@@ -152,26 +246,175 @@ export type AdminSubmissionRecordsResponse = {
     unique_learners: number;
     total_attempts: number;
   };
+  filter_options: {
+    cohorts: Array<{
+      id: string;
+      code: string;
+      name: string;
+    }>;
+    assignments: Array<{
+      id: string;
+      code: string;
+      title: string;
+    }>;
+  };
 };
 
-export async function getAdminSubmissionRecords(): Promise<AdminSubmissionRecordsResponse> {
+export type AdminSubmissionRecordsParams = {
+  page?: number;
+  search?: string;
+  cohortId?: string;
+  assignmentId?: string;
+};
+
+export async function getAdminSubmissionRecords(
+  params: AdminSubmissionRecordsParams = {},
+): Promise<AdminSubmissionRecordsResponse> {
+  const query = new URLSearchParams();
+
+  query.set("page", String(params.page ?? 1));
+
+  if (params.search?.trim()) {
+    query.set("search", params.search.trim());
+  }
+
+  if (params.cohortId) {
+    query.set("cohort_id", params.cohortId);
+  }
+
+  if (params.assignmentId) {
+    query.set("assignment_id", params.assignmentId);
+  }
+
   const response = await fetch(
-    `${API_BASE_URL}/submissions/admin-records/`,
+    `${API_BASE_URL}/submissions/admin-records/?${query.toString()}`,
     {
       method: "GET",
       credentials: "include",
     },
   );
 
-  const data = await response.json();
+  const text = await response.text();
 
-  if (!response.ok) {
+  let data: unknown;
+
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
     throw new Error(
-      typeof data?.detail === "string"
-        ? data.detail
+      response.ok
+        ? "The server returned an incomplete response."
         : "Unable to load submission records.",
     );
   }
 
+  if (!response.ok) {
+    const detail =
+      data &&
+      typeof data === "object" &&
+      "detail" in data &&
+      typeof (data as { detail?: unknown }).detail === "string"
+        ? (data as { detail: string }).detail
+        : null;
+
+    throw new Error(
+      detail || "Unable to load submission records.",
+    );
+  }
+
   return data as AdminSubmissionRecordsResponse;
+}
+
+export async function getAdminGradebook(
+  cohortId?: string,
+): Promise<AdminGradebookResponse> {
+  const query = new URLSearchParams();
+
+  if (cohortId) {
+    query.set("cohort_id", cohortId);
+  }
+
+  const suffix = query.toString()
+    ? `?${query.toString()}`
+    : "";
+
+  const response = await fetch(
+    `${API_BASE_URL}/submissions/admin-gradebook/${suffix}`,
+    {
+      method: "GET",
+      credentials: "include",
+    },
+  );
+
+  const text = await response.text();
+
+  let data: unknown;
+
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    throw new Error(
+      response.ok
+        ? "The server returned an incomplete response."
+        : "Unable to load final gradebook.",
+    );
+  }
+
+  if (!response.ok) {
+    const detail =
+      data &&
+      typeof data === "object" &&
+      "detail" in data &&
+      typeof (data as { detail?: unknown }).detail === "string"
+        ? (data as { detail: string }).detail
+        : null;
+
+    throw new Error(
+      detail || "Unable to load final gradebook.",
+    );
+  }
+
+  return data as AdminGradebookResponse;
+}
+
+export async function getAdminSubmissionRecordDetail(
+  submissionId: string,
+): Promise<AdminSubmissionRecordDetail> {
+  const response = await fetch(
+    `${API_BASE_URL}/submissions/admin-records/${submissionId}/`,
+    {
+      method: "GET",
+      credentials: "include",
+    },
+  );
+
+  const text = await response.text();
+
+  let data: unknown;
+
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    throw new Error(
+      response.ok
+        ? "The server returned an incomplete response."
+        : "Unable to load submission details.",
+    );
+  }
+
+  if (!response.ok) {
+    const detail =
+      data &&
+      typeof data === "object" &&
+      "detail" in data &&
+      typeof (data as { detail?: unknown }).detail === "string"
+        ? (data as { detail: string }).detail
+        : null;
+
+    throw new Error(
+      detail || "Unable to load submission details.",
+    );
+  }
+
+  return data as AdminSubmissionRecordDetail;
 }

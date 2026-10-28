@@ -12,6 +12,7 @@ from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from django.db.models import Q
 
 from grading.models import (
     RubricBand,
@@ -34,11 +35,7 @@ class ModuleAssignmentListCreateView(
             "module",
             "module__qualification",
             "grading_configuration",
-        ).order_by(
-            "module__module_code",
-            "level",
-            "assignment_code",
-        )
+        ).order_by("-created_at")
 
         module_id = self.request.query_params.get(
             "module_id",
@@ -58,6 +55,21 @@ class ModuleAssignmentListCreateView(
                 module__qualification_id=qualification_id,
             )
 
+        search = self.request.query_params.get(
+            "search",
+            "",
+        ).strip()
+
+        if search:
+            queryset = queryset.filter(
+                Q(assignment_code__icontains=search)
+                | Q(assignment_title__icontains=search)
+                | Q(module__module_code__icontains=search)
+                | Q(module__module_name__icontains=search)
+                | Q(module__qualification__qualification_code__icontains=search)
+                | Q(module__qualification__qualification_name__icontains=search)
+            )
+            
         return queryset
 
     def perform_create(self, serializer):
