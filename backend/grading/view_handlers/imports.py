@@ -454,18 +454,48 @@ class AssignmentLevelConfigurationCsvImportView(APIView):
         non_failed_bands = [
             band
             for band in track_band_definitions
-            if str(band.get("band_code", "")).strip().lower() != "failed"
+            if str(
+                band.get("band_code", "")
+            ).strip().lower() != "failed"
         ]
 
-        expected_csv_band_codes = [
-            "failed",
-            *[
-                f"band{index + 1}"
-                for index in range(len(non_failed_bands))
-            ],
+        configured_csv_band_codes = [
+            str(
+                band.get("csv_band_code", "")
+            ).strip().lower()
+            for band in track_band_definitions
+            if str(
+                band.get("csv_band_code", "")
+            ).strip()
         ]
 
-        expected_csv_band_code_set = set(expected_csv_band_codes)
+        if configured_csv_band_codes:
+            expected_csv_band_codes = [
+                "failed",
+                *[
+                    code
+                    for code in configured_csv_band_codes
+                    if code != "failed"
+                ],
+            ]
+        else:
+            # Backward compatibility for older tracks that were
+            # created before csv_band_code was stored.
+            expected_csv_band_codes = [
+                "failed",
+                *[
+                    f"band{index + 1}"
+                    for index in range(len(non_failed_bands))
+                ],
+            ]
+
+        expected_csv_band_codes = list(
+            dict.fromkeys(expected_csv_band_codes)
+        )
+
+        expected_csv_band_code_set = set(
+            expected_csv_band_codes
+        )
 
         for row in band_rows:
             csv_band_code = row["band_code"].strip().lower()

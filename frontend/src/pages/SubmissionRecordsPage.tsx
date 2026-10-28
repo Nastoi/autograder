@@ -12,6 +12,7 @@ import {
 
 import "../css/AssessmentMappings.css";
 import "../css/SubmissionRecordsPage.css";
+import "../css/QualificationsPage.css";
 
 import {
   getAssessmentMappings,
