@@ -1747,60 +1747,53 @@ export function AssignmentsPage() {
         )
         .sort((a, b) => a.sequence - b.sequence);
 
-      const failedBand = criterionBands.find(
-        (band) =>
-          band.band_code.toLowerCase() === "failed",
-      );
+      const trackBandDefinitions =
+        level.band_definitions || [];
 
-      if (failedBand) {
-        rows.push([
-          "band",
-          "",
-          "",
-          "",
-          "",
-          "",
-          "",
-          "",
-          "",
-          "",
-          "",
-          "",
-          criterion.criterion_code,
-          "",
-          "",
-          "",
-          "failed",
-          (failedBand.descriptor || "").replace(
-            new RegExp(
-              `^${criterion.criterion_code}\\s*:\\s*`,
-              "i",
-            ),
-            "",
-          ),
-          "",
-          "",
-        ]);
-      }
+      const findCriterionBandForCsvCode = (
+        csvBandCode: string,
+      ) => {
+        if (csvBandCode === "failed") {
+          return criterionBands.find(
+            (band) =>
+              band.band_code.toLowerCase() === "failed",
+          );
+        }
 
-      const nonFailedCriterionBands =
-        criterionBands.filter(
+        const definition = trackBandDefinitions.find(
           (band) =>
-            band.band_code.toLowerCase() !== "failed",
+            (band.csv_band_code || "")
+              .toLowerCase()
+              .trim() === csvBandCode,
         );
 
-      const trackBandDefinition = (
-        bandCode: string,
-      ) =>
-        (level.band_definitions || []).find(
-          (definition) =>
-            definition.band_code.toLowerCase() ===
-            bandCode.toLowerCase(),
+        if (!definition) {
+          return undefined;
+        }
+
+        let actualBandCode = definition.band_code
+          .toLowerCase()
+          .trim();
+
+        if (
+          actualBandCode === "fail" ||
+          actualBandCode === "failed"
+        ) {
+          actualBandCode = "failed";
+        }
+
+        return criterionBands.find(
+          (band) =>
+            band.band_code.toLowerCase() ===
+            actualBandCode,
         );
+      };
 
+      ["failed", "band1", "band2"].forEach(
+        (csvBandCode) => {
+          const band =
+            findCriterionBandForCsvCode(csvBandCode);
 
-      nonFailedCriterionBands.forEach(
-        (band, index) => {
           rows.push([
             "band",
             "",
@@ -1818,9 +1811,8 @@ export function AssignmentsPage() {
             "",
             "",
             "",
-            trackBandDefinition(band.band_code)
-              ?.csv_band_code || `band${index + 1}`,
-            (band.descriptor || "").replace(
+            csvBandCode,
+            (band?.descriptor || "").replace(
               new RegExp(
                 `^${criterion.criterion_code}\\s*:\\s*`,
                 "i",
