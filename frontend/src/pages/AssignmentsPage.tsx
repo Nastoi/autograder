@@ -121,7 +121,6 @@ export function AssignmentsPage() {
   const [moduleId, setModuleId] = useState("");
   const [code, setCode] = useState("");
   const [maximumScore, setMaximumScore] = useState("100");
-  const [minimumPassScore, setMinimumPassScore] = useState("50");
   const [isSummative, setIsSummative] = useState(true);
   const [contributesToFinalMark, setContributesToFinalMark] = useState(true);
   const [finalMarkWeight, setFinalMarkWeight] = useState("100");
@@ -137,7 +136,6 @@ export function AssignmentsPage() {
   const [isDeletingAssignment, setIsDeletingAssignment] = useState(false);
   const [editCode, setEditCode] = useState("");
   const [editMaximumScore, setEditMaximumScore] = useState("");
-  const [editMinimumPassScore, setEditMinimumPassScore] = useState("");
   const [editIsSummative, setEditIsSummative] = useState(true);
   const [editContributesToFinalMark, setEditContributesToFinalMark] =
     useState(true);
@@ -382,16 +380,21 @@ export function AssignmentsPage() {
         assignment_code: code,
         assignment_title: code,
         maximum_score: maximumScore,
-        minimum_pass_score: minimumPassScore,
+
+        // Legacy backend field retained for compatibility.
+        // Pass/fail is determined by rubric banding.
+        minimum_pass_score: "0",
+
         is_summative: isSummative,
         contributes_to_final_mark: contributesToFinalMark,
-        final_mark_weight: finalMarkWeight,
+        final_mark_weight: contributesToFinalMark
+          ? finalMarkWeight
+          : "0",
         is_active: isActive,
       });
 
       setCode("");
       setMaximumScore("100");
-      setMinimumPassScore("50");
       setIsSummative(true);
       setContributesToFinalMark(true);
       setFinalMarkWeight("100");
@@ -425,7 +428,6 @@ export function AssignmentsPage() {
     setEditingAssignmentId(assignment.id);
     setEditCode(assignment.assignment_code);
     setEditMaximumScore(assignment.maximum_score);
-    setEditMinimumPassScore(assignment.minimum_pass_score);
     setEditIsSummative(assignment.is_summative);
     setEditContributesToFinalMark(
       assignment.contributes_to_final_mark,
@@ -461,15 +463,7 @@ export function AssignmentsPage() {
       return;
     }
 
-    if (
-      Number(editMinimumPassScore) >
-      Number(editMaximumScore)
-    ) {
-      setError(
-        "Minimum pass score cannot be greater than maximum score.",
-      );
-      return;
-    }
+   
 
     setIsSavingAssignmentEdit(true);
 
@@ -478,7 +472,6 @@ export function AssignmentsPage() {
         assignment_code: editCode.trim(),
         assignment_title: editCode.trim(),
         maximum_score: editMaximumScore,
-        minimum_pass_score: editMinimumPassScore,
         is_summative: editIsSummative,
         contributes_to_final_mark: editContributesToFinalMark,
         final_mark_weight: editContributesToFinalMark
@@ -2276,7 +2269,6 @@ export function AssignmentsPage() {
           moduleId={moduleId}
           code={code}
           maximumScore={maximumScore}
-          minimumPassScore={minimumPassScore}
           finalMarkWeight={finalMarkWeight}
           isSummative={isSummative}
           contributesToFinalMark={contributesToFinalMark}
@@ -2290,9 +2282,6 @@ export function AssignmentsPage() {
           setModuleId={setModuleId}
           setCode={setCode}
           setMaximumScore={setMaximumScore}
-          setMinimumPassScore={
-            setMinimumPassScore
-          }
           setFinalMarkWeight={setFinalMarkWeight}
           setIsSummative={setIsSummative}
           setContributesToFinalMark={
@@ -2988,7 +2977,6 @@ export function AssignmentsPage() {
 
         editCode={editCode}
         editMaximumScore={editMaximumScore}
-        editMinimumPassScore={editMinimumPassScore}
         editIsSummative={editIsSummative}
         editContributesToFinalMark={editContributesToFinalMark}
         editFinalMarkWeight={editFinalMarkWeight}
@@ -3002,7 +2990,6 @@ export function AssignmentsPage() {
 
         setEditCode={setEditCode}
         setEditMaximumScore={setEditMaximumScore}
-        setEditMinimumPassScore={setEditMinimumPassScore}
         setEditIsSummative={setEditIsSummative}
         setEditContributesToFinalMark={setEditContributesToFinalMark}
         setEditFinalMarkWeight={setEditFinalMarkWeight}

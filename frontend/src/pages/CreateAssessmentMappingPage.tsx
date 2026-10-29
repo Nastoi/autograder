@@ -190,11 +190,39 @@ export function CreateAssessmentMappingPage() {
     existingContributionTotal + selectedContributionTotal;
 
   function toggleAssignment(assignmentId: string) {
-    setSelectedAssignmentIds((current) =>
-      current.includes(assignmentId)
-        ? current.filter((id) => id !== assignmentId)
-        : [...current, assignmentId],
+    const assignment = assignments.find(
+      (item) => item.id === assignmentId,
     );
+
+    const isCurrentlySelected =
+      selectedAssignmentIds.includes(assignmentId);
+
+    if (isCurrentlySelected) {
+      setSelectedAssignmentIds((current) =>
+        current.filter((id) => id !== assignmentId),
+      );
+
+      setFinalMarkWeights((current) => {
+        const next = { ...current };
+        delete next[assignmentId];
+        return next;
+      });
+
+      return;
+    }
+
+    setSelectedAssignmentIds((current) => [
+      ...current,
+      assignmentId,
+    ]);
+
+    setFinalMarkWeights((current) => ({
+      ...current,
+      [assignmentId]:
+        assignment?.contributes_to_final_mark
+          ? assignment.final_mark_weight || "0"
+          : "0",
+    }));
   }
 
   function selectAllAssignments() {
@@ -203,10 +231,22 @@ export function CreateAssessmentMappingPage() {
         (assignment) => assignment.id,
       ),
     );
+
+    setFinalMarkWeights(
+      Object.fromEntries(
+        availableAssignments.map((assignment) => [
+          assignment.id,
+          assignment.contributes_to_final_mark
+            ? assignment.final_mark_weight || "0"
+            : "0",
+        ]),
+      ),
+    );
   }
 
   function clearAssignments() {
     setSelectedAssignmentIds([]);
+    setFinalMarkWeights({});
   }
 
   async function handleSubmit(

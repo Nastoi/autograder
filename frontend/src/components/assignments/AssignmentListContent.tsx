@@ -22,7 +22,6 @@ type AssignmentListContentProps = {
   moduleId: string;
   code: string;
   maximumScore: string;
-  minimumPassScore: string;
   finalMarkWeight: string;
 
   isSummative: boolean;
@@ -39,7 +38,6 @@ type AssignmentListContentProps = {
   setModuleId: (value: string) => void;
   setCode: (value: string) => void;
   setMaximumScore: (value: string) => void;
-  setMinimumPassScore: (value: string) => void;
   setFinalMarkWeight: (value: string) => void;
 
   setIsSummative: (value: boolean) => void;
@@ -75,7 +73,6 @@ export function AssignmentListContent({
   moduleId,
   code,
   maximumScore,
-  minimumPassScore,
   finalMarkWeight,
   isSummative,
   contributesToFinalMark,
@@ -87,7 +84,6 @@ export function AssignmentListContent({
   setModuleId,
   setCode,
   setMaximumScore,
-  setMinimumPassScore,
   setFinalMarkWeight,
   setIsSummative,
   setContributesToFinalMark,
@@ -272,26 +268,6 @@ export function AssignmentListContent({
             </div>
 
             <div className="form-group">
-              <label htmlFor="minimum-pass-score">
-                Minimum pass score
-              </label>
-
-              <input
-                id="minimum-pass-score"
-                type="number"
-                min="0"
-                step="0.01"
-                value={minimumPassScore}
-                onChange={(event) =>
-                  setMinimumPassScore(
-                    event.target.value,
-                  )
-                }
-                required
-              />
-            </div>
-
-            <div className="form-group">
               <label htmlFor="final-mark-weight">
                 Final mark weight
               </label>
@@ -396,7 +372,7 @@ export function AssignmentListContent({
                 <th>No.</th>
                 <th>Code</th>
                 <th>Max</th>
-                <th>Pass</th>
+                <th>Weight</th>
                 <th>Status</th>
                 <th>Actions</th>
               </tr>
@@ -471,9 +447,9 @@ export function AssignmentListContent({
                       </td>
 
                       <td>
-                        {
-                          assignment.minimum_pass_score
-                        }
+                        {assignment.contributes_to_final_mark
+                          ? `${assignment.final_mark_weight}%`
+                          : "—"}
                       </td>
 
                       <td>

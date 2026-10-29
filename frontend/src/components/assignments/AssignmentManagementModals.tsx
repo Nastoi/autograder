@@ -12,7 +12,6 @@ type AssignmentManagementModalsProps = {
 
   editCode: string;
   editMaximumScore: string;
-  editMinimumPassScore: string;
   editIsSummative: boolean;
   editContributesToFinalMark: boolean;
   editFinalMarkWeight: string;
@@ -26,7 +25,6 @@ type AssignmentManagementModalsProps = {
 
   setEditCode: (value: string) => void;
   setEditMaximumScore: (value: string) => void;
-  setEditMinimumPassScore: (value: string) => void;
   setEditIsSummative: (value: boolean) => void;
   setEditContributesToFinalMark: (value: boolean) => void;
   setEditFinalMarkWeight: (value: string) => void;
@@ -50,7 +48,6 @@ export function AssignmentManagementModals({
 
   editCode,
   editMaximumScore,
-  editMinimumPassScore,
   editIsSummative,
   editContributesToFinalMark,
   editFinalMarkWeight,
@@ -64,7 +61,6 @@ export function AssignmentManagementModals({
 
   setEditCode,
   setEditMaximumScore,
-  setEditMinimumPassScore,
   setEditIsSummative,
   setEditContributesToFinalMark,
   setEditFinalMarkWeight,
@@ -159,22 +155,7 @@ export function AssignmentManagementModals({
                     />
                   </div>
 
-                  <div className="form-group">
-                    <label htmlFor="edit-minimum-pass-score">
-                      Minimum pass score
-                    </label>
-                    <input
-                      id="edit-minimum-pass-score"
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={editMinimumPassScore}
-                      onChange={(event) =>
-                        setEditMinimumPassScore(event.target.value)
-                      }
-                      required
-                    />
-                  </div>
+                  
 
                   <div className="form-group">
                     <label htmlFor="edit-final-mark-weight">
