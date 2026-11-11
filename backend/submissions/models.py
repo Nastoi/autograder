@@ -107,6 +107,20 @@ class LearnerSubmission(models.Model):
 
     original_filename = models.CharField(max_length=255)
 
+    # Permanent fingerprints retained even after the uploaded PDF/page rows
+    # are cleaned up. Used only for exact-submission consistency checks.
+    content_sha256 = models.CharField(
+        max_length=64,
+        blank=True,
+        db_index=True,
+    )
+    grading_config_sha256 = models.CharField(
+        max_length=64,
+        blank=True,
+        db_index=True,
+    )
+    page_count = models.PositiveIntegerField(default=0)
+
     attempt_number = models.PositiveIntegerField(default=1)
 
     status = models.CharField(

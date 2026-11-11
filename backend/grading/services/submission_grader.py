@@ -717,7 +717,10 @@ def map_submission_tasks(submission):
                         }
                     )
 
-                if getattr(page, "image_data", None):
+                if (
+                    getattr(page, "image_data", None)
+                    and len(page.image_data) <= MAPPING_MAX_IMAGE_BYTES_PER_CHUNK
+                ):
                     b64_image = base64.b64encode(
                         page.image_data
                     ).decode("utf-8")
@@ -737,6 +740,22 @@ def map_submission_tasks(submission):
                                     f"{b64_image}"
                                 )
                             },
+                        }
+                    )
+
+                elif (
+                    getattr(page, "image_data", None)
+                    and len(page.image_data) > MAPPING_MAX_IMAGE_BYTES_PER_CHUNK
+                ):
+                    user_content.append(
+                        {
+                            "type": "text",
+                            "text": (
+                                f"Page {page_num} rendered image was omitted from "
+                                "this AI request because that single rendered page "
+                                "exceeded the safe image payload limit. Use the "
+                                "supplied extracted text for mapping this page."
+                            ),
                         }
                     )
 
@@ -1568,17 +1587,31 @@ def grade_submission(submission):
                 **_completion_usage_snapshot(completion),
             })
             result = completion.choices[0].message.parsed
-            expected_keys = set(required_pairs)
-            returned_keys = [
-                f"{item.task_code}_{item.rubric_criterion_id}"
+            expected_task_codes = {
+                pair.split("_", 1)[0]
+                for pair in required_pairs
+            }
+
+            returned_task_codes = [
+                item.task_code
                 for item in result.criterion_evaluations
             ]
-            if set(returned_keys) != expected_keys or len(returned_keys) != len(expected_keys):
+
+            if (
+                set(returned_task_codes) != expected_task_codes
+                or len(returned_task_codes) != len(expected_task_codes)
+            ):
                 raise ValueError(
-                    "AI returned incorrect evaluation pairs for criterion "
-                    f"{criterion.criterion_code}. Expected: {sorted(expected_keys)}; "
-                    f"received: {sorted(returned_keys)}."
+                    "AI returned incorrect task evaluations for criterion "
+                    f"{criterion.criterion_code}. "
+                    f"Expected task codes: {sorted(expected_task_codes)}; "
+                    f"received: {sorted(returned_task_codes)}."
                 )
+
+            # Criterion is already known from the grading loop.
+            # Do not rely on the AI to reproduce its UUID exactly.
+            for item in result.criterion_evaluations:
+                item.rubric_criterion_id = str(criterion_id)
             
             for item in result.criterion_evaluations:
                 verification = task_verification_map.get(

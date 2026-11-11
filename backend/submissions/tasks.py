@@ -10,7 +10,7 @@ from lms.models import LtiUserIdentity
 from .attempt_policy import get_latest_submission
 from .models import LearnerSubmission
 from .audit import record_submission_event, update_grading_audit
-from .services import run_ai_grading
+from .services import run_ai_grading, maybe_recheck_grading_consistency
 
 logger = logging.getLogger(__name__)
 
@@ -97,6 +97,30 @@ def grade_submission_task(
             submission.save(update_fields=["status"])
 
             submission = run_ai_grading(submission)
+
+        try:
+            submission = maybe_recheck_grading_consistency(submission)
+        except Exception as exc:
+            logger.exception(
+                "Automatic consistency recheck failed for submission %s; "
+                "keeping the completed grading result.",
+                submission_id,
+            )
+            record_submission_event(
+                submission,
+                stage="consistency_check",
+                status="warning",
+                event_code="CONSISTENCY_RECHECK_ERROR",
+                message=(
+                    "Automatic consistency recheck could not complete; "
+                    "the completed grading result is being retained."
+                ),
+                details={
+                    "error_type": type(exc).__name__,
+                    "error_message": str(exc),
+                },
+            )
+            submission.refresh_from_db()
 
         logger.info(
             "Background grading finished for submission %s with status %s.",

@@ -1,4 +1,7 @@
 import io
+import hashlib
+import json
+import logging
 import pdfplumber
 
 from django.conf import settings
@@ -12,13 +15,125 @@ from grading.services.submission_grader import (
     grade_submission,
     map_submission_tasks,
 )
-from grading.models import RubricBand
+from grading.models import (
+    RubricBand,
+    RubricCriterion,
+    Task,
+    TaskCriteriaMapping,
+)
 import zipfile
 from pathlib import Path
 
 from django.core.files.base import ContentFile
 
 MAX_EXTRACTED_PDF_SIZE = 50 * 1024 * 1024
+
+SCORE_CONSISTENCY_THRESHOLD = 5.0
+GRADING_POLICY_VERSION = "submission_grader_v1_consistency_20261111"
+
+logger = logging.getLogger(__name__)
+
+def _sha256_file(path: str) -> str:
+    digest = hashlib.sha256()
+    with open(path, "rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def build_grading_config_sha256(submission: LearnerSubmission) -> str:
+    """Create a stable snapshot hash of configuration that can affect grading."""
+    assignment_level = submission.assignment_level
+
+    criteria = list(
+        RubricCriterion.objects
+        .filter(assignment_level=assignment_level)
+        .order_by("sequence", "id")
+    )
+    criteria_ids = [criterion.id for criterion in criteria]
+
+    bands = list(
+        RubricBand.objects
+        .filter(rubric_criterion_id__in=criteria_ids)
+        .select_related("rubric_criterion")
+        .order_by("rubric_criterion__sequence", "sequence", "id")
+    )
+
+    tasks = list(
+        Task.objects
+        .filter(assignment_level=assignment_level)
+        .order_by("sequence", "id")
+    )
+
+    mappings = list(
+        TaskCriteriaMapping.objects
+        .filter(assignment_level=assignment_level)
+        .select_related("task", "rubric_criterion")
+        .order_by("task__sequence", "rubric_criterion__sequence", "id")
+    )
+
+    payload = {
+        "policy_version": GRADING_POLICY_VERSION,
+        "model_name": getattr(settings, "OPENAI_API_MODEL", ""),
+        "assignment_level": {
+            "id": str(assignment_level.id),
+            "level_code": getattr(assignment_level, "level_code", ""),
+            "title": getattr(assignment_level, "title", "") or "",
+            "skill_statement": getattr(assignment_level, "skill_statement", "") or "",
+            "objective": getattr(assignment_level, "objective", "") or "",
+            "scenario": getattr(assignment_level, "scenario", "") or "",
+            "expected_outcome": getattr(assignment_level, "expected_outcome", "") or "",
+        },
+        "criteria": [
+            {
+                "id": str(item.id),
+                "criterion_code": item.criterion_code,
+                "title": item.title,
+                "description": item.description or "",
+                "maximum_score": str(item.maximum_score),
+                "sequence": item.sequence,
+            }
+            for item in criteria
+        ],
+        "bands": [
+            {
+                "criterion_id": str(item.rubric_criterion_id),
+                "band_code": item.band_code,
+                "display_name": item.display_name,
+                "minimum_percentage": str(item.minimum_percentage),
+                "maximum_percentage": str(item.maximum_percentage),
+                "descriptor": item.descriptor or "",
+                "sequence": item.sequence,
+            }
+            for item in bands
+        ],
+        "tasks": [
+            {
+                "id": str(item.id),
+                "task_code": item.task_code,
+                "title": item.title,
+                "evidence_required": item.evidence_required or "",
+                "sequence": item.sequence,
+            }
+            for item in tasks
+        ],
+        "task_criteria_mappings": [
+            {
+                "task_id": str(item.task_id),
+                "rubric_criterion_id": str(item.rubric_criterion_id),
+                "inferred_weight": str(item.inferred_weight),
+            }
+            for item in mappings
+        ],
+    }
+
+    canonical = json.dumps(
+        payload,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+    ).encode("utf-8")
+    return hashlib.sha256(canonical).hexdigest()
 
 
 def prepare_submission_file(uploaded_file):
@@ -120,6 +235,12 @@ def extract_submission_pages(submission: LearnerSubmission) -> LearnerSubmission
     )
 
     pdf_path = submission.submitted_file.path
+
+    content_sha256 = _sha256_file(pdf_path)
+    if submission.content_sha256 != content_sha256:
+        submission.content_sha256 = content_sha256
+        submission.save(update_fields=["content_sha256"])
+
     submission.pages.all().delete()
 
     try:
@@ -146,7 +267,8 @@ def extract_submission_pages(submission: LearnerSubmission) -> LearnerSubmission
                 )
 
         submission.status = LearnerSubmission.Status.PROCESSING
-        submission.save(update_fields=["status"])
+        submission.page_count = len(images)
+        submission.save(update_fields=["status", "page_count"])
 
         record_submission_event(
             submission,
@@ -186,6 +308,11 @@ def run_ai_grading(submission):
 
     try:
         submission = extract_submission_pages(submission)
+
+        grading_config_sha256 = build_grading_config_sha256(submission)
+        if submission.grading_config_sha256 != grading_config_sha256:
+            submission.grading_config_sha256 = grading_config_sha256
+            submission.save(update_fields=["grading_config_sha256"])
 
         record_submission_event(
             submission,
@@ -352,6 +479,264 @@ def run_ai_grading(submission):
             completed_at=timezone.now(),
         )
         raise
+
+def maybe_recheck_grading_consistency(submission):
+    """
+    Re-grade once only when this completed attempt is an exact PDF/config
+    match for one or more earlier completed attempts and its score is more
+    than SCORE_CONSISTENCY_THRESHOLD percentage points away from every
+    matching historical score.
+
+    The closest historical score is used only to decide whether a recheck
+    is needed. Historical scores are never copied, averaged, or forced onto
+    the current attempt. The one recheck result becomes final.
+    """
+    if (
+        submission.status != LearnerSubmission.Status.COMPLETED
+        or not submission.content_sha256
+        or not submission.grading_config_sha256
+        or submission.final_score is None
+        or submission.maximum_score is None
+        or float(submission.maximum_score) <= 0
+    ):
+        return submission
+
+    assignment = submission.assignment_level.assignment
+    cohort = submission.context.cohort
+
+    previous_matches = list(
+        LearnerSubmission.objects
+        .filter(
+            learner=submission.learner,
+            context__cohort=cohort,
+            assignment_level__assignment=assignment,
+            status=LearnerSubmission.Status.COMPLETED,
+            content_sha256=submission.content_sha256,
+            grading_config_sha256=submission.grading_config_sha256,
+            final_score__isnull=False,
+            maximum_score__isnull=False,
+            submitted_at__lt=submission.submitted_at,
+        )
+        .exclude(id=submission.id)
+        .order_by("-submitted_at")
+    )
+
+    historical_scores = []
+    for previous in previous_matches:
+        previous_maximum = float(previous.maximum_score or 0)
+        if previous_maximum <= 0:
+            continue
+
+        previous_percentage = (
+            float(previous.final_score)
+            / previous_maximum
+        ) * 100.0
+
+        historical_scores.append(
+            {
+                "submission": previous,
+                "percentage": previous_percentage,
+            }
+        )
+
+    if not historical_scores:
+        return submission
+
+    current_percentage = (
+        float(submission.final_score)
+        / float(submission.maximum_score)
+    ) * 100.0
+
+    closest_match = min(
+        historical_scores,
+        key=lambda item: abs(
+            current_percentage - item["percentage"]
+        ),
+    )
+    closest_delta = abs(
+        current_percentage - closest_match["percentage"]
+    )
+
+    history_details = [
+        {
+            "submission_id": str(item["submission"].id),
+            "attempt_number": item["submission"].attempt_number,
+            "percentage": round(item["percentage"], 2),
+        }
+        for item in historical_scores
+    ]
+
+    if closest_delta <= SCORE_CONSISTENCY_THRESHOLD:
+        record_submission_event(
+            submission,
+            stage="consistency_check",
+            status="success",
+            event_code="CONSISTENCY_CHECK_PASSED",
+            message=(
+                "Exact matching historical submission is within the allowed "
+                "score difference."
+            ),
+            details={
+                "closest_submission_id": str(
+                    closest_match["submission"].id
+                ),
+                "closest_previous_percentage": round(
+                    closest_match["percentage"], 2
+                ),
+                "current_percentage": round(current_percentage, 2),
+                "closest_score_delta": round(closest_delta, 2),
+                "threshold": SCORE_CONSISTENCY_THRESHOLD,
+                "matching_history": history_details,
+            },
+        )
+        return submission
+
+    record_submission_event(
+        submission,
+        stage="consistency_check",
+        status="warning",
+        event_code="CONSISTENCY_RECHECK_STARTED",
+        message=(
+            "Exact matching historical submissions are all outside the "
+            "score-difference threshold; grading is being rechecked once."
+        ),
+        details={
+            "closest_submission_id": str(
+                closest_match["submission"].id
+            ),
+            "closest_previous_percentage": round(
+                closest_match["percentage"], 2
+            ),
+            "initial_percentage": round(current_percentage, 2),
+            "closest_score_delta": round(closest_delta, 2),
+            "threshold": SCORE_CONSISTENCY_THRESHOLD,
+            "matching_history": history_details,
+        },
+    )
+
+    try:
+        recheck_result = grade_submission(submission)
+
+    except ValueError as exc:
+        if "AI returned incorrect evaluation pairs" not in str(exc):
+            raise
+
+        logger.warning(
+            "Retrying consistency recheck for submission %s "
+            "after invalid AI evaluation pairs.",
+            submission.id,
+        )
+
+        record_submission_event(
+            submission,
+            stage="consistency_check",
+            status="warning",
+            event_code="CONSISTENCY_RECHECK_INVALID_AI_PAIRS_RETRY",
+            message=(
+                "The consistency recheck is being retried once because "
+                "the AI returned an invalid evaluation structure."
+            ),
+            details={
+                "error_message": str(exc),
+            },
+        )
+
+        recheck_result = grade_submission(submission)
+
+    submission.refresh_from_db()
+
+    resolved_percentage = (
+        float(submission.final_score)
+        / float(submission.maximum_score)
+    ) * 100.0
+
+    resolved_closest_match = min(
+        historical_scores,
+        key=lambda item: abs(
+            resolved_percentage - item["percentage"]
+        ),
+    )
+    resolved_closest_delta = abs(
+        resolved_percentage
+        - resolved_closest_match["percentage"]
+    )
+
+    update_grading_audit(
+        submission,
+        status="completed",
+        criterion_evaluations=recheck_result.get(
+            "criterion_results", []
+        ),
+        scoring_snapshot={
+            "total_earned_points": recheck_result.get(
+                "total_earned_points"
+            ),
+            "total_max_possible_points": recheck_result.get(
+                "total_max_possible_points"
+            ),
+            "overall_percentage": recheck_result.get(
+                "overall_percentage"
+            ),
+            "achieved_band": submission.achieved_band,
+            "consistency_recheck": {
+                "initial_percentage": round(
+                    current_percentage, 2
+                ),
+                "resolved_percentage": round(
+                    resolved_percentage, 2
+                ),
+                "closest_historical_percentage_after_recheck": round(
+                    resolved_closest_match["percentage"], 2
+                ),
+                "closest_delta_after_recheck": round(
+                    resolved_closest_delta, 2
+                ),
+                "still_outside_threshold": (
+                    resolved_closest_delta
+                    > SCORE_CONSISTENCY_THRESHOLD
+                ),
+                "threshold": SCORE_CONSISTENCY_THRESHOLD,
+                "matching_history": history_details,
+            },
+            "token_usage": {
+                "grading": recheck_result.get(
+                    "token_usage", {}
+                ),
+            },
+        },
+        overall_summary=recheck_result.get("overall_summary", ""),
+        completed_at=timezone.now(),
+        error_code="",
+        error_message="",
+    )
+
+    record_submission_event(
+        submission,
+        stage="consistency_check",
+        status="success",
+        event_code="CONSISTENCY_RECHECK_COMPLETED",
+        message=(
+            "Automatic consistency recheck completed; the rechecked result "
+            "is authoritative."
+        ),
+        details={
+            "initial_percentage": round(current_percentage, 2),
+            "resolved_percentage": round(resolved_percentage, 2),
+            "closest_historical_percentage_after_recheck": round(
+                resolved_closest_match["percentage"], 2
+            ),
+            "closest_delta_after_recheck": round(
+                resolved_closest_delta, 2
+            ),
+            "still_outside_threshold": (
+                resolved_closest_delta
+                > SCORE_CONSISTENCY_THRESHOLD
+            ),
+            "threshold": SCORE_CONSISTENCY_THRESHOLD,
+        },
+    )
+
+    return submission
 
 def determine_overall_band(
     assignment_level,
