@@ -10,7 +10,10 @@ from lms.models import LtiUserIdentity
 from .attempt_policy import get_latest_submission
 from .models import LearnerSubmission
 from .audit import record_submission_event, update_grading_audit
-from .services import run_ai_grading, maybe_recheck_grading_consistency
+from .services import (
+    extract_submission_pages,
+    run_ai_grading,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -39,9 +42,54 @@ def grade_submission_task(
 
     try:
         if submission.status == LearnerSubmission.Status.COMPLETED:
-            # This can happen if a worker redelivers an already-completed task.
-            # Queue AGS again safely; the passback task will verify this is
-            # still the latest accepted attempt before sending anything.
+            reused_result = submission.process_logs.filter(
+                event_code="GRADING_RESULT_REUSED"
+            ).exists()
+
+            if reused_result and not submission.pages.exists():
+                try:
+                    extract_submission_pages(submission)
+
+                    submission.status = LearnerSubmission.Status.COMPLETED
+                    submission.save(update_fields=["status"])
+
+                    record_submission_event(
+                        submission,
+                        stage="extraction",
+                        status="success",
+                        event_code="REUSED_SUBMISSION_PAGES_PREPARED",
+                        message=(
+                            "PDF pages were prepared for a submission "
+                            "using a reused grading result."
+                        ),
+                    )
+
+                except Exception as exc:
+                    logger.exception(
+                        "Could not prepare pages for reused submission %s.",
+                        submission.id,
+                    )
+
+                    # Page preparation must not destroy an already valid
+                    # reused academic result.
+                    submission.status = LearnerSubmission.Status.COMPLETED
+                    submission.save(update_fields=["status"])
+
+                    record_submission_event(
+                        submission,
+                        stage="extraction",
+                        status="warning",
+                        event_code="REUSED_SUBMISSION_PAGE_EXTRACTION_ERROR",
+                        message=(
+                            "The grading result was retained, but PDF page "
+                            "preparation could not complete."
+                        ),
+                        details={
+                            "error_type": type(exc).__name__,
+                            "error_message": str(exc),
+                        },
+                    )
+
             self.app.send_task(
                 "submissions.tasks.push_submission_grade_task",
                 args=[str(submission.id)],
@@ -98,29 +146,7 @@ def grade_submission_task(
 
             submission = run_ai_grading(submission)
 
-        try:
-            submission = maybe_recheck_grading_consistency(submission)
-        except Exception as exc:
-            logger.exception(
-                "Automatic consistency recheck failed for submission %s; "
-                "keeping the completed grading result.",
-                submission_id,
-            )
-            record_submission_event(
-                submission,
-                stage="consistency_check",
-                status="warning",
-                event_code="CONSISTENCY_RECHECK_ERROR",
-                message=(
-                    "Automatic consistency recheck could not complete; "
-                    "the completed grading result is being retained."
-                ),
-                details={
-                    "error_type": type(exc).__name__,
-                    "error_message": str(exc),
-                },
-            )
-            submission.refresh_from_db()
+       
 
         logger.info(
             "Background grading finished for submission %s with status %s.",

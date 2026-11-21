@@ -15,12 +15,16 @@ from grading.services.submission_grader import (
     grade_submission,
     map_submission_tasks,
 )
+
 from grading.models import (
+    CriterionResult,
     RubricBand,
     RubricCriterion,
+    SubmissionTaskMapping,
     Task,
     TaskCriteriaMapping,
 )
+
 import zipfile
 from pathlib import Path
 
@@ -29,7 +33,7 @@ from django.core.files.base import ContentFile
 MAX_EXTRACTED_PDF_SIZE = 50 * 1024 * 1024
 
 SCORE_CONSISTENCY_THRESHOLD = 5.0
-GRADING_POLICY_VERSION = "submission_grader_v1_consistency_20261111"
+GRADING_POLICY_VERSION = "submission_grader_v1_authenticity_20261121"
 
 logger = logging.getLogger(__name__)
 
@@ -40,10 +44,20 @@ def _sha256_file(path: str) -> str:
             digest.update(chunk)
     return digest.hexdigest()
 
+def _sha256_uploaded_file(uploaded_file) -> str:
+    digest = hashlib.sha256()
 
-def build_grading_config_sha256(submission: LearnerSubmission) -> str:
+    uploaded_file.seek(0)
+
+    for chunk in iter(lambda: uploaded_file.read(1024 * 1024), b""):
+        digest.update(chunk)
+
+    uploaded_file.seek(0)
+
+    return digest.hexdigest()
+
+def build_grading_config_sha256_for_level(assignment_level) -> str:
     """Create a stable snapshot hash of configuration that can affect grading."""
-    assignment_level = submission.assignment_level
 
     criteria = list(
         RubricCriterion.objects
@@ -135,6 +149,99 @@ def build_grading_config_sha256(submission: LearnerSubmission) -> str:
     ).encode("utf-8")
     return hashlib.sha256(canonical).hexdigest()
 
+def build_grading_config_sha256(
+    submission: LearnerSubmission,
+) -> str:
+    return build_grading_config_sha256_for_level(
+        submission.assignment_level
+    )
+
+
+def copy_previous_grading_result(
+    source_submission,
+    target_submission,
+):
+    target_submission.final_score = source_submission.final_score
+    target_submission.maximum_score = source_submission.maximum_score
+    target_submission.achieved_band = source_submission.achieved_band
+    target_submission.feedback = source_submission.feedback
+    target_submission.status = LearnerSubmission.Status.COMPLETED
+    target_submission.completed_at = timezone.now()
+    target_submission.page_count = source_submission.page_count
+
+    target_submission.save(
+        update_fields=[
+            "final_score",
+            "maximum_score",
+            "achieved_band",
+            "feedback",
+            "status",
+            "completed_at",
+            "page_count",
+        ]
+    )
+
+    CriterionResult.objects.bulk_create(
+        [
+            CriterionResult(
+                submission=target_submission,
+                rubric_criterion=result.rubric_criterion,
+                awarded_marks=result.awarded_marks,
+                achievement_band=result.achievement_band,
+                feedback=result.feedback,
+            )
+            for result in source_submission.criterion_results.all()
+        ]
+    )
+
+    SubmissionTaskMapping.objects.bulk_create(
+        [
+            SubmissionTaskMapping(
+                submission=target_submission,
+                task_id=mapping.task_id,
+                task_description=mapping.task_description,
+                mapped_page_numbers=mapping.mapped_page_numbers,
+                confidence_score=mapping.confidence_score,
+                justification=mapping.justification,
+            )
+            for mapping in source_submission.task_mappings.all()
+        ]
+    )
+
+    if hasattr(source_submission, "grading_audit"):
+        source_audit = source_submission.grading_audit
+
+        update_grading_audit(
+            target_submission,
+            status="completed",
+            model_name=source_audit.model_name,
+            grader_version=source_audit.grader_version,
+            task_mapping_snapshot=source_audit.task_mapping_snapshot,
+            raw_ai_response=source_audit.raw_ai_response,
+            criterion_evaluations=source_audit.criterion_evaluations,
+            scoring_snapshot=source_audit.scoring_snapshot,
+            overall_summary=source_audit.overall_summary,
+            completed_at=timezone.now(),
+            error_code="",
+            error_message="",
+        )
+
+    record_submission_event(
+        target_submission,
+        stage="grading_reuse",
+        status="success",
+        event_code="GRADING_RESULT_REUSED",
+        message=(
+            "The grading result was reused from an earlier attempt "
+            "with identical file content and grading configuration."
+        ),
+        details={
+            "source_submission_id": str(source_submission.id),
+            "source_attempt_number": source_submission.attempt_number,
+        },
+    )
+
+    return target_submission
 
 def prepare_submission_file(uploaded_file):
     """

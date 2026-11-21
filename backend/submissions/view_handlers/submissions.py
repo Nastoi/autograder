@@ -10,8 +10,11 @@ from ..serializers import (
     LearnerSubmissionListSerializer,
 )
 from ..services import (
+    _sha256_uploaded_file,
     extract_submission_pages,
     prepare_submission_file,
+    build_grading_config_sha256_for_level,
+    copy_previous_grading_result,
 )
 
 from ..attempt_policy import (
@@ -110,6 +113,7 @@ class SubmissionCreateView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        
         if uploaded_file.size == 0:
             return Response(
                 {
@@ -149,6 +153,32 @@ class SubmissionCreateView(APIView):
                 {"detail": str(exc)},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
+        content_sha256 = _sha256_uploaded_file(grading_file)
+
+        grading_config_sha256 = build_grading_config_sha256_for_level(
+            context.assignment_level
+        )
+        
+        existing_submission = (
+            LearnerSubmission.objects
+            .filter(
+                learner=request.user,
+                context__cohort=context.cohort,
+                assignment_level=context.assignment_level,
+                status=LearnerSubmission.Status.COMPLETED,
+                content_sha256=content_sha256,
+                grading_config_sha256=grading_config_sha256,
+                final_score__isnull=False,
+                maximum_score__isnull=False,
+            )
+            .exclude(
+                process_logs__event_code="FACULTY_OVERRIDE_CREATED"
+            )
+            .order_by("-submitted_at")
+            .first()
+        )
+
 
         pending_submission = LearnerSubmission.objects.filter(
             learner=request.user,
@@ -212,8 +242,16 @@ class SubmissionCreateView(APIView):
             status=LearnerSubmission.Status.UPLOADED,
             maximum_score=assignment.maximum_score,
             requires_faculty_approval=mapping.require_faculty_approval,
+            content_sha256=content_sha256,
+            grading_config_sha256=grading_config_sha256,
         )
 
+        if existing_submission is not None:
+            submission = copy_previous_grading_result(
+            existing_submission,
+            submission,
+        )
+        
         if (
             previous_latest
             and previous_latest.requires_faculty_approval
@@ -233,7 +271,11 @@ class SubmissionCreateView(APIView):
             stage="submission",
             status="success",
             event_code="SUBMISSION_ACCEPTED",
-            message="Submission attempt accepted and queued for background grading.",
+            message=(
+                "Submission attempt accepted with an existing grading result."
+                if existing_submission is not None
+                else "Submission attempt accepted and queued for background grading."
+            ),
             details={
                 "original_filename": original_filename,
                 "submission_track": selected_track,
