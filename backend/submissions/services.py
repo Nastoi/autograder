@@ -360,6 +360,7 @@ def extract_submission_pages(submission: LearnerSubmission) -> LearnerSubmission
 
                 if index < len(pdf.pages):
                     extracted_text = pdf.pages[index].extract_text() or ""
+                    extracted_text = extracted_text.replace("\x00", "")
 
                 image_buffer = io.BytesIO()
                 page_image.save(image_buffer, format="WEBP")
